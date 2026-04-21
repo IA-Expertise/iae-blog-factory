@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 type GenerateInput = {
   tenantName: string;
   niche: string;
@@ -20,6 +23,47 @@ function slugKeyword(keyword: string): string {
     .replace(/[^\w\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-");
+}
+
+async function saveGeneratedImageLocally(base64Image: string, keyword: string): Promise<string> {
+  const outputDir = join(process.cwd(), "public", "generated-images");
+  await mkdir(outputDir, { recursive: true });
+
+  const filename = `${slugKeyword(keyword)}-${Date.now()}.png`;
+  const filepath = join(outputDir, filename);
+  const buffer = Buffer.from(base64Image, "base64");
+  await writeFile(filepath, buffer);
+
+  return `/generated-images/${filename}`;
+}
+
+async function generateImageWithOpenAI(input: GenerateInput, apiKey: string): Promise<string | null> {
+  const imageModel = import.meta.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1";
+  const imagePrompt = `Crie uma imagem editorial premium para capa de artigo sobre "${input.keyword}" no nicho "${input.niche}".
+Estilo: clean editorial, realista, moderno, alta qualidade, sem textos na imagem, composição horizontal para blog.`;
+
+  const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: imageModel,
+      prompt: imagePrompt,
+      size: "1536x1024"
+    })
+  });
+
+  if (!imageResponse.ok) return null;
+
+  const payload = (await imageResponse.json()) as {
+    data?: Array<{ b64_json?: string }>;
+  };
+  const base64Image = payload.data?.[0]?.b64_json;
+  if (!base64Image) return null;
+
+  return saveGeneratedImageLocally(base64Image, input.keyword);
 }
 
 async function generateWithOpenAI(input: GenerateInput): Promise<GeneratedArticle | null> {
@@ -60,9 +104,11 @@ Retorne SOMENTE JSON com este formato:
   const jsonText = data.choices?.[0]?.message?.content;
   if (!jsonText) return null;
   const parsed = JSON.parse(jsonText) as Omit<GeneratedArticle, "imageUrl">;
+  const generatedImageUrl = await generateImageWithOpenAI(input, apiKey);
+
   return {
     ...parsed,
-    imageUrl: `https://picsum.photos/1200/600?random=${Math.floor(Math.random() * 1000)}`
+    imageUrl: generatedImageUrl ?? `https://picsum.photos/1200/600?random=${Math.floor(Math.random() * 1000)}`
   };
 }
 
