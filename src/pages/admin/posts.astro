@@ -1,6 +1,7 @@
 ---
 import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
+import type { PostStatus } from "../../lib/cms";
 import { addPost, deletePost, listSites } from "../../lib/cms";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
@@ -17,7 +18,8 @@ if (Astro.request.method === "POST") {
       title: String(formData.get("title") ?? ""),
       category: String(formData.get("category") ?? "Geral"),
       image: String(formData.get("image") ?? "https://picsum.photos/600/400"),
-      publishedAt: String(formData.get("publishedAt") ?? new Date().toLocaleDateString("pt-BR"))
+      publishedAt: new Date().toISOString(),
+      initialStatus: "DRAFT"
     });
   }
 
@@ -30,11 +32,26 @@ if (Astro.request.method === "POST") {
 }
 
 const sites = await listSites();
+
+const statusLabel: Record<PostStatus, string> = {
+  DRAFT: "Rascunho",
+  IN_REVIEW: "Em revisao",
+  APPROVED: "Aprovado",
+  PUBLISHED: "Publicado"
+};
+
+const statusClass: Record<PostStatus, string> = {
+  DRAFT: "bg-slate-200 text-slate-800",
+  IN_REVIEW: "bg-amber-200 text-amber-900",
+  APPROVED: "bg-sky-200 text-sky-900",
+  PUBLISHED: "bg-emerald-200 text-emerald-900"
+};
 ---
 
 <AdminLayout title="Posts | IAE Blog Factory">
   <section class="rounded-2xl bg-white p-5 shadow-sm">
-    <h2 class="text-xl font-semibold">Novo post</h2>
+    <h2 class="text-xl font-semibold">Novo post manual</h2>
+    <p class="mt-1 text-sm text-slate-500">Cria como rascunho. Edite e publique pelo fluxo editorial.</p>
     <form method="POST" class="mt-4 grid gap-3 md:grid-cols-5">
       <input type="hidden" name="action" value="create-post" />
       <select class="rounded-lg border border-slate-300 px-3 py-2" name="hostname" required>
@@ -47,10 +64,10 @@ const sites = await listSites();
       <input
         class="rounded-lg border border-slate-300 px-3 py-2"
         name="image"
-        placeholder="https://picsum.photos/600/400?random=77"
+        placeholder="URL da imagem de capa"
       />
       <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">
-        Publicar
+        Criar rascunho
       </button>
     </form>
   </section>
@@ -62,20 +79,38 @@ const sites = await listSites();
         <ul class="mt-3 space-y-2">
           {site.posts.map((post) => (
             <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
-              <div>
-                <p class="font-medium">{post.title}</p>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass[post.status]}`}>
+                    {statusLabel[post.status]}
+                  </span>
+                  {post.scheduledPublishAt && (
+                    <span class="text-xs text-slate-500">
+                      Agendado: {new Date(post.scheduledPublishAt).toLocaleString("pt-BR")}
+                    </span>
+                  )}
+                </div>
+                <p class="mt-1 font-medium">{post.title}</p>
                 <p class="text-xs text-slate-500">
                   {post.category} - {post.publishedAt}
                 </p>
               </div>
-              <form method="POST">
-                <input type="hidden" name="action" value="delete-post" />
-                <input type="hidden" name="hostname" value={site.hostname} />
-                <input type="hidden" name="postId" value={post.id} />
-                <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-600" type="submit">
-                  Excluir
-                </button>
-              </form>
+              <div class="flex flex-wrap gap-2">
+                <a
+                  class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
+                  href={`/admin/post/${post.id}`}
+                >
+                  Revisar
+                </a>
+                <form method="POST">
+                  <input type="hidden" name="action" value="delete-post" />
+                  <input type="hidden" name="hostname" value={site.hostname} />
+                  <input type="hidden" name="postId" value={post.id} />
+                  <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-600" type="submit">
+                    Excluir
+                  </button>
+                </form>
+              </div>
             </li>
           ))}
         </ul>

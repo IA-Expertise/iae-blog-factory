@@ -1,0 +1,96 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { addAffiliateProduct, deleteAffiliateProduct, listSites } from "../../lib/cms";
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login");
+}
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const action = String(formData.get("action") ?? "");
+  const hostname = String(formData.get("hostname") ?? "");
+
+  if (action === "add-product") {
+    await addAffiliateProduct(hostname, {
+      title: String(formData.get("title") ?? ""),
+      cta: String(formData.get("cta") ?? "Ver oferta"),
+      url: String(formData.get("url") ?? "")
+    });
+  }
+
+  if (action === "delete-product") {
+    await deleteAffiliateProduct(hostname, String(formData.get("productId") ?? ""));
+  }
+
+  return Astro.redirect("/admin/affiliates");
+}
+
+const sites = await listSites();
+---
+
+<AdminLayout title="Afiliados | IAE Blog Factory">
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="text-xl font-semibold">Adicionar produto afiliado</h2>
+    <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+      <input type="hidden" name="action" value="add-product" />
+      <label class="text-sm">
+        <span class="mb-1 block">Tenant</span>
+        <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="hostname" required>
+          {sites.map((site) => (
+            <option value={site.hostname}>{site.hostname}</option>
+          ))}
+        </select>
+      </label>
+      <label class="text-sm">
+        <span class="mb-1 block">Titulo do produto</span>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="title" required />
+      </label>
+      <label class="text-sm">
+        <span class="mb-1 block">Texto do botao (CTA)</span>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="cta" value="Ver oferta" />
+      </label>
+      <label class="text-sm md:col-span-2">
+        <span class="mb-1 block">URL de afiliado</span>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="url" type="url" required />
+      </label>
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 md:col-span-2" type="submit">
+        Salvar produto
+      </button>
+    </form>
+  </section>
+
+  <section class="mt-6 space-y-4">
+    {sites.map((site) => (
+      <article class="rounded-2xl bg-white p-5 shadow-sm">
+        <h3 class="text-lg font-semibold">{site.hostname}</h3>
+        <p class="text-sm text-slate-500">
+          Rede: {site.affiliate.network} - Tracking: {site.affiliate.trackingId}
+        </p>
+        <ul class="mt-3 divide-y divide-slate-100">
+          {site.affiliate.products.length === 0 ? (
+            <li class="py-3 text-sm text-slate-500">Nenhum produto cadastrado.</li>
+          ) : (
+            site.affiliate.products.map((product) => (
+              <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div>
+                  <p class="font-medium">{product.title}</p>
+                  <p class="text-xs text-slate-500">{product.url}</p>
+                </div>
+                <form method="POST">
+                  <input type="hidden" name="action" value="delete-product" />
+                  <input type="hidden" name="hostname" value={site.hostname} />
+                  <input type="hidden" name="productId" value={product.id} />
+                  <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-600" type="submit">
+                    Remover
+                  </button>
+                </form>
+              </li>
+            ))
+          )}
+        </ul>
+      </article>
+    ))}
+  </section>
+</AdminLayout>

@@ -27,6 +27,21 @@ const totalPosts = sites.reduce((acc, site) => acc + site.posts.length, 0);
     </article>
   </section>
 
+  <section class="mt-6 flex flex-wrap gap-2 rounded-2xl bg-white p-5 shadow-sm">
+    <a class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700" href="/admin/posts">
+      Posts e revisao
+    </a>
+    <a class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500" href="/admin/generator">
+      Gerador IA
+    </a>
+    <a class="rounded-lg bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-300" href="/admin/calendar">
+      Calendario
+    </a>
+    <a class="rounded-lg bg-slate-200 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-300" href="/admin/go-live">
+      Go-live
+    </a>
+  </section>
+
   <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
     <h2 class="text-xl font-semibold">Tenants ativos</h2>
     <div class="mt-4 overflow-x-auto">

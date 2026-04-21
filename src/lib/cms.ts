@@ -1,5 +1,7 @@
 import { prisma } from "./db";
 
+export type PostStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "PUBLISHED";
+
 export type ThemeConfig = {
   primary: string;
   secondary: string;
@@ -37,6 +39,8 @@ export type Post = {
   image: string;
   excerpt?: string;
   content?: string;
+  status: PostStatus;
+  scheduledPublishAt?: string | null;
 };
 
 export type SiteData = {
@@ -109,7 +113,8 @@ const DEFAULT_SITES: SiteData[] = [
         title: "10 Albuns essenciais para iniciar sua colecao",
         category: "Guia",
         publishedAt: "2026-04-21",
-        image: "https://picsum.photos/600/400?random=21"
+        image: "https://picsum.photos/600/400?random=21",
+        status: "PUBLISHED"
       }
     ]
   },
@@ -157,7 +162,8 @@ const DEFAULT_SITES: SiteData[] = [
         title: "Indicadores que destravam a gestao municipal",
         category: "Gestao",
         publishedAt: "2026-04-20",
-        image: "https://picsum.photos/600/400?random=41"
+        image: "https://picsum.photos/600/400?random=41",
+        status: "PUBLISHED"
       }
     ]
   }
@@ -182,6 +188,32 @@ function slugify(text: string): string {
     .replace(/[^\w\s-]/g, "")
     .trim()
     .replace(/\s+/g, "-");
+}
+
+function mapPostRow(post: {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  image: string;
+  excerpt: string | null;
+  content: string | null;
+  publishedAt: Date;
+  status: string;
+  scheduledPublishAt: Date | null;
+}): Post {
+  return {
+    id: post.id,
+    title: post.title,
+    slug: post.slug,
+    category: post.category,
+    image: post.image,
+    excerpt: post.excerpt ?? undefined,
+    content: post.content ?? undefined,
+    publishedAt: formatDate(post.publishedAt),
+    status: post.status as PostStatus,
+    scheduledPublishAt: post.scheduledPublishAt?.toISOString() ?? null
+  };
 }
 
 async function ensureSeedData() {
@@ -234,17 +266,21 @@ async function ensureSeedData() {
           slug: slugify(post.title),
           category: post.category,
           image: post.image,
-          publishedAt: new Date(post.publishedAt)
+          publishedAt: new Date(post.publishedAt),
+          status: "PUBLISHED",
+          scheduledPublishAt: null
         }
       });
     }
   }
 }
 
-function mapTenantToSiteData(tenant: Awaited<ReturnType<typeof prisma.tenant.findFirstOrThrow>> & {
-  posts: Awaited<ReturnType<typeof prisma.post.findMany>>;
-  affiliateProducts: Awaited<ReturnType<typeof prisma.affiliateProduct.findMany>>;
-}): SiteData {
+function mapTenantToSiteData(
+  tenant: Awaited<ReturnType<typeof prisma.tenant.findFirstOrThrow>> & {
+    posts: Awaited<ReturnType<typeof prisma.post.findMany>>;
+    affiliateProducts: Awaited<ReturnType<typeof prisma.affiliateProduct.findMany>>;
+  }
+): SiteData {
   return {
     hostname: tenant.hostname,
     brandName: tenant.brandName,
@@ -281,25 +317,19 @@ function mapTenantToSiteData(tenant: Awaited<ReturnType<typeof prisma.tenant.fin
         url: product.url
       }))
     },
-    posts: tenant.posts.map((post) => ({
-      id: post.id,
-      title: post.title,
-      slug: post.slug,
-      category: post.category,
-      image: post.image,
-      excerpt: post.excerpt ?? undefined,
-      content: post.content ?? undefined,
-      publishedAt: formatDate(post.publishedAt)
-    }))
+    posts: tenant.posts.map(mapPostRow)
   };
 }
 
-async function findTenantByHostname(hostname: string) {
+async function findTenantByHostname(hostname: string, publishedPostsOnly: boolean) {
   await ensureSeedData();
   return prisma.tenant.findUnique({
     where: { hostname },
     include: {
-      posts: { orderBy: { publishedAt: "desc" } },
+      posts: {
+        where: publishedPostsOnly ? { status: "PUBLISHED" } : undefined,
+        orderBy: { publishedAt: "desc" }
+      },
       affiliateProducts: true
     }
   });
@@ -310,7 +340,7 @@ export async function listSites(): Promise<SiteData[]> {
   const tenants = await prisma.tenant.findMany({
     orderBy: { createdAt: "asc" },
     include: {
-      posts: { orderBy: { publishedAt: "desc" } },
+      posts: { orderBy: { updatedAt: "desc" } },
       affiliateProducts: true
     }
   });
@@ -319,7 +349,8 @@ export async function listSites(): Promise<SiteData[]> {
 
 export async function getSiteDataByHostname(hostname: string): Promise<SiteData> {
   const normalized = normalizeHostname(hostname);
-  const tenant = (await findTenantByHostname(normalized)) ?? (await findTenantByHostname(FALLBACK_HOSTNAME));
+  const tenant =
+    (await findTenantByHostname(normalized, true)) ?? (await findTenantByHostname(FALLBACK_HOSTNAME, true));
   if (!tenant) throw new Error("Nenhum tenant encontrado.");
   return mapTenantToSiteData(tenant);
 }
@@ -394,11 +425,22 @@ export async function updateTenant(input: SiteData) {
 
 export async function addPost(
   hostname: string,
-  input: { title: string; category: string; image: string; publishedAt: string; excerpt?: string; content?: string }
+  input: {
+    title: string;
+    category: string;
+    image: string;
+    publishedAt: string;
+    excerpt?: string;
+    content?: string;
+    initialStatus?: PostStatus;
+  }
 ) {
   await ensureSeedData();
   const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
   if (!tenant) return;
+
+  const status = input.initialStatus ?? "DRAFT";
+  const now = new Date();
 
   await prisma.post.create({
     data: {
@@ -409,7 +451,9 @@ export async function addPost(
       image: input.image,
       excerpt: input.excerpt,
       content: input.content,
-      publishedAt: new Date(input.publishedAt)
+      publishedAt: status === "PUBLISHED" ? new Date(input.publishedAt) : now,
+      status,
+      scheduledPublishAt: null
     }
   });
 }
@@ -447,5 +491,137 @@ export async function logGenerationJob(input: {
       resultSlug: input.resultSlug,
       resultImage: input.resultImage
     }
+  });
+}
+
+export async function getPostById(postId: string) {
+  await ensureSeedData();
+  return prisma.post.findUnique({
+    where: { id: postId },
+    include: { tenant: true }
+  });
+}
+
+export async function updatePostFields(
+  postId: string,
+  input: { title?: string; slug?: string; category?: string; image?: string; excerpt?: string; content?: string }
+) {
+  await ensureSeedData();
+  const data: Record<string, string | undefined> = {};
+  if (input.title !== undefined) data.title = input.title;
+  if (input.slug !== undefined) data.slug = input.slug;
+  if (input.category !== undefined) data.category = input.category;
+  if (input.image !== undefined) data.image = input.image;
+  if (input.excerpt !== undefined) data.excerpt = input.excerpt;
+  if (input.content !== undefined) data.content = input.content;
+  if (Object.keys(data).length === 0) return;
+  await prisma.post.update({
+    where: { id: postId },
+    data
+  });
+}
+
+export async function setPostStatus(postId: string, status: PostStatus) {
+  await ensureSeedData();
+  await prisma.post.update({
+    where: { id: postId },
+    data: { status }
+  });
+}
+
+export async function publishPostNow(postId: string) {
+  await ensureSeedData();
+  const now = new Date();
+  await prisma.post.update({
+    where: { id: postId },
+    data: {
+      status: "PUBLISHED",
+      publishedAt: now,
+      scheduledPublishAt: null
+    }
+  });
+}
+
+export async function schedulePostPublication(postId: string, isoDateTime: string) {
+  await ensureSeedData();
+  const when = new Date(isoDateTime);
+  if (Number.isNaN(when.getTime())) throw new Error("Data de agendamento invalida.");
+
+  await prisma.post.update({
+    where: { id: postId },
+    data: {
+      status: "APPROVED",
+      scheduledPublishAt: when
+    }
+  });
+}
+
+export async function runScheduledPublishing(): Promise<number> {
+  await ensureSeedData();
+  const now = new Date();
+  const result = await prisma.post.updateMany({
+    where: {
+      status: "APPROVED",
+      scheduledPublishAt: { lte: now, not: null }
+    },
+    data: {
+      status: "PUBLISHED",
+      publishedAt: now,
+      scheduledPublishAt: null
+    }
+  });
+  return result.count;
+}
+
+export type ScheduledPostRow = {
+  id: string;
+  title: string;
+  status: PostStatus;
+  scheduledPublishAt: string;
+  hostname: string;
+  brandName: string;
+};
+
+export async function listScheduledPostsForCalendar(): Promise<ScheduledPostRow[]> {
+  await ensureSeedData();
+  const posts = await prisma.post.findMany({
+    where: {
+      scheduledPublishAt: { not: null }
+    },
+    orderBy: { scheduledPublishAt: "asc" },
+    include: { tenant: { select: { hostname: true, brandName: true } } }
+  });
+  return posts.map((p) => ({
+    id: p.id,
+    title: p.title,
+    status: p.status as PostStatus,
+    scheduledPublishAt: p.scheduledPublishAt!.toISOString(),
+    hostname: p.tenant.hostname,
+    brandName: p.tenant.brandName
+  }));
+}
+
+export async function addAffiliateProduct(hostname: string, input: { title: string; cta: string; url: string }) {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
+  if (!tenant) return;
+
+  await prisma.affiliateProduct.create({
+    data: {
+      tenantId: tenant.id,
+      title: input.title,
+      cta: input.cta,
+      url: input.url
+    }
+  });
+}
+
+export async function deleteAffiliateProduct(hostname: string, productId: string) {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
+  if (!tenant) return;
+
+  await prisma.affiliateProduct.deleteMany({
+    where: { id: productId, tenantId: tenant.id }
   });
 }
