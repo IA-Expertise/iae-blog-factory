@@ -137,3 +137,205 @@ export async function generateArticleAndImage(input: GenerateInput): Promise<Gen
   const aiContent = await generateWithOpenAI(input);
   return aiContent ?? fallbackArticle(input);
 }
+
+export type MonthlyPitchIdea = {
+  title: string;
+  summary: string;
+  category: string;
+};
+
+type MonthlyPitchInput = {
+  tenantName: string;
+  niche: string;
+  monthLabel: string;
+  count: number;
+  brief: string;
+  styleNotes: string;
+  tone: string;
+};
+
+async function generateMonthlyPitchesWithOpenAI(input: MonthlyPitchInput): Promise<MonthlyPitchIdea[] | null> {
+  const apiKey = import.meta.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const prompt = `Voce e editor-chefe de um blog em portugues.
+Blog: ${input.tenantName}
+Nicho: ${input.niche}
+Mes editorial: ${input.monthLabel}
+Tom: ${input.tone}
+
+Briefing do blog:
+${input.brief || "(sem briefing extra)"}
+
+Estilo e propostas:
+${input.styleNotes || "(sem notas de estilo)"}
+
+Gere exatamente ${input.count} PAUTAS (ideias de artigos) para o mes, com titulo chamativo e um resumo de 2-3 frases do que o artigo vai cobrir.
+Retorne SOMENTE JSON no formato:
+{ "pitches": [ { "title": "...", "summary": "...", "category": "string curta" } ] }`;
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.75
+    })
+  });
+
+  if (!response.ok) return null;
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const jsonText = data.choices?.[0]?.message?.content;
+  if (!jsonText) return null;
+  const parsed = JSON.parse(jsonText) as { pitches?: MonthlyPitchIdea[] };
+  if (!parsed.pitches?.length) return null;
+  return parsed.pitches.slice(0, input.count);
+}
+
+function fallbackMonthlyPitches(input: MonthlyPitchInput): MonthlyPitchIdea[] {
+  const base = [
+    {
+      title: `Guia pratico de ${input.niche} em ${input.monthLabel}`,
+      summary: `Visao geral com passos acionaveis e exemplos para leitores do blog ${input.tenantName}.`,
+      category: "Guia"
+    },
+    {
+      title: `Erros comuns em ${input.niche} (e como evitar)`,
+      summary: `Lista objetiva de armadilhas frequentes e checklist de correcao rapida.`,
+      category: "Checklist"
+    },
+    {
+      title: `Tendencias de ${input.niche} para acompanhar agora`,
+      summary: `Panorama curto do que mudou no mercado e o que priorizar no conteudo.`,
+      category: "Tendencias"
+    },
+    {
+      title: `Estudo de caso: resultado real em ${input.niche}`,
+      summary: `Narrativa com problema, acao e resultado, com espaco para dados e CTA.`,
+      category: "Casos"
+    },
+    {
+      title: `Perguntas frequentes: ${input.niche} descomplicado`,
+      summary: `FAQ em linguagem simples, ideal para SEO de longa cauda.`,
+      category: "FAQ"
+    },
+    {
+      title: `Ferramentas essenciais para quem trabalha com ${input.niche}`,
+      summary: `Comparativo leve de ferramentas com criterios de escolha.`,
+      category: "Ferramentas"
+    },
+    {
+      title: `Como medir sucesso em ${input.niche}`,
+      summary: `Metricas, cadencia de revisao e como comunicar resultados.`,
+      category: "Metricas"
+    },
+    {
+      title: `Roteiro editorial de 30 dias para ${input.niche}`,
+      summary: `Distribuicao semanal de temas alinhados ao briefing do blog.`,
+      category: "Estrategia"
+    }
+  ];
+  return base.slice(0, Math.min(input.count, base.length));
+}
+
+export async function generateMonthlyPitches(input: MonthlyPitchInput): Promise<MonthlyPitchIdea[]> {
+  const ai = await generateMonthlyPitchesWithOpenAI(input);
+  return ai?.length ? ai : fallbackMonthlyPitches(input);
+}
+
+type FromPitchInput = {
+  tenantName: string;
+  niche: string;
+  tone: string;
+  brief: string;
+  styleNotes: string;
+  pitchTitle: string;
+  pitchSummary: string;
+};
+
+async function generateFromPitchOpenAI(input: FromPitchInput): Promise<GeneratedArticle | null> {
+  const apiKey = import.meta.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const prompt = `Escreva um artigo completo em portugues (markdown) para o blog ${input.tenantName}.
+Nicho: ${input.niche}
+Tom: ${input.tone}
+
+Briefing:
+${input.brief || "(sem briefing extra)"}
+
+Estilo:
+${input.styleNotes || "(sem notas de estilo)"}
+
+PAUTA APROVADA:
+Titulo: ${input.pitchTitle}
+Resumo do conteudo: ${input.pitchSummary}
+
+Regras:
+- Use H2 e H3
+- Inclua introducao, desenvolvimento e conclusao com CTA
+- Otimize SEO sem keyword stuffing
+
+Retorne SOMENTE JSON:
+{ "title": "string (pode refinar o titulo da pauta)", "category": "string curta", "excerpt": "2 frases", "content": "markdown completo" }`;
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.65
+    })
+  });
+
+  if (!response.ok) return null;
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const jsonText = data.choices?.[0]?.message?.content;
+  if (!jsonText) return null;
+  const parsed = JSON.parse(jsonText) as Omit<GeneratedArticle, "imageUrl">;
+  const imageInput: GenerateInput = {
+    tenantName: input.tenantName,
+    niche: input.niche,
+    keyword: input.pitchTitle,
+    tone: input.tone
+  };
+  let generatedImageUrl: string | null = null;
+  try {
+    generatedImageUrl = await generateImageWithOpenAI(imageInput, apiKey);
+  } catch (error) {
+    console.error("Falha na geracao de imagem OpenAI (pitch):", error);
+  }
+  return {
+    ...parsed,
+    imageUrl: generatedImageUrl ?? `https://picsum.photos/1200/600?random=${Math.floor(Math.random() * 1000)}`
+  };
+}
+
+function fallbackArticleFromPitch(input: FromPitchInput): GeneratedArticle {
+  return {
+    title: input.pitchTitle,
+    category: "Editorial",
+    excerpt: input.pitchSummary.slice(0, 220),
+    content: `## Introducao\n\n${input.pitchSummary}\n\n## Desenvolvimento\n\nConteudo completo sera gerado quando a API de IA estiver configurada.\n\n## Conclusao\n\nRevise este rascunho e publique quando estiver pronto.`,
+    imageUrl: `https://picsum.photos/1200/600?seed=${slugKeyword(input.pitchTitle)}`
+  };
+}
+
+export async function generateArticleFromPitch(input: FromPitchInput): Promise<GeneratedArticle> {
+  const ai = await generateFromPitchOpenAI(input);
+  return ai ?? fallbackArticleFromPitch(input);
+}

@@ -1,4 +1,6 @@
+import { generateArticleFromPitch, generateMonthlyPitches } from "./contentGenerator";
 import { prisma } from "./db";
+import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
 
 export type PostStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "PUBLISHED";
 
@@ -43,6 +45,14 @@ export type Post = {
   scheduledPublishAt?: string | null;
 };
 
+export type TenantEditorialConfig = {
+  editorialBrief: string | null;
+  editorialStyleNotes: string | null;
+  defaultArticleTone: string;
+  autoPublishWeekdays: string | null;
+  autoPublishHourUtc: number | null;
+};
+
 export type SiteData = {
   hostname: string;
   brandName: string;
@@ -58,6 +68,18 @@ export type SiteData = {
   ads: AdConfig;
   affiliate: AffiliateConfig;
   posts: Post[];
+  editorial: TenantEditorialConfig;
+};
+
+export type PitchStatus = "SUGGESTED" | "APPROVED" | "REJECTED" | "WRITTEN";
+
+export type ArticlePitchRow = {
+  id: string;
+  monthKey: string;
+  title: string;
+  summary: string;
+  status: PitchStatus;
+  postId: string | null;
 };
 
 const FALLBACK_HOSTNAME = "vinil.local";
@@ -116,7 +138,14 @@ const DEFAULT_SITES: SiteData[] = [
         image: "https://picsum.photos/600/400?random=21",
         status: "PUBLISHED"
       }
-    ]
+    ],
+    editorial: {
+      editorialBrief: null,
+      editorialStyleNotes: null,
+      defaultArticleTone: "profissional",
+      autoPublishWeekdays: null,
+      autoPublishHourUtc: null
+    }
   },
   {
     hostname: "govtech.local",
@@ -165,7 +194,14 @@ const DEFAULT_SITES: SiteData[] = [
         image: "https://picsum.photos/600/400?random=41",
         status: "PUBLISHED"
       }
-    ]
+    ],
+    editorial: {
+      editorialBrief: null,
+      editorialStyleNotes: null,
+      defaultArticleTone: "profissional",
+      autoPublishWeekdays: null,
+      autoPublishHourUtc: null
+    }
   }
 ];
 
@@ -317,7 +353,14 @@ function mapTenantToSiteData(
         url: product.url
       }))
     },
-    posts: tenant.posts.map(mapPostRow)
+    posts: tenant.posts.map(mapPostRow),
+    editorial: {
+      editorialBrief: tenant.editorialBrief ?? null,
+      editorialStyleNotes: tenant.editorialStyleNotes ?? null,
+      defaultArticleTone: tenant.defaultArticleTone ?? "profissional",
+      autoPublishWeekdays: tenant.autoPublishWeekdays ?? null,
+      autoPublishHourUtc: tenant.autoPublishHourUtc ?? null
+    }
   };
 }
 
@@ -433,16 +476,17 @@ export async function addPost(
     excerpt?: string;
     content?: string;
     initialStatus?: PostStatus;
+    scheduledPublishAt?: Date | null;
   }
-) {
+): Promise<string | null> {
   await ensureSeedData();
   const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
-  if (!tenant) return;
+  if (!tenant) return null;
 
   const status = input.initialStatus ?? "DRAFT";
   const now = new Date();
 
-  await prisma.post.create({
+  const created = await prisma.post.create({
     data: {
       tenantId: tenant.id,
       title: input.title,
@@ -453,9 +497,10 @@ export async function addPost(
       content: input.content,
       publishedAt: status === "PUBLISHED" ? new Date(input.publishedAt) : now,
       status,
-      scheduledPublishAt: null
+      scheduledPublishAt: input.scheduledPublishAt ?? null
     }
   });
+  return created.id;
 }
 
 export async function deletePost(hostname: string, postId: string) {
@@ -624,4 +669,147 @@ export async function deleteAffiliateProduct(hostname: string, productId: string
   await prisma.affiliateProduct.deleteMany({
     where: { id: productId, tenantId: tenant.id }
   });
+}
+
+export async function updateTenantEditorialBrief(
+  hostname: string,
+  input: {
+    editorialBrief: string;
+    editorialStyleNotes: string;
+    defaultArticleTone: string;
+    autoPublishWeekdays: string;
+    autoPublishHourUtc: string;
+  }
+) {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const hourRaw = input.autoPublishHourUtc.trim();
+  let autoHour: number | null = null;
+  if (hourRaw !== "") {
+    const h = Number.parseInt(hourRaw, 10);
+    if (Number.isFinite(h)) autoHour = Math.min(23, Math.max(0, h));
+  }
+  const weekdays = input.autoPublishWeekdays.trim() === "" ? null : input.autoPublishWeekdays.trim();
+
+  await prisma.tenant.update({
+    where: { hostname: host },
+    data: {
+      editorialBrief: input.editorialBrief.trim() || null,
+      editorialStyleNotes: input.editorialStyleNotes.trim() || null,
+      defaultArticleTone: input.defaultArticleTone.trim() || "profissional",
+      autoPublishWeekdays: weekdays,
+      autoPublishHourUtc: autoHour
+    }
+  });
+}
+
+export async function listPitches(hostname: string, monthKey: string): Promise<ArticlePitchRow[]> {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
+  if (!tenant) return [];
+
+  const rows = await prisma.articlePitch.findMany({
+    where: { tenantId: tenant.id, monthKey },
+    orderBy: { createdAt: "asc" }
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    monthKey: r.monthKey,
+    title: r.title,
+    summary: r.summary,
+    status: r.status as PitchStatus,
+    postId: r.postId
+  }));
+}
+
+export async function replaceSuggestedPitches(hostname: string, monthKey: string, pitches: { title: string; summary: string }[]) {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
+  if (!tenant) return;
+
+  await prisma.articlePitch.deleteMany({
+    where: { tenantId: tenant.id, monthKey, status: "SUGGESTED" }
+  });
+
+  for (const p of pitches) {
+    await prisma.articlePitch.create({
+      data: {
+        tenantId: tenant.id,
+        monthKey,
+        title: p.title,
+        summary: p.summary,
+        status: "SUGGESTED"
+      }
+    });
+  }
+}
+
+export async function setPitchStatus(hostname: string, pitchId: string, status: PitchStatus) {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
+  if (!tenant) return;
+
+  const pitch = await prisma.articlePitch.findFirst({
+    where: { id: pitchId, tenantId: tenant.id }
+  });
+  if (!pitch) return;
+
+  await prisma.articlePitch.update({
+    where: { id: pitchId },
+    data: { status }
+  });
+}
+
+export async function writeArticlesFromApprovedPitches(hostname: string, monthKey: string): Promise<number> {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
+  if (!tenant) return 0;
+
+  const approved = await prisma.articlePitch.findMany({
+    where: { tenantId: tenant.id, monthKey, status: "APPROVED", postId: null },
+    orderBy: { createdAt: "asc" }
+  });
+  if (!approved.length) return 0;
+
+  const weekdays = parseWeekdays(tenant.autoPublishWeekdays);
+  const hourUtc = tenant.autoPublishHourUtc;
+  const useAuto = weekdays.length > 0 && hourUtc !== null && Number.isFinite(hourUtc);
+  const now = new Date();
+  const slots = useAuto ? nextPublishSlotsUtc(now, weekdays, hourUtc as number, approved.length) : [];
+
+  let written = 0;
+  for (let i = 0; i < approved.length; i++) {
+    const pitch = approved[i];
+    const article = await generateArticleFromPitch({
+      tenantName: tenant.brandName,
+      niche: tenant.niche,
+      tone: tenant.defaultArticleTone ?? "profissional",
+      brief: tenant.editorialBrief ?? "",
+      styleNotes: tenant.editorialStyleNotes ?? "",
+      pitchTitle: pitch.title,
+      pitchSummary: pitch.summary
+    });
+
+    const slot = useAuto ? slots[i] : undefined;
+    const postId = await addPost(hostname, {
+      title: article.title,
+      category: article.category,
+      image: article.imageUrl,
+      excerpt: article.excerpt,
+      content: article.content,
+      publishedAt: now.toISOString(),
+      initialStatus: slot ? "APPROVED" : "DRAFT",
+      scheduledPublishAt: slot ?? null
+    });
+
+    if (postId) {
+      await prisma.articlePitch.update({
+        where: { id: pitch.id },
+        data: { status: "WRITTEN", postId }
+      });
+      written += 1;
+    }
+  }
+
+  return written;
 }

@@ -30,11 +30,33 @@ model Tenant {
   adSlot             String
   affiliateNetwork   String
   affiliateTrackingId String
+  editorialBrief       String?
+  editorialStyleNotes  String?
+  defaultArticleTone   String             @default("profissional")
+  autoPublishWeekdays  String?
+  autoPublishHourUtc   Int?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   posts              Post[]
   affiliateProducts  AffiliateProduct[]
   generationJobs     GenerationJob[]
+  articlePitches     ArticlePitch[]
+}
+
+model ArticlePitch {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  monthKey    String
+  title       String
+  summary     String
+  status      String   @default("SUGGESTED")
+  postId      String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, monthKey])
+  @@index([status])
 }
 
 model Post {
