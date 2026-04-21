@@ -1,0 +1,64 @@
+---
+import "../styles/global.css";
+import type { SiteData } from "../lib/cms";
+
+interface Props {
+  siteData: SiteData;
+  title?: string;
+}
+
+const { siteData, title = siteData.brandName } = Astro.props;
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={`Conteudo sobre ${siteData.niche}`} />
+    <style
+      define:vars={{
+        colorPrimary: siteData.theme.primary,
+        colorSecondary: siteData.theme.secondary,
+        colorAccent: siteData.theme.accent,
+        colorBg: siteData.theme.background,
+        colorSurface: siteData.theme.surface,
+        colorText: siteData.theme.text,
+        fontHeading: siteData.theme.headingFont,
+        fontBody: siteData.theme.bodyFont
+      }}
+    >
+      :root {
+        --color-primary: var(--colorPrimary);
+        --color-secondary: var(--colorSecondary);
+        --color-accent: var(--colorAccent);
+        --color-bg: var(--colorBg);
+        --color-surface: var(--colorSurface);
+        --color-text: var(--colorText);
+        --font-heading: var(--fontHeading);
+        --font-body: var(--fontBody);
+      }
+
+      body {
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: var(--font-body);
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        font-family: var(--font-heading);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased">
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <slot />
+    </div>
+  </body>
+</html>

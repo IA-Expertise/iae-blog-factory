@@ -1,0 +1,38 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-slate-100 text-slate-900 antialiased">
+    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <header class="mb-8 rounded-2xl bg-slate-900 p-5 text-white shadow">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-slate-300">IAE Blog Factory</p>
+            <h1 class="text-xl font-semibold">Dashboard Admin</h1>
+          </div>
+          <nav class="flex gap-2 text-sm">
+            <a class="rounded-lg bg-slate-800 px-3 py-2 hover:bg-slate-700" href="/admin">Visao geral</a>
+            <a class="rounded-lg bg-slate-800 px-3 py-2 hover:bg-slate-700" href="/admin/tenants">Tenants</a>
+            <a class="rounded-lg bg-slate-800 px-3 py-2 hover:bg-slate-700" href="/admin/posts">Posts</a>
+            <a class="rounded-lg bg-slate-800 px-3 py-2 hover:bg-slate-700" href="/admin/generator">Gerador IA</a>
+            <a class="rounded-lg bg-rose-700 px-3 py-2 hover:bg-rose-600" href="/admin/logout">Sair</a>
+          </nav>
+        </div>
+      </header>
+      <slot />
+    </div>
+  </body>
+</html>

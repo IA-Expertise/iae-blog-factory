@@ -1,0 +1,70 @@
+---
+import { isAdminAuthenticated, setAdminSession, validateAdminLogin } from "../../lib/adminAuth";
+
+if (isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin");
+}
+
+let error = "";
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const username = String(formData.get("username") ?? "");
+  const password = String(formData.get("password") ?? "");
+
+  if (validateAdminLogin(username, password)) {
+    setAdminSession(Astro.cookies);
+    return Astro.redirect("/admin");
+  }
+
+  error = "Usuario ou senha invalidos.";
+}
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Admin | IAE Blog Factory</title>
+  </head>
+  <body class="grid min-h-screen place-items-center bg-slate-950 px-4 text-slate-100">
+    <main class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
+      <h1 class="text-2xl font-bold">Entrar no Dashboard</h1>
+      <p class="mt-1 text-sm text-slate-400">Acesse a area administrativa da IAE Blog Factory.</p>
+
+      {error && <p class="mt-4 rounded-lg bg-rose-900/40 px-3 py-2 text-sm text-rose-300">{error}</p>}
+
+      <form method="POST" class="mt-5 space-y-4">
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-300">Usuario</span>
+          <input
+            name="username"
+            type="text"
+            required
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none ring-indigo-500 focus:ring"
+            placeholder="admin"
+          />
+        </label>
+
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-300">Senha</span>
+          <input
+            name="password"
+            type="password"
+            required
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none ring-indigo-500 focus:ring"
+            placeholder="********"
+          />
+        </label>
+
+        <button
+          type="submit"
+          class="w-full rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500"
+        >
+          Entrar
+        </button>
+      </form>
+    </main>
+  </body>
+</html>

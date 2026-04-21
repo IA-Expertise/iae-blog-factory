@@ -1,0 +1,118 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { addPost, listSites, logGenerationJob } from "../../lib/cms";
+import { generateArticleAndImage } from "../../lib/contentGenerator";
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login");
+}
+
+let generated: null | { title: string; excerpt: string; imageUrl: string; tenant: string } = null;
+let error = "";
+
+if (Astro.request.method === "POST") {
+  try {
+    const formData = await Astro.request.formData();
+    const hostname = String(formData.get("hostname") ?? "");
+    const keyword = String(formData.get("keyword") ?? "");
+    const tone = String(formData.get("tone") ?? "profissional");
+    const tenantName = String(formData.get("tenantName") ?? "");
+    const niche = String(formData.get("niche") ?? "");
+
+    await logGenerationJob({ hostname, keyword, tone, status: "pending" });
+
+    const result = await generateArticleAndImage({
+      tenantName,
+      niche,
+      keyword,
+      tone
+    });
+
+    await addPost(hostname, {
+      title: result.title,
+      category: result.category,
+      image: result.imageUrl,
+      excerpt: result.excerpt,
+      content: result.content,
+      publishedAt: new Date().toISOString()
+    });
+
+    await logGenerationJob({
+      hostname,
+      keyword,
+      tone,
+      status: "done",
+      resultTitle: result.title,
+      resultImage: result.imageUrl,
+      resultSlug: result.title.toLowerCase().replace(/\s+/g, "-")
+    });
+
+    generated = {
+      title: result.title,
+      excerpt: result.excerpt,
+      imageUrl: result.imageUrl,
+      tenant: hostname
+    };
+  } catch (err) {
+    error = "Falha ao gerar artigo. Tente novamente.";
+    console.error(err);
+  }
+}
+
+const sites = await listSites();
+---
+
+<AdminLayout title="Gerador IA | IAE Blog Factory">
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="text-xl font-semibold">Gerar artigo com IA</h2>
+    <p class="mt-1 text-sm text-slate-500">Gera artigo SEO + imagem de capa e publica no tenant escolhido.</p>
+    <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+      <label class="text-sm">
+        <span class="mb-1 block">Tenant</span>
+        <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="hostname" required>
+          {sites.map((site) => (
+            <option value={site.hostname}>{site.hostname}</option>
+          ))}
+        </select>
+      </label>
+      <label class="text-sm">
+        <span class="mb-1 block">Palavra-chave</span>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="keyword" placeholder="seo para blogs afiliados" required />
+      </label>
+      <label class="text-sm">
+        <span class="mb-1 block">Tom de voz</span>
+        <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="tone">
+          <option value="profissional">Profissional</option>
+          <option value="didatico">Didatico</option>
+          <option value="direto">Direto</option>
+        </select>
+      </label>
+      <label class="text-sm">
+        <span class="mb-1 block">Nome do tenant (contexto IA)</span>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="tenantName" placeholder="GovTech Insights" required />
+      </label>
+      <label class="text-sm md:col-span-2">
+        <span class="mb-1 block">Nicho (contexto IA)</span>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="niche" placeholder="gestao publica" required />
+      </label>
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 md:col-span-2" type="submit">
+        Gerar e publicar
+      </button>
+    </form>
+    {error && <p class="mt-4 rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
+  </section>
+
+  {generated && (
+    <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+      <h3 class="text-lg font-semibold">Ultima geracao publicada</h3>
+      <p class="mt-2 text-sm text-slate-500">Tenant: {generated.tenant}</p>
+      <img src={generated.imageUrl} alt={generated.title} class="mt-3 h-56 w-full rounded-xl object-cover" />
+      <h4 class="mt-4 text-xl font-bold">{generated.title}</h4>
+      <p class="mt-2 text-sm text-slate-600">{generated.excerpt}</p>
+      <a href="/admin/posts" class="mt-4 inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+        Ver posts
+      </a>
+    </section>
+  )}
+</AdminLayout>

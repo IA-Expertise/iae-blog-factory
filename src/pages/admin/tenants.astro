@@ -1,0 +1,180 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { createTenant, listSites, updateTenant } from "../../lib/cms";
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login");
+}
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const action = String(formData.get("action") ?? "");
+
+  if (action === "create") {
+    await createTenant({
+      hostname: String(formData.get("hostname") ?? ""),
+      brandName: String(formData.get("brandName") ?? ""),
+      niche: String(formData.get("niche") ?? "")
+    });
+  }
+
+  if (action === "update") {
+    await updateTenant({
+      hostname: String(formData.get("hostname") ?? ""),
+      brandName: String(formData.get("brandName") ?? ""),
+      niche: String(formData.get("niche") ?? ""),
+      hero: {
+        title: String(formData.get("heroTitle") ?? ""),
+        subtitle: String(formData.get("heroSubtitle") ?? ""),
+        ctaLabel: String(formData.get("heroCtaLabel") ?? "Ver mais"),
+        ctaHref: String(formData.get("heroCtaHref") ?? "/"),
+        image: String(formData.get("heroImage") ?? "https://picsum.photos/1200/600")
+      },
+      theme: {
+        primary: String(formData.get("primary") ?? "#111827"),
+        secondary: String(formData.get("secondary") ?? "#94a3b8"),
+        accent: String(formData.get("accent") ?? "#334155"),
+        background: String(formData.get("background") ?? "#f8fafc"),
+        surface: String(formData.get("surface") ?? "#ffffff"),
+        text: String(formData.get("text") ?? "#0f172a"),
+        headingFont: String(formData.get("headingFont") ?? "'Inter', sans-serif"),
+        bodyFont: String(formData.get("bodyFont") ?? "'Inter', sans-serif")
+      },
+      ads: {
+        provider: "adsense",
+        client: String(formData.get("adClient") ?? ""),
+        slot: String(formData.get("adSlot") ?? "")
+      },
+      affiliate: {
+        network: String(formData.get("affiliateNetwork") ?? ""),
+        trackingId: String(formData.get("affiliateTrackingId") ?? ""),
+        products: []
+      },
+      posts: []
+    });
+  }
+
+  return Astro.redirect("/admin/tenants");
+}
+
+const sites = await listSites();
+---
+
+<AdminLayout title="Tenants | IAE Blog Factory">
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="text-xl font-semibold">Criar novo tenant</h2>
+    <form method="POST" class="mt-4 grid gap-3 md:grid-cols-4">
+      <input type="hidden" name="action" value="create" />
+      <input
+        class="rounded-lg border border-slate-300 px-3 py-2"
+        name="hostname"
+        placeholder="cliente.local"
+        required
+      />
+      <input class="rounded-lg border border-slate-300 px-3 py-2" name="brandName" placeholder="Nome da marca" required />
+      <input class="rounded-lg border border-slate-300 px-3 py-2" name="niche" placeholder="Nicho" required />
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">
+        Criar tenant
+      </button>
+    </form>
+  </section>
+
+  <section class="mt-6 space-y-4">
+    {sites.map((site) => (
+      <article class="rounded-2xl bg-white p-5 shadow-sm">
+        <h3 class="text-lg font-semibold">{site.hostname}</h3>
+        <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="action" value="update" />
+          <input type="hidden" name="hostname" value={site.hostname} />
+          <label class="text-sm">
+            <span class="mb-1 block">Marca</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="brandName" value={site.brandName} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Nicho</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="niche" value={site.niche} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Hero titulo</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroTitle" value={site.hero.title} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Hero subtitulo</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroSubtitle" value={site.hero.subtitle} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Cor primaria</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="primary" value={site.theme.primary} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Cor secundaria</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="secondary" value={site.theme.secondary} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Cor de destaque</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="accent" value={site.theme.accent} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Fundo</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="background" value={site.theme.background} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Surface</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="surface" value={site.theme.surface} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Texto</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="text" value={site.theme.text} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Fonte titulo</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="headingFont" value={site.theme.headingFont} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Fonte texto</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="bodyFont" value={site.theme.bodyFont} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">CTA label</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroCtaLabel" value={site.hero.ctaLabel} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">CTA link</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroCtaHref" value={site.hero.ctaHref} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Hero imagem</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroImage" value={site.hero.image} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Adsense client</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adClient" value={site.ads.client} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Adsense slot</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adSlot" value={site.ads.slot} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Rede afiliados</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="affiliateNetwork" value={site.affiliate.network} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Tracking afiliados</span>
+            <input
+              class="w-full rounded-lg border border-slate-300 px-3 py-2"
+              name="affiliateTrackingId"
+              value={site.affiliate.trackingId}
+            />
+          </label>
+          <button
+            class="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700 md:col-span-2"
+            type="submit"
+          >
+            Salvar configuracoes
+          </button>
+        </form>
+      </article>
+    ))}
+  </section>
+</AdminLayout>

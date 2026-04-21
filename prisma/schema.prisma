@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id                 String             @id @default(cuid())
+  hostname           String             @unique
+  brandName          String
+  niche              String
+  heroTitle          String
+  heroSubtitle       String
+  heroCtaLabel       String
+  heroCtaHref        String
+  heroImage          String
+  themePrimary       String
+  themeSecondary     String
+  themeAccent        String
+  themeBackground    String
+  themeSurface       String
+  themeText          String
+  themeHeadingFont   String
+  themeBodyFont      String
+  adProvider         String             @default("adsense")
+  adClient           String
+  adSlot             String
+  affiliateNetwork   String
+  affiliateTrackingId String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  posts              Post[]
+  affiliateProducts  AffiliateProduct[]
+  generationJobs     GenerationJob[]
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title       String
+  slug        String
+  category    String
+  image       String
+  excerpt     String?
+  content     String?
+  createdAt   DateTime @default(now())
+  publishedAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model AffiliateProduct {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  title    String
+  cta      String
+  url      String
+
+  @@index([tenantId])
+}
+
+model GenerationJob {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  keyword     String
+  tone        String
+  status      String
+  resultTitle String?
+  resultSlug  String?
+  resultImage String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}

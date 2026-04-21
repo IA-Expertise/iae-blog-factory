@@ -1,0 +1,43 @@
+---
+type Product = {
+  id: string;
+  title: string;
+  cta: string;
+  url: string;
+};
+
+interface Props {
+  network: string;
+  trackingId: string;
+  products: Product[];
+}
+
+const { network, trackingId, products } = Astro.props;
+---
+
+<aside class="rounded-2xl border border-slate-200 bg-[var(--color-surface)] p-4 shadow-sm">
+  <p class="mb-2 text-xs uppercase tracking-wide text-slate-500">Afiliados</p>
+  <p class="mb-3 text-sm text-slate-700">
+    Rede: <span class="font-semibold">{network}</span>
+    <br />
+    Tracking: <span class="font-semibold">{trackingId}</span>
+  </p>
+  <ul class="space-y-3">
+    {
+      products.map((product) => (
+        <li class="rounded-xl border border-slate-200 bg-white p-3">
+          <p class="text-sm font-semibold text-slate-900">{product.title}</p>
+          <a
+            href={product.url}
+            class="mt-2 inline-block rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            style="background: var(--color-primary);"
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+          >
+            {product.cta}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</aside>

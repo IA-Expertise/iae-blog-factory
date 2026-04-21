@@ -1,0 +1,85 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { addPost, deletePost, listSites } from "../../lib/cms";
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login");
+}
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const action = String(formData.get("action") ?? "");
+  const hostname = String(formData.get("hostname") ?? "");
+
+  if (action === "create-post") {
+    await addPost(hostname, {
+      title: String(formData.get("title") ?? ""),
+      category: String(formData.get("category") ?? "Geral"),
+      image: String(formData.get("image") ?? "https://picsum.photos/600/400"),
+      publishedAt: String(formData.get("publishedAt") ?? new Date().toLocaleDateString("pt-BR"))
+    });
+  }
+
+  if (action === "delete-post") {
+    const postId = String(formData.get("postId") ?? "");
+    await deletePost(hostname, postId);
+  }
+
+  return Astro.redirect("/admin/posts");
+}
+
+const sites = await listSites();
+---
+
+<AdminLayout title="Posts | IAE Blog Factory">
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="text-xl font-semibold">Novo post</h2>
+    <form method="POST" class="mt-4 grid gap-3 md:grid-cols-5">
+      <input type="hidden" name="action" value="create-post" />
+      <select class="rounded-lg border border-slate-300 px-3 py-2" name="hostname" required>
+        {sites.map((site) => (
+          <option value={site.hostname}>{site.hostname}</option>
+        ))}
+      </select>
+      <input class="rounded-lg border border-slate-300 px-3 py-2" name="title" placeholder="Titulo do post" required />
+      <input class="rounded-lg border border-slate-300 px-3 py-2" name="category" placeholder="Categoria" required />
+      <input
+        class="rounded-lg border border-slate-300 px-3 py-2"
+        name="image"
+        placeholder="https://picsum.photos/600/400?random=77"
+      />
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">
+        Publicar
+      </button>
+    </form>
+  </section>
+
+  <section class="mt-6 space-y-4">
+    {sites.map((site) => (
+      <article class="rounded-2xl bg-white p-5 shadow-sm">
+        <h3 class="text-lg font-semibold">{site.hostname}</h3>
+        <ul class="mt-3 space-y-2">
+          {site.posts.map((post) => (
+            <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+              <div>
+                <p class="font-medium">{post.title}</p>
+                <p class="text-xs text-slate-500">
+                  {post.category} - {post.publishedAt}
+                </p>
+              </div>
+              <form method="POST">
+                <input type="hidden" name="action" value="delete-post" />
+                <input type="hidden" name="hostname" value={site.hostname} />
+                <input type="hidden" name="postId" value={post.id} />
+                <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-600" type="submit">
+                  Excluir
+                </button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </article>
+    ))}
+  </section>
+</AdminLayout>

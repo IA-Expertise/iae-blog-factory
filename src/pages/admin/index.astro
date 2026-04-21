@@ -1,0 +1,55 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { listSites } from "../../lib/cms";
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login");
+}
+
+const sites = await listSites();
+const totalPosts = sites.reduce((acc, site) => acc + site.posts.length, 0);
+---
+
+<AdminLayout title="Dashboard | IAE Blog Factory">
+  <section class="grid gap-4 md:grid-cols-3">
+    <article class="rounded-2xl bg-white p-5 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Tenants</p>
+      <p class="mt-2 text-3xl font-bold">{sites.length}</p>
+    </article>
+    <article class="rounded-2xl bg-white p-5 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Posts</p>
+      <p class="mt-2 text-3xl font-bold">{totalPosts}</p>
+    </article>
+    <article class="rounded-2xl bg-white p-5 shadow-sm">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
+      <p class="mt-2 text-lg font-semibold text-emerald-600">Operando</p>
+    </article>
+  </section>
+
+  <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="text-xl font-semibold">Tenants ativos</h2>
+    <div class="mt-4 overflow-x-auto">
+      <table class="min-w-full text-left text-sm">
+        <thead class="text-slate-500">
+          <tr>
+            <th class="px-3 py-2">Dominio</th>
+            <th class="px-3 py-2">Marca</th>
+            <th class="px-3 py-2">Nicho</th>
+            <th class="px-3 py-2">Posts</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sites.map((site) => (
+            <tr class="border-t border-slate-100">
+              <td class="px-3 py-2 font-medium">{site.hostname}</td>
+              <td class="px-3 py-2">{site.brandName}</td>
+              <td class="px-3 py-2">{site.niche}</td>
+              <td class="px-3 py-2">{site.posts.length}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</AdminLayout>

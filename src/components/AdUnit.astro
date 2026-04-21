@@ -1,0 +1,19 @@
+---
+interface Props {
+  provider: string;
+  client: string;
+  slot: string;
+}
+
+const { provider, client, slot } = Astro.props;
+---
+
+<aside class="rounded-2xl border border-slate-200 bg-[var(--color-surface)] p-4 shadow-sm">
+  <p class="mb-2 text-xs uppercase tracking-wide text-slate-500">Publicidade</p>
+  <div class="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
+    <p class="font-semibold">{provider.toUpperCase()}</p>
+    <p>Client: {client}</p>
+    <p>Slot: {slot}</p>
+    <p class="mt-2 text-xs text-slate-400">Placeholder para script de anuncio.</p>
+  </div>
+</aside>
