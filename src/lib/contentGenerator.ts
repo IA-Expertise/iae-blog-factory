@@ -63,7 +63,12 @@ Estilo: clean editorial, realista, moderno, alta qualidade, sem textos na imagem
   const base64Image = payload.data?.[0]?.b64_json;
   if (!base64Image) return null;
 
-  return saveGeneratedImageLocally(base64Image, input.keyword);
+  try {
+    return await saveGeneratedImageLocally(base64Image, input.keyword);
+  } catch (error) {
+    console.error("Falha ao salvar imagem localmente:", error);
+    return null;
+  }
 }
 
 async function generateWithOpenAI(input: GenerateInput): Promise<GeneratedArticle | null> {
@@ -104,7 +109,12 @@ Retorne SOMENTE JSON com este formato:
   const jsonText = data.choices?.[0]?.message?.content;
   if (!jsonText) return null;
   const parsed = JSON.parse(jsonText) as Omit<GeneratedArticle, "imageUrl">;
-  const generatedImageUrl = await generateImageWithOpenAI(input, apiKey);
+  let generatedImageUrl: string | null = null;
+  try {
+    generatedImageUrl = await generateImageWithOpenAI(input, apiKey);
+  } catch (error) {
+    console.error("Falha na geracao de imagem OpenAI:", error);
+  }
 
   return {
     ...parsed,

@@ -55,7 +55,8 @@ if (Astro.request.method === "POST") {
       tenant: hostname
     };
   } catch (err) {
-    error = "Falha ao gerar artigo. Tente novamente.";
+    const details = err instanceof Error ? err.message : "erro desconhecido";
+    error = `Falha ao gerar artigo: ${details}`;
     console.error(err);
   }
 }
