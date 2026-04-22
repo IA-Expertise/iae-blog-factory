@@ -1,0 +1,69 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import AdUnit from "../../../components/AdUnit.astro";
+import AffiliateWidget from "../../../components/AffiliateWidget.astro";
+import { isAdminAuthenticated } from "../../../lib/adminAuth";
+import { getPostById, getTenantByHostname } from "../../../lib/cms";
+
+export const prerender = false;
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login");
+}
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/admin/posts");
+
+const row = await getPostById(id);
+if (!row) return Astro.redirect("/admin/posts");
+
+const siteData = await getTenantByHostname(row.tenant.hostname);
+if (!siteData) return Astro.redirect("/admin/posts");
+---
+
+<Layout siteData={siteData} title={`Preview | ${row.title}`}>
+  <div class="space-y-6">
+    <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+      Pré-visualização de template (admin). Este post pode estar em rascunho.
+    </div>
+
+    {siteData.ads.enabled && (
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />
+    )}
+
+    <header class="rounded-2xl bg-[var(--color-primary)] p-4 text-white">
+      <div class="flex items-center gap-3">
+        {siteData.logoUrl && <img src={siteData.logoUrl} alt={siteData.brandName} class="h-10 w-10 rounded object-cover" />}
+        <div>
+          <p class="text-sm opacity-90">{siteData.brandName}</p>
+          <h1 class="text-xl font-bold">{row.title}</h1>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <article class="space-y-4 lg:col-span-8">
+        <img src={row.image} alt={row.title} class="h-64 w-full rounded-2xl object-cover" />
+        <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
+          <p class="mb-4 text-xs uppercase tracking-wide text-slate-500">{row.category}</p>
+          <div class="prose max-w-none prose-slate">
+            {row.content ? <Fragment set:html={row.content.replace(/\n/g, "<br/>")} /> : <p>{row.excerpt}</p>}
+          </div>
+        </div>
+        {siteData.affiliate.enabled && (
+          <AffiliateWidget
+            network={siteData.affiliate.network}
+            trackingId={siteData.affiliate.trackingId}
+            products={siteData.affiliate.products}
+          />
+        )}
+      </article>
+
+      <aside class="space-y-4 lg:col-span-4">
+        {siteData.ads.enabled && (
+          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
+        )}
+      </aside>
+    </div>
+  </div>
+</Layout>

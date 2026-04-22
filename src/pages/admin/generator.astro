@@ -6,7 +6,6 @@ import {
   listSites,
   replaceSuggestedPitches,
   setPitchStatus,
-  updateTenantEditorialBrief,
   writeArticlesFromApprovedPitches,
   type PitchStatus
 } from "../../lib/cms";
@@ -39,19 +38,6 @@ if (Astro.request.method === "POST") {
   const hostname = String(formData.get("hostname") ?? "");
 
   try {
-    if (action === "save_briefing") {
-      await updateTenantEditorialBrief(hostname, {
-        projectDescription: String(formData.get("projectDescription") ?? ""),
-        editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
-        targetAudience: String(formData.get("targetAudience") ?? ""),
-        defaultArticleTone: String(formData.get("defaultArticleTone") ?? "profissional"),
-        autoPublishWeekdays: String(formData.get("autoPublishWeekdays") ?? ""),
-        autoPublishHourUtc: String(formData.get("autoPublishHourUtc") ?? "")
-      });
-      const m = String(formData.get("monthKey") ?? defaultMonth());
-      return Astro.redirect(`/admin/generator?hostname=${encodeURIComponent(hostname)}&month=${encodeURIComponent(m)}&ok=briefing`);
-    }
-
     if (action === "suggest_pitches") {
       const m = String(formData.get("monthKey") ?? defaultMonth());
       const count = Math.min(20, Math.max(3, parseInt(String(formData.get("pitchCount") ?? "8"), 10) || 8));
@@ -109,21 +95,18 @@ const pitches = site ? await listPitches(selectedHost, monthKey) : [];
 
 <AdminLayout title="Gerador de artigos | IAE Blog Factory">
   <section class="mb-6 rounded-2xl border border-indigo-100 bg-indigo-50 p-5 text-sm text-indigo-950">
-    <h2 class="text-lg font-semibold text-indigo-950">Fluxo em 7 passos</h2>
+    <h2 class="text-lg font-semibold text-indigo-950">Fluxo simples do gerador</h2>
     <ol class="mt-3 list-decimal space-y-1 pl-5">
-      <li>Crie o tenant em <a class="font-semibold underline" href="/admin/tenants">Tenants</a>.</li>
-      <li>Aqui, selecione o tenant e o mes do calendario editorial.</li>
-      <li>Preencha o <strong>briefing</strong> (sobre o blog, propostas, estilo) e opcionalmente os <strong>dias/hora UTC</strong> para auto-agendar.</li>
-      <li>Gere <strong>pautas</strong> com IA (titulo + resumo). Revise a lista.</li>
-      <li><strong>Aprove</strong> as pautas que quiser transformar em artigo.</li>
-      <li>Clique em <strong>Gerar artigos</strong>: os textos viram rascunhos na aba Posts (ou ja saem agendados se auto-publicacao estiver ativa).</li>
-      <li>Em <a class="font-semibold underline" href="/admin/posts">Posts</a>, revise e ajuste o fluxo editorial (revisao → aprovacao → publicacao) quando nao usar auto-agendamento.</li>
+      <li>Selecione tenant e mês.</li>
+      <li>Peça sugestões de pautas.</li>
+      <li>Aprove/rejeite as pautas.</li>
+      <li>Clique em gerar artigos para criar os rascunhos automaticamente.</li>
     </ol>
+    <p class="mt-3 text-xs text-indigo-900">
+      As informações de projeto/estilo/público ficam em <a class="font-semibold underline" href="/admin/tenants">Tenants</a>.
+    </p>
   </section>
 
-  {ok === "briefing" && (
-    <p class="mb-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Briefing salvo com sucesso.</p>
-  )}
   {ok === "pitches" && <p class="mb-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Novas pautas sugeridas.</p>}
   {ok === "pitch" && <p class="mb-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Status da pauta atualizado.</p>}
   {written && (
@@ -155,77 +138,8 @@ const pitches = site ? await listPitches(selectedHost, monthKey) : [];
 
   {site && (
     <>
-      <section class="rounded-2xl bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold">3 — Briefing e auto-publicacao</h2>
-        <p class="mt-1 text-sm text-slate-500">
-          Estas informacoes alimentam as sugestoes de pautas e o tom dos artigos. Dias no formato ISO: 1=segunda … 7=domingo (ex:
-          <code class="rounded bg-slate-100 px-1">1,3,5</code>
-          ). Hora em <strong>UTC</strong>.
-        </p>
-        <form method="POST" class="mt-4 space-y-3">
-          <input type="hidden" name="action" value="save_briefing" />
-          <input type="hidden" name="hostname" value={selectedHost} />
-          <input type="hidden" name="monthKey" value={monthKey} />
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">Sobre o blog e propostas</span>
-            <textarea class="min-h-[100px] w-full rounded-lg border border-slate-300 px-3 py-2" name="projectDescription" placeholder="Qual e o projeto, para que serve, posicionamento editorial e objetivo do blog.">
-              {site.editorial.projectDescription ?? ""}
-            </textarea>
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">Publico-alvo</span>
-            <input
-              class="w-full rounded-lg border border-slate-300 px-3 py-2"
-              name="targetAudience"
-              placeholder="Ex: moradores de Louveira, 25-55 anos, interessados em noticias locais"
-              value={site.editorial.targetAudience ?? ""}
-            />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block font-medium">Estilo, referencias e restricoes</span>
-            <textarea class="min-h-[80px] w-full rounded-lg border border-slate-300 px-3 py-2" name="editorialStyleNotes" placeholder="Ex: sem jargao excessivo, citar fontes, evitar promessas ilegais, etc.">
-              {site.editorial.editorialStyleNotes ?? ""}
-            </textarea>
-          </label>
-          <div class="grid gap-3 md:grid-cols-3">
-            <label class="text-sm">
-              <span class="mb-1 block font-medium">Tom padrao</span>
-              <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="defaultArticleTone">
-                <option value="profissional" selected={site.editorial.defaultArticleTone === "profissional"}>Profissional</option>
-                <option value="didatico" selected={site.editorial.defaultArticleTone === "didatico"}>Didatico</option>
-                <option value="direto" selected={site.editorial.defaultArticleTone === "direto"}>Direto</option>
-              </select>
-            </label>
-            <label class="text-sm">
-              <span class="mb-1 block font-medium">Dias UTC (opcional)</span>
-              <input
-                class="w-full rounded-lg border border-slate-300 px-3 py-2"
-                name="autoPublishWeekdays"
-                placeholder="1,2,3,4,5"
-                value={site.editorial.autoPublishWeekdays ?? ""}
-              />
-            </label>
-            <label class="text-sm">
-              <span class="mb-1 block font-medium">Hora UTC (0–23)</span>
-              <input
-                class="w-full rounded-lg border border-slate-300 px-3 py-2"
-                name="autoPublishHourUtc"
-                type="number"
-                min="0"
-                max="23"
-                placeholder="14"
-                value={site.editorial.autoPublishHourUtc ?? ""}
-              />
-            </label>
-          </div>
-          <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">
-            Salvar briefing
-          </button>
-        </form>
-      </section>
-
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold">4 — Sugerir pautas do mes (IA)</h2>
+        <h2 class="text-xl font-semibold">Sugerir pautas do mês (IA)</h2>
         <p class="mt-1 text-sm text-slate-500">Gera titulos e resumos. Pautas antigas em status Sugerido serao substituidas.</p>
         <form method="POST" class="mt-4 flex flex-wrap items-end gap-3">
           <input type="hidden" name="action" value="suggest_pitches" />
@@ -245,7 +159,7 @@ const pitches = site ? await listPitches(selectedHost, monthKey) : [];
       </section>
 
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold">5 — Aprovar pautas</h2>
+        <h2 class="text-xl font-semibold">Aprovar pautas</h2>
         {pitches.length === 0 ? (
           <p class="mt-2 text-sm text-slate-500">Nenhuma pauta para este mes ainda. Gere sugestoes acima.</p>
         ) : (
@@ -316,9 +230,9 @@ const pitches = site ? await listPitches(selectedHost, monthKey) : [];
       </section>
 
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold">6 — Gerar artigos das pautas aprovadas</h2>
+        <h2 class="text-xl font-semibold">Gerar artigos das pautas aprovadas</h2>
         <p class="mt-1 text-sm text-slate-500">
-          Cria rascunhos com texto e imagem. Se o tenant tiver dias e hora UTC configurados, os posts saem como <strong>APROVADO + agendado</strong> e o cron publica na hora.
+          Cria rascunhos com texto e imagem. Se o tenant tiver dias e hora UTC configurados, os posts saem como <strong>APROVADO + agendado</strong>.
         </p>
         <form method="POST" class="mt-4">
           <input type="hidden" name="action" value="write_articles" />

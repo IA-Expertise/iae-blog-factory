@@ -102,6 +102,14 @@ const statusClass: Record<PostStatus, string> = {
                 >
                   Revisar
                 </a>
+                <a
+                  class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500"
+                  href={`/admin/preview/${post.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Ver página
+                </a>
                 <form method="POST">
                   <input type="hidden" name="action" value="delete-post" />
                   <input type="hidden" name="hostname" value={site.hostname} />
