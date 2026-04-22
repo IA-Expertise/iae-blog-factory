@@ -3,12 +3,14 @@ import Layout from "../../layouts/Layout.astro";
 import AdUnit from "../../components/AdUnit.astro";
 import AffiliateWidget from "../../components/AffiliateWidget.astro";
 import { getPublishedPostBySlug } from "../../lib/cms";
+import { renderPostMarkdown } from "../../lib/renderMarkdown";
 
 export const prerender = false;
 
 const siteData = Astro.locals.siteData;
 const slug = Astro.params.slug ?? "";
 const post = await getPublishedPostBySlug(siteData.hostname, slug);
+const articleHtml = post?.content ? renderPostMarkdown(post.content) : "";
 
 if (!post) {
   return Astro.redirect("/");
@@ -36,9 +38,14 @@ if (!post) {
         <img src={post.image} alt={post.title} class="h-64 w-full rounded-2xl object-cover" />
         <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
           <p class="mb-4 text-xs uppercase tracking-wide text-slate-500">{post.category}</p>
-          <div class="prose max-w-none prose-slate">
-            {post.content ? <Fragment set:html={post.content.replace(/\n/g, "<br/>")} /> : <p>{post.excerpt}</p>}
-          </div>
+          {post.content ? (
+            <div
+              class="prose prose-lg max-w-none text-slate-800 prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-slate-900 prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:text-slate-400 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
+              set:html={articleHtml}
+            />
+          ) : (
+            <p class="text-base leading-relaxed text-slate-600">{post.excerpt}</p>
+          )}
         </div>
 
         {siteData.affiliate.enabled && (

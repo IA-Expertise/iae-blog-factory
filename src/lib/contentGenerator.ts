@@ -25,16 +25,67 @@ function slugKeyword(keyword: string): string {
     .replace(/\s+/g, "-");
 }
 
-async function saveGeneratedImageLocally(base64Image: string, keyword: string): Promise<string> {
+async function saveGeneratedImageBuffer(buffer: Buffer, keyword: string, ext: string): Promise<string> {
   const outputDir = join(process.cwd(), "public", "generated-images");
   await mkdir(outputDir, { recursive: true });
 
-  const filename = `${slugKeyword(keyword)}-${Date.now()}.png`;
+  const filename = `${slugKeyword(keyword)}-${Date.now()}.${ext}`;
   const filepath = join(outputDir, filename);
-  const buffer = Buffer.from(base64Image, "base64");
   await writeFile(filepath, buffer);
 
   return `/generated-images/${filename}`;
+}
+
+async function saveGeneratedImageLocally(base64Image: string, keyword: string): Promise<string> {
+  const buffer = Buffer.from(base64Image, "base64");
+  return saveGeneratedImageBuffer(buffer, keyword, "png");
+}
+
+function buildImageGenerationBody(imageModel: string, prompt: string): Record<string, unknown> {
+  const m = imageModel.toLowerCase();
+  if (m.startsWith("dall-e-3")) {
+    return {
+      model: imageModel,
+      prompt,
+      n: 1,
+      size: "1792x1024",
+      quality: "standard",
+      response_format: "b64_json"
+    };
+  }
+  if (m.startsWith("dall-e-2")) {
+    return {
+      model: imageModel,
+      prompt,
+      n: 1,
+      size: "1024x1024",
+      response_format: "b64_json"
+    };
+  }
+  return {
+    model: imageModel,
+    prompt,
+    n: 1,
+    size: "1536x1024",
+    quality: "medium"
+  };
+}
+
+async function downloadRemoteImageToPublic(url: string, keyword: string): Promise<string | null> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    console.error("Falha ao baixar imagem da URL OpenAI:", res.status);
+    return null;
+  }
+  const type = (res.headers.get("content-type") ?? "").toLowerCase();
+  const ext = type.includes("webp") ? "webp" : type.includes("jpeg") || type.includes("jpg") ? "jpg" : "png";
+  const buffer = Buffer.from(await res.arrayBuffer());
+  try {
+    return await saveGeneratedImageBuffer(buffer, keyword, ext);
+  } catch (error) {
+    console.error("Falha ao salvar imagem baixada:", error);
+    return null;
+  }
 }
 
 async function generateImageWithOpenAI(input: GenerateInput, apiKey: string): Promise<string | null> {
@@ -42,33 +93,47 @@ async function generateImageWithOpenAI(input: GenerateInput, apiKey: string): Pr
   const imagePrompt = `Crie uma imagem editorial premium para capa de artigo sobre "${input.keyword}" no nicho "${input.niche}".
 Estilo: clean editorial, realista, moderno, alta qualidade, sem textos na imagem, composição horizontal para blog.`;
 
+  const body = buildImageGenerationBody(imageModel, imagePrompt);
+
   const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`
     },
-    body: JSON.stringify({
-      model: imageModel,
-      prompt: imagePrompt,
-      size: "1536x1024"
-    })
+    body: JSON.stringify(body)
   });
 
-  if (!imageResponse.ok) return null;
-
-  const payload = (await imageResponse.json()) as {
-    data?: Array<{ b64_json?: string }>;
-  };
-  const base64Image = payload.data?.[0]?.b64_json;
-  if (!base64Image) return null;
-
-  try {
-    return await saveGeneratedImageLocally(base64Image, input.keyword);
-  } catch (error) {
-    console.error("Falha ao salvar imagem localmente:", error);
+  if (!imageResponse.ok) {
+    const errText = await imageResponse.text().catch(() => "");
+    console.error("OpenAI /v1/images/generations:", imageResponse.status, errText.slice(0, 800));
     return null;
   }
+
+  const payload = (await imageResponse.json()) as {
+    data?: Array<{ b64_json?: string; url?: string }>;
+  };
+  const first = payload.data?.[0];
+  if (!first) {
+    console.error("Resposta de imagem OpenAI sem data[0]");
+    return null;
+  }
+
+  if (first.b64_json) {
+    try {
+      return await saveGeneratedImageLocally(first.b64_json, input.keyword);
+    } catch (error) {
+      console.error("Falha ao salvar imagem localmente (base64):", error);
+      return null;
+    }
+  }
+
+  if (first.url) {
+    return downloadRemoteImageToPublic(first.url, input.keyword);
+  }
+
+  console.error("Resposta de imagem OpenAI sem b64_json nem url:", Object.keys(first));
+  return null;
 }
 
 export async function regenerateCoverImage(params: {
