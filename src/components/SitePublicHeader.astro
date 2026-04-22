@@ -1,0 +1,61 @@
+---
+import type { SiteData } from "../lib/cms";
+
+interface Props {
+  siteData: SiteData;
+}
+
+const { siteData } = Astro.props;
+const initial = siteData.brandName.trim().slice(0, 1).toUpperCase() || "?";
+---
+
+<header
+  class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-[var(--color-surface)] px-4 py-4 shadow-sm sm:px-5 sm:py-5"
+>
+  <a href="/" class="flex min-w-0 max-w-full items-center gap-3 rounded-lg transition hover:opacity-90">
+    {
+      siteData.logoUrl ? (
+        <img
+          src={siteData.logoUrl}
+          alt=""
+          class="h-11 w-11 shrink-0 rounded-lg object-cover"
+          width="44"
+          height="44"
+        />
+      ) : (
+        <div
+          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+          style="background: var(--color-primary);"
+        >
+          {initial}
+        </div>
+      )
+    }
+    <div class="min-w-0">
+      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{siteData.niche}</p>
+      <p class="truncate text-lg font-bold text-slate-900">{siteData.brandName}</p>
+    </div>
+  </a>
+  <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-semibold text-slate-600">
+    <a href="/" class="transition hover:text-[var(--color-accent)]">Início</a>
+    {
+      siteData.rssFeedUrl && (
+        <a
+          href={siteData.rssFeedUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="transition hover:text-[var(--color-accent)]"
+        >
+          RSS
+        </a>
+      )
+    }
+    {
+      siteData.contact.menuText && (
+        <span class="max-w-xs truncate text-xs font-normal text-slate-500" title={siteData.contact.menuText}>
+          {siteData.contact.menuText}
+        </span>
+      )
+    }
+  </nav>
+</header>

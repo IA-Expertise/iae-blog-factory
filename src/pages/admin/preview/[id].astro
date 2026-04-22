@@ -5,6 +5,7 @@ import AffiliateWidget from "../../../components/AffiliateWidget.astro";
 import { isAdminAuthenticated } from "../../../lib/adminAuth";
 import { getPostById, getTenantByHostname } from "../../../lib/cms";
 import { renderPostMarkdown } from "../../../lib/renderMarkdown";
+import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
 
 export const prerender = false;
 
@@ -22,6 +23,7 @@ const siteData = await getTenantByHostname(row.tenant.hostname);
 if (!siteData) return Astro.redirect("/admin/posts");
 
 const articleHtml = row.content ? renderPostMarkdown(row.content) : "";
+const coverSrc = resolvePublicAssetUrl(row.image);
 ---
 
 <Layout siteData={siteData} title={`Preview | ${row.title}`}>
@@ -34,21 +36,18 @@ const articleHtml = row.content ? renderPostMarkdown(row.content) : "";
       <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />
     )}
 
-    <header class="rounded-2xl bg-[var(--color-primary)] p-4 text-white">
-      <div class="flex items-center gap-3">
-        {siteData.logoUrl && <img src={siteData.logoUrl} alt={siteData.brandName} class="h-10 w-10 rounded object-cover" />}
-        <div>
-          <p class="text-sm opacity-90">{siteData.brandName}</p>
-          <h1 class="text-xl font-bold">{row.title}</h1>
-        </div>
-      </div>
-    </header>
-
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <article class="space-y-4 lg:col-span-8">
-        <img src={row.image} alt={row.title} class="h-64 w-full rounded-2xl object-cover" />
+        <div class="space-y-2">
+          <p class="text-xs uppercase tracking-wide text-slate-500">{row.category}</p>
+          <h1 class="text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">{row.title}</h1>
+        </div>
+        {
+          coverSrc ? (
+            <img src={coverSrc} alt={row.title} class="h-64 w-full rounded-2xl object-cover sm:h-72" loading="eager" />
+          ) : null
+        }
         <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
-          <p class="mb-4 text-xs uppercase tracking-wide text-slate-500">{row.category}</p>
           {row.content ? (
             <div
               class="prose prose-lg max-w-none text-slate-800 prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-slate-900 prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:text-slate-400 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"

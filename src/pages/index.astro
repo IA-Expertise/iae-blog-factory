@@ -2,6 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import AdUnit from "../components/AdUnit.astro";
 import AffiliateWidget from "../components/AffiliateWidget.astro";
+import { resolvePublicAssetUrl } from "../lib/mediaUrl";
 
 const siteData = Astro.locals.siteData;
 const [heroPost, ...secondaryPosts] = siteData.posts;
@@ -42,7 +43,7 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
       {heroPost && (
         <article class="rounded-2xl border border-slate-200 bg-[var(--color-surface)] p-5 shadow-sm">
           <img
-            src={heroPost.image}
+            src={resolvePublicAssetUrl(heroPost.image)}
             alt={heroPost.title}
             class="h-56 w-full rounded-xl object-cover"
             loading="lazy"
@@ -62,7 +63,7 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
         <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {secondaryPosts.map((post) => (
             <article class="group overflow-hidden rounded-2xl border border-slate-200 bg-[var(--color-surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-              <img src={post.image} alt={post.title} class="h-44 w-full object-cover" loading="lazy" />
+              <img src={resolvePublicAssetUrl(post.image)} alt={post.title} class="h-44 w-full object-cover" loading="lazy" />
               <div class="p-4">
                 <p class="text-xs uppercase tracking-wide text-slate-500">{post.category}</p>
                 <h4 class="mt-1 line-clamp-2 text-lg font-semibold">

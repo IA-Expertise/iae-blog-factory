@@ -33,7 +33,7 @@ async function saveGeneratedImageBuffer(buffer: Buffer, keyword: string, ext: st
   const filepath = join(outputDir, filename);
   await writeFile(filepath, buffer);
 
-  return `/generated-images/${filename}`;
+  return `/api/media/generated/${filename}`;
 }
 
 async function saveGeneratedImageLocally(base64Image: string, keyword: string): Promise<string> {
