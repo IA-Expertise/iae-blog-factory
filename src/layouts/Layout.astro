@@ -9,6 +9,12 @@ interface Props {
 }
 
 const { siteData, title = siteData.brandName } = Astro.props;
+
+const adsClient = siteData.ads.client?.trim() ?? "";
+const adsenseScript =
+  siteData.ads.enabled &&
+  siteData.ads.provider === "adsense" &&
+  /^ca-pub-\d{10,22}$/i.test(adsClient);
 ---
 
 <!doctype html>
@@ -18,6 +24,15 @@ const { siteData, title = siteData.brandName } = Astro.props;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
     <meta name="description" content={`Conteudo sobre ${siteData.niche}`} />
+    {
+      adsenseScript && (
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsClient)}`}
+          crossorigin="anonymous"
+        />
+      )
+    }
     <style
       define:vars={{
         colorPrimary: siteData.theme.primary,

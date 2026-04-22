@@ -6,14 +6,54 @@ interface Props {
 }
 
 const { provider, client, slot } = Astro.props;
+
+const isAdsense = provider.toLowerCase() === "adsense";
+const clientId = client?.trim() ?? "";
+const slotId = slot?.trim() ?? "";
+/** ID de editor no formato Google (apenas dígitos após ca-pub-). */
+const validClient = /^ca-pub-\d{10,22}$/i.test(clientId);
+/** Bloco de anúncio: o slot no painel AdSense é numérico. */
+const validSlot = /^\d{6,12}$/.test(slotId);
+const renderAdsense = isAdsense && validClient && validSlot;
 ---
 
 <aside class="rounded-2xl border border-slate-200 bg-[var(--color-surface)] p-4 shadow-sm">
   <p class="mb-2 text-xs uppercase tracking-wide text-slate-500">Publicidade</p>
-  <div class="rounded-xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600">
-    <p class="font-semibold">{provider.toUpperCase()}</p>
-    <p>Client: {client}</p>
-    <p>Slot: {slot}</p>
-    <p class="mt-2 text-xs text-slate-400">Placeholder para script de anuncio.</p>
-  </div>
+  {
+    renderAdsense ? (
+      <div class="min-h-[100px] overflow-hidden rounded-xl bg-white">
+        <ins
+          class="adsbygoogle"
+          style="display:block; min-height:100px;"
+          data-ad-client={clientId}
+          data-ad-slot={slotId}
+          data-ad-format="auto"
+          data-full-width-responsive="true"
+        />
+        <script is:inline>
+          (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+      </div>
+    ) : (
+      <div class="rounded-xl border border-dashed border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-950">
+        <p class="font-semibold">AdSense (pré-visualização)</p>
+        {!isAdsense && <p>Provedor: {provider}</p>}
+        {isAdsense && !validClient && (
+          <p class="mt-1">
+            No painel <strong>Monetização</strong>, use um ID de cliente no formato <code class="rounded bg-white px-1">ca-pub-XXXXXXXXXX</code> (só números após
+            <code class="rounded bg-white px-1">ca-pub-</code>), o mesmo que aparece no código que o Google pede para colar no site.
+          </p>
+        )}
+        {isAdsense && validClient && !validSlot && (
+          <p class="mt-1">
+            Cliente: <code class="rounded bg-white px-1">{clientId}</code>. O <strong>slot</strong> precisa ser o <strong>ID numérico</strong> do bloco de anúncios (Anúncios
+            → Por unidade de anúncios), não um nome como “sidebar”.
+          </p>
+        )}
+        <p class="mt-2 text-xs text-amber-800/90">
+          Anúncios reais só aparecem depois que o domínio estiver aprovado no AdSense e os IDs forem os do teu painel.
+        </p>
+      </div>
+    )
+  }
 </aside>

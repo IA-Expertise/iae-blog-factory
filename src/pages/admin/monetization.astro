@@ -85,10 +85,20 @@ const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
             <input type="checkbox" name="adsEnabled" checked={tenant.ads.enabled} />
             <span class="ml-2">Habilitar Google AdSense</span>
           </label>
-          <label class="text-sm">
-            <span class="mb-1 block">AdSense client</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adClient" value={tenant.ads.client} />
+          <label class="text-sm md:col-span-2">
+            <span class="mb-1 block">AdSense client (Publisher ID)</span>
+            <input
+              class="w-full rounded-lg border border-slate-300 px-3 py-2"
+              name="adClient"
+              placeholder="ca-pub-1234567890123456"
+              value={tenant.ads.client}
+            />
           </label>
+          <p class="text-xs leading-relaxed text-slate-600 md:col-span-2">
+            O script global do AdSense é inserido automaticamente nas páginas públicas quando o cliente está no formato
+            <code class="rounded bg-slate-100 px-1">ca-pub-</code> seguido só de números. Em cada posição use o
+            <strong>ID numérico</strong> da unidade de anúncios (Anúncios → Por unidade de anúncios no painel do Google).
+          </p>
           <label class="text-sm">
             <span class="mb-1 block">Slot topo</span>
             <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adTopSlot" value={tenant.ads.topSlot} />
