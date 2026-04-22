@@ -9,6 +9,8 @@ declare namespace App {
 }
 
 interface ImportMetaEnv {
+  /** Publisher AdSense (ca-pub- + só dígitos). Usado se o tenant não tiver client válido na BD. */
+  readonly PUBLIC_ADSENSE_CLIENT?: string;
   /** R2: URL do endpoint S3 API (ex.: https://ACCOUNT_ID.r2.cloudflarestorage.com). Na AWS costuma ficar vazio. */
   readonly S3_ENDPOINT?: string;
   readonly S3_REGION?: string;

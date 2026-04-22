@@ -2,6 +2,17 @@ import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage 
 import { prisma } from "./db";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
 
+const ADSENSE_CLIENT_RE = /^ca-pub-\d{10,22}$/i;
+
+/** Cliente gravado no tenant ou, se inválido, `PUBLIC_ADSENSE_CLIENT` (ex.: Railway). */
+function effectiveAdsenseClient(dbClient: string | null | undefined): string {
+  const fromDb = dbClient?.trim() ?? "";
+  if (ADSENSE_CLIENT_RE.test(fromDb)) return fromDb;
+  const fromEnv = import.meta.env.PUBLIC_ADSENSE_CLIENT?.trim() ?? "";
+  if (ADSENSE_CLIENT_RE.test(fromEnv)) return fromEnv;
+  return fromDb;
+}
+
 export type PostStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "PUBLISHED";
 
 export type ThemeConfig = {
@@ -443,7 +454,7 @@ function mapTenantToSiteData(
     ads: {
       provider: "adsense",
       enabled: tenant.adsEnabled,
-      client: tenant.adClient,
+      client: effectiveAdsenseClient(tenant.adClient),
       topSlot: tenant.adTopSlot,
       sidebarSlot: tenant.adSidebarSlot,
       inContentSlot: tenant.adInContentSlot,
