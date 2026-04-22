@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@astrojs/node": "^10.0.5",
+    "@aws-sdk/client-s3": "^3.1035.0",
     "@prisma/client": "^6.9.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.4",

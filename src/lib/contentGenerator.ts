@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isObjectStorageConfigured, uploadGeneratedCoverImage } from "./objectStorage";
 
 type GenerateInput = {
   tenantName: string;
@@ -25,20 +26,33 @@ function slugKeyword(keyword: string): string {
     .replace(/\s+/g, "-");
 }
 
-async function saveGeneratedImageBuffer(buffer: Buffer, keyword: string, ext: string): Promise<string> {
+function extToContentType(ext: string): string {
+  const e = ext.toLowerCase();
+  if (e === "webp") return "image/webp";
+  if (e === "jpg" || e === "jpeg") return "image/jpeg";
+  return "image/png";
+}
+
+/** Grava capa no object storage (se configurado) ou em disco + URL da API local. */
+async function persistCoverImageToStorage(buffer: Buffer, keyword: string, ext: string): Promise<string> {
+  const filename = `${slugKeyword(keyword)}-${Date.now()}.${ext}`;
+  const contentType = extToContentType(ext);
+
+  if (isObjectStorageConfigured()) {
+    const remoteUrl = await uploadGeneratedCoverImage({ buffer, filename, contentType });
+    if (remoteUrl) return remoteUrl;
+    console.warn("Upload para object storage falhou; gravando capa no disco local.");
+  }
+
   const outputDir = join(process.cwd(), "public", "generated-images");
   await mkdir(outputDir, { recursive: true });
-
-  const filename = `${slugKeyword(keyword)}-${Date.now()}.${ext}`;
-  const filepath = join(outputDir, filename);
-  await writeFile(filepath, buffer);
-
+  await writeFile(join(outputDir, filename), buffer);
   return `/api/media/generated/${filename}`;
 }
 
 async function saveGeneratedImageLocally(base64Image: string, keyword: string): Promise<string> {
   const buffer = Buffer.from(base64Image, "base64");
-  return saveGeneratedImageBuffer(buffer, keyword, "png");
+  return persistCoverImageToStorage(buffer, keyword, "png");
 }
 
 function buildImageGenerationBody(imageModel: string, prompt: string): Record<string, unknown> {
@@ -81,7 +95,7 @@ async function downloadRemoteImageToPublic(url: string, keyword: string): Promis
   const ext = type.includes("webp") ? "webp" : type.includes("jpeg") || type.includes("jpg") ? "jpg" : "png";
   const buffer = Buffer.from(await res.arrayBuffer());
   try {
-    return await saveGeneratedImageBuffer(buffer, keyword, ext);
+    return await persistCoverImageToStorage(buffer, keyword, ext);
   } catch (error) {
     console.error("Falha ao salvar imagem baixada:", error);
     return null;
