@@ -1,4 +1,4 @@
-import { generateArticleFromPitch, generateMonthlyPitches } from "./contentGenerator";
+import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage } from "./contentGenerator";
 import { prisma } from "./db";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
 
@@ -17,11 +17,16 @@ export type ThemeConfig = {
 
 export type AdConfig = {
   provider: "adsense";
+  enabled: boolean;
   client: string;
-  slot: string;
+  topSlot: string;
+  sidebarSlot: string;
+  inContentSlot: string;
+  footerSlot: string;
 };
 
 export type AffiliateConfig = {
+  enabled: boolean;
   network: string;
   trackingId: string;
   products: Array<{
@@ -46,8 +51,9 @@ export type Post = {
 };
 
 export type TenantEditorialConfig = {
-  editorialBrief: string | null;
+  projectDescription: string | null;
   editorialStyleNotes: string | null;
+  targetAudience: string | null;
   defaultArticleTone: string;
   autoPublishWeekdays: string | null;
   autoPublishHourUtc: number | null;
@@ -69,6 +75,18 @@ export type SiteData = {
   affiliate: AffiliateConfig;
   posts: Post[];
   editorial: TenantEditorialConfig;
+  logoUrl?: string | null;
+  rssFeedUrl?: string | null;
+  themePreset?: string;
+  social: {
+    instagram?: string | null;
+    facebook?: string | null;
+    youtube?: string | null;
+  };
+  contact: {
+    footerText?: string | null;
+    menuText?: string | null;
+  };
 };
 
 export type PitchStatus = "SUGGESTED" | "APPROVED" | "REJECTED" | "WRITTEN";
@@ -83,6 +101,49 @@ export type ArticlePitchRow = {
 };
 
 const FALLBACK_HOSTNAME = "vinil.local";
+
+const THEME_PRESETS: Record<string, ThemeConfig> = {
+  classic: {
+    primary: "#0b4aa2",
+    secondary: "#dbe5f4",
+    accent: "#c65b3b",
+    background: "#f3f4f6",
+    surface: "#ffffff",
+    text: "#0f172a",
+    headingFont: "'Inter', sans-serif",
+    bodyFont: "'Inter', sans-serif"
+  },
+  urban: {
+    primary: "#0f172a",
+    secondary: "#cbd5e1",
+    accent: "#2563eb",
+    background: "#f8fafc",
+    surface: "#ffffff",
+    text: "#111827",
+    headingFont: "'Inter', sans-serif",
+    bodyFont: "'Inter', sans-serif"
+  },
+  regional: {
+    primary: "#14532d",
+    secondary: "#d1fae5",
+    accent: "#b45309",
+    background: "#f5f7f5",
+    surface: "#ffffff",
+    text: "#1f2937",
+    headingFont: "'Merriweather', serif",
+    bodyFont: "'Inter', sans-serif"
+  },
+  premium: {
+    primary: "#6b1d45",
+    secondary: "#f5d0fe",
+    accent: "#a16207",
+    background: "#faf7fb",
+    surface: "#ffffff",
+    text: "#1f2937",
+    headingFont: "'Merriweather', serif",
+    bodyFont: "'Inter', sans-serif"
+  }
+};
 
 const DEFAULT_SITES: SiteData[] = [
   {
@@ -108,10 +169,15 @@ const DEFAULT_SITES: SiteData[] = [
     },
     ads: {
       provider: "adsense",
+      enabled: true,
       client: "ca-pub-vinil-123456",
-      slot: "vinil-sidebar-001"
+      topSlot: "vinil-top-001",
+      sidebarSlot: "vinil-sidebar-001",
+      inContentSlot: "vinil-incontent-001",
+      footerSlot: "vinil-footer-001"
     },
     affiliate: {
+      enabled: true,
       network: "Amazon",
       trackingId: "vinil-20",
       products: [
@@ -140,12 +206,18 @@ const DEFAULT_SITES: SiteData[] = [
       }
     ],
     editorial: {
-      editorialBrief: null,
+      projectDescription: null,
       editorialStyleNotes: null,
+      targetAudience: null,
       defaultArticleTone: "profissional",
       autoPublishWeekdays: null,
       autoPublishHourUtc: null
-    }
+    },
+    logoUrl: null,
+    rssFeedUrl: null,
+    themePreset: "classic",
+    social: { instagram: null, facebook: null, youtube: null },
+    contact: { footerText: null, menuText: null }
   },
   {
     hostname: "govtech.local",
@@ -170,10 +242,15 @@ const DEFAULT_SITES: SiteData[] = [
     },
     ads: {
       provider: "adsense",
+      enabled: true,
       client: "ca-pub-govtech-654321",
-      slot: "govtech-sidebar-001"
+      topSlot: "govtech-top-001",
+      sidebarSlot: "govtech-sidebar-001",
+      inContentSlot: "govtech-incontent-001",
+      footerSlot: "govtech-footer-001"
     },
     affiliate: {
+      enabled: true,
       network: "Hotmart",
       trackingId: "govtech-pro",
       products: [
@@ -196,12 +273,18 @@ const DEFAULT_SITES: SiteData[] = [
       }
     ],
     editorial: {
-      editorialBrief: null,
+      projectDescription: null,
       editorialStyleNotes: null,
+      targetAudience: null,
       defaultArticleTone: "profissional",
       autoPublishWeekdays: null,
       autoPublishHourUtc: null
-    }
+    },
+    logoUrl: null,
+    rssFeedUrl: null,
+    themePreset: "classic",
+    social: { instagram: null, facebook: null, youtube: null },
+    contact: { footerText: null, menuText: null }
   }
 ];
 
@@ -276,10 +359,29 @@ async function ensureSeedData() {
         themeHeadingFont: site.theme.headingFont,
         themeBodyFont: site.theme.bodyFont,
         adProvider: site.ads.provider,
+        adsEnabled: site.ads.enabled,
         adClient: site.ads.client,
-        adSlot: site.ads.slot,
+        adTopSlot: site.ads.topSlot,
+        adSidebarSlot: site.ads.sidebarSlot,
+        adInContentSlot: site.ads.inContentSlot,
+        adFooterSlot: site.ads.footerSlot,
+        amazonEnabled: true,
         affiliateNetwork: site.affiliate.network,
-        affiliateTrackingId: site.affiliate.trackingId
+        affiliateTrackingId: site.affiliate.trackingId,
+        logoUrl: site.logoUrl ?? null,
+        rssFeedUrl: site.rssFeedUrl ?? null,
+        themePreset: site.themePreset ?? "classic",
+        projectDescription: site.editorial.projectDescription ?? null,
+        editorialStyleNotes: site.editorial.editorialStyleNotes ?? null,
+        targetAudience: site.editorial.targetAudience ?? null,
+        defaultArticleTone: site.editorial.defaultArticleTone ?? "profissional",
+        socialInstagram: site.social.instagram ?? null,
+        socialFacebook: site.social.facebook ?? null,
+        socialYoutube: site.social.youtube ?? null,
+        footerContactText: site.contact.footerText ?? null,
+        menuContactText: site.contact.menuText ?? null,
+        autoPublishWeekdays: site.editorial.autoPublishWeekdays ?? null,
+        autoPublishHourUtc: site.editorial.autoPublishHourUtc ?? null
       }
     });
 
@@ -340,10 +442,15 @@ function mapTenantToSiteData(
     },
     ads: {
       provider: "adsense",
+      enabled: tenant.adsEnabled,
       client: tenant.adClient,
-      slot: tenant.adSlot
+      topSlot: tenant.adTopSlot,
+      sidebarSlot: tenant.adSidebarSlot,
+      inContentSlot: tenant.adInContentSlot,
+      footerSlot: tenant.adFooterSlot
     },
     affiliate: {
+      enabled: tenant.amazonEnabled,
       network: tenant.affiliateNetwork,
       trackingId: tenant.affiliateTrackingId,
       products: tenant.affiliateProducts.map((product) => ({
@@ -355,11 +462,24 @@ function mapTenantToSiteData(
     },
     posts: tenant.posts.map(mapPostRow),
     editorial: {
-      editorialBrief: tenant.editorialBrief ?? null,
+      projectDescription: tenant.projectDescription ?? null,
       editorialStyleNotes: tenant.editorialStyleNotes ?? null,
+      targetAudience: tenant.targetAudience ?? null,
       defaultArticleTone: tenant.defaultArticleTone ?? "profissional",
       autoPublishWeekdays: tenant.autoPublishWeekdays ?? null,
       autoPublishHourUtc: tenant.autoPublishHourUtc ?? null
+    },
+    logoUrl: tenant.logoUrl ?? null,
+    rssFeedUrl: tenant.rssFeedUrl ?? null,
+    themePreset: tenant.themePreset ?? "classic",
+    social: {
+      instagram: tenant.socialInstagram ?? null,
+      facebook: tenant.socialFacebook ?? null,
+      youtube: tenant.socialYoutube ?? null
+    },
+    contact: {
+      footerText: tenant.footerContactText ?? null,
+      menuText: tenant.menuContactText ?? null
     }
   };
 }
@@ -422,14 +542,91 @@ export async function createTenant(input: { hostname: string; brandName: string;
       themeHeadingFont: base.theme.headingFont,
       themeBodyFont: base.theme.bodyFont,
       adProvider: "adsense",
+      adsEnabled: true,
       adClient: "ca-pub-tenant-000000",
-      adSlot: "tenant-sidebar-001",
+      adTopSlot: "tenant-top-001",
+      adSidebarSlot: "tenant-sidebar-001",
+      adInContentSlot: "tenant-incontent-001",
+      adFooterSlot: "tenant-footer-001",
+      amazonEnabled: true,
       affiliateNetwork: "Amazon",
-      affiliateTrackingId: "tenant-20"
+      affiliateTrackingId: "tenant-20",
+      themePreset: "classic"
     },
     update: {
       brandName: input.brandName,
       niche: input.niche
+    }
+  });
+}
+
+export async function getTenantByHostname(hostname: string): Promise<SiteData | null> {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({
+    where: { hostname: normalizeHostname(hostname) },
+    include: { posts: { orderBy: { updatedAt: "desc" } }, affiliateProducts: true }
+  });
+  return tenant ? mapTenantToSiteData(tenant) : null;
+}
+
+export async function updateTenantSettings(input: {
+  hostname: string;
+  brandName: string;
+  niche: string;
+  logoUrl: string;
+  rssFeedUrl: string;
+  themePreset: string;
+  projectDescription: string;
+  editorialStyleNotes: string;
+  targetAudience: string;
+  defaultArticleTone: string;
+  socialInstagram: string;
+  socialFacebook: string;
+  socialYoutube: string;
+  footerContactText: string;
+  menuContactText: string;
+  autoPublishWeekdays: string;
+  autoPublishHourUtc: string;
+}) {
+  await ensureSeedData();
+  const host = normalizeHostname(input.hostname);
+  const presetKey = input.themePreset in THEME_PRESETS ? input.themePreset : "classic";
+  const preset = THEME_PRESETS[presetKey];
+
+  const hourRaw = input.autoPublishHourUtc.trim();
+  let autoHour: number | null = null;
+  if (hourRaw !== "") {
+    const h = Number.parseInt(hourRaw, 10);
+    if (Number.isFinite(h)) autoHour = Math.min(23, Math.max(0, h));
+  }
+
+  await prisma.tenant.update({
+    where: { hostname: host },
+    data: {
+      brandName: input.brandName.trim(),
+      niche: input.niche.trim(),
+      logoUrl: input.logoUrl.trim() || null,
+      rssFeedUrl: input.rssFeedUrl.trim() || null,
+      themePreset: presetKey,
+      themePrimary: preset.primary,
+      themeSecondary: preset.secondary,
+      themeAccent: preset.accent,
+      themeBackground: preset.background,
+      themeSurface: preset.surface,
+      themeText: preset.text,
+      themeHeadingFont: preset.headingFont,
+      themeBodyFont: preset.bodyFont,
+      projectDescription: input.projectDescription.trim() || null,
+      editorialStyleNotes: input.editorialStyleNotes.trim() || null,
+      targetAudience: input.targetAudience.trim() || null,
+      defaultArticleTone: input.defaultArticleTone.trim() || "profissional",
+      socialInstagram: input.socialInstagram.trim() || null,
+      socialFacebook: input.socialFacebook.trim() || null,
+      socialYoutube: input.socialYoutube.trim() || null,
+      footerContactText: input.footerContactText.trim() || null,
+      menuContactText: input.menuContactText.trim() || null,
+      autoPublishWeekdays: input.autoPublishWeekdays.trim() || null,
+      autoPublishHourUtc: autoHour
     }
   });
 }
@@ -458,10 +655,29 @@ export async function updateTenant(input: SiteData) {
       themeText: input.theme.text,
       themeHeadingFont: input.theme.headingFont,
       themeBodyFont: input.theme.bodyFont,
+      adsEnabled: input.ads.enabled,
       adClient: input.ads.client,
-      adSlot: input.ads.slot,
+      adTopSlot: input.ads.topSlot,
+      adSidebarSlot: input.ads.sidebarSlot,
+      adInContentSlot: input.ads.inContentSlot,
+      adFooterSlot: input.ads.footerSlot,
+      amazonEnabled: input.affiliate.enabled,
       affiliateNetwork: input.affiliate.network,
-      affiliateTrackingId: input.affiliate.trackingId
+      affiliateTrackingId: input.affiliate.trackingId,
+      logoUrl: input.logoUrl ?? null,
+      rssFeedUrl: input.rssFeedUrl ?? null,
+      themePreset: input.themePreset ?? "classic",
+      projectDescription: input.editorial.projectDescription ?? null,
+      editorialStyleNotes: input.editorial.editorialStyleNotes ?? null,
+      targetAudience: input.editorial.targetAudience ?? null,
+      defaultArticleTone: input.editorial.defaultArticleTone ?? "profissional",
+      socialInstagram: input.social.instagram ?? null,
+      socialFacebook: input.social.facebook ?? null,
+      socialYoutube: input.social.youtube ?? null,
+      footerContactText: input.contact.footerText ?? null,
+      menuContactText: input.contact.menuText ?? null,
+      autoPublishWeekdays: input.editorial.autoPublishWeekdays ?? null,
+      autoPublishHourUtc: input.editorial.autoPublishHourUtc ?? null
     }
   });
 }
@@ -547,6 +763,16 @@ export async function getPostById(postId: string) {
   });
 }
 
+export async function getPublishedPostBySlug(hostname: string, slug: string) {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
+  if (!tenant) return null;
+  return prisma.post.findFirst({
+    where: { tenantId: tenant.id, slug, status: "PUBLISHED" },
+    include: { tenant: true }
+  });
+}
+
 export async function updatePostFields(
   postId: string,
   input: { title?: string; slug?: string; category?: string; image?: string; excerpt?: string; content?: string }
@@ -564,6 +790,29 @@ export async function updatePostFields(
     where: { id: postId },
     data
   });
+}
+
+export async function regeneratePostCover(postId: string): Promise<string | null> {
+  await ensureSeedData();
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    include: { tenant: true }
+  });
+  if (!post) return null;
+
+  const image = await regenerateCoverImage({
+    tenantName: post.tenant.brandName,
+    niche: post.tenant.niche,
+    headline: post.title,
+    tone: post.tenant.defaultArticleTone ?? "profissional"
+  });
+  if (!image) return null;
+
+  await prisma.post.update({
+    where: { id: postId },
+    data: { image }
+  });
+  return image;
 }
 
 export async function setPostStatus(postId: string, status: PostStatus) {
@@ -671,11 +920,39 @@ export async function deleteAffiliateProduct(hostname: string, productId: string
   });
 }
 
+export async function updateTenantMonetization(input: {
+  hostname: string;
+  adsEnabled: boolean;
+  adClient: string;
+  adTopSlot: string;
+  adSidebarSlot: string;
+  adInContentSlot: string;
+  adFooterSlot: string;
+  amazonEnabled: boolean;
+  affiliateTrackingId: string;
+}) {
+  await ensureSeedData();
+  await prisma.tenant.update({
+    where: { hostname: normalizeHostname(input.hostname) },
+    data: {
+      adsEnabled: input.adsEnabled,
+      adClient: input.adClient.trim(),
+      adTopSlot: input.adTopSlot.trim(),
+      adSidebarSlot: input.adSidebarSlot.trim(),
+      adInContentSlot: input.adInContentSlot.trim(),
+      adFooterSlot: input.adFooterSlot.trim(),
+      amazonEnabled: input.amazonEnabled,
+      affiliateTrackingId: input.affiliateTrackingId.trim()
+    }
+  });
+}
+
 export async function updateTenantEditorialBrief(
   hostname: string,
   input: {
-    editorialBrief: string;
+    projectDescription: string;
     editorialStyleNotes: string;
+    targetAudience: string;
     defaultArticleTone: string;
     autoPublishWeekdays: string;
     autoPublishHourUtc: string;
@@ -694,8 +971,9 @@ export async function updateTenantEditorialBrief(
   await prisma.tenant.update({
     where: { hostname: host },
     data: {
-      editorialBrief: input.editorialBrief.trim() || null,
+      projectDescription: input.projectDescription.trim() || null,
       editorialStyleNotes: input.editorialStyleNotes.trim() || null,
+      targetAudience: input.targetAudience.trim() || null,
       defaultArticleTone: input.defaultArticleTone.trim() || "profissional",
       autoPublishWeekdays: weekdays,
       autoPublishHourUtc: autoHour
@@ -784,7 +1062,7 @@ export async function writeArticlesFromApprovedPitches(hostname: string, monthKe
       tenantName: tenant.brandName,
       niche: tenant.niche,
       tone: tenant.defaultArticleTone ?? "profissional",
-      brief: tenant.editorialBrief ?? "",
+      brief: tenant.projectDescription ?? "",
       styleNotes: tenant.editorialStyleNotes ?? "",
       pitchTitle: pitch.title,
       pitchSummary: pitch.summary

@@ -26,15 +26,29 @@ model Tenant {
   themeHeadingFont   String
   themeBodyFont      String
   adProvider         String             @default("adsense")
+  adsEnabled         Boolean            @default(true)
   adClient           String
-  adSlot             String
+  adTopSlot          String
+  adSidebarSlot      String
+  adInContentSlot    String
+  adFooterSlot       String
+  amazonEnabled      Boolean            @default(true)
   affiliateNetwork   String
   affiliateTrackingId String
-  editorialBrief       String?
-  editorialStyleNotes  String?
-  defaultArticleTone   String             @default("profissional")
-  autoPublishWeekdays  String?
-  autoPublishHourUtc   Int?
+  logoUrl             String?
+  rssFeedUrl          String?
+  themePreset         String             @default("classic")
+  projectDescription  String?
+  editorialStyleNotes String?
+  targetAudience      String?
+  defaultArticleTone  String             @default("profissional")
+  socialInstagram     String?
+  socialFacebook      String?
+  socialYoutube       String?
+  footerContactText   String?
+  menuContactText     String?
+  autoPublishWeekdays String?
+  autoPublishHourUtc  Int?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   posts              Post[]

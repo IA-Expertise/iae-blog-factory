@@ -49,7 +49,9 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
           />
           <div class="mt-4">
             <p class="text-xs uppercase tracking-wide text-slate-500">{heroPost.category}</p>
-            <h2 class="mt-2 text-2xl font-bold">{heroPost.title}</h2>
+            <h2 class="mt-2 text-2xl font-bold">
+              <a href={`/post/${heroPost.slug}`} class="hover:underline">{heroPost.title}</a>
+            </h2>
             <p class="mt-1 text-sm text-slate-500">{heroPost.publishedAt}</p>
           </div>
         </article>
@@ -63,7 +65,9 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
               <img src={post.image} alt={post.title} class="h-44 w-full object-cover" loading="lazy" />
               <div class="p-4">
                 <p class="text-xs uppercase tracking-wide text-slate-500">{post.category}</p>
-                <h4 class="mt-1 line-clamp-2 text-lg font-semibold">{post.title}</h4>
+                <h4 class="mt-1 line-clamp-2 text-lg font-semibold">
+                  <a href={`/post/${post.slug}`} class="hover:underline">{post.title}</a>
+                </h4>
                 <p class="mt-2 text-sm text-slate-500">{post.publishedAt}</p>
               </div>
             </article>
@@ -73,7 +77,7 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
     </main>
 
     <aside class="space-y-4 lg:col-span-4">
-      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.slot} />
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
       <AffiliateWidget
         network={siteData.affiliate.network}
         trackingId={siteData.affiliate.trackingId}

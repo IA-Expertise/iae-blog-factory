@@ -1,7 +1,7 @@
 ---
 import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
-import { createTenant, listSites, updateTenant } from "../../lib/cms";
+import { createTenant, getTenantByHostname, listSites, updateTenantSettings } from "../../lib/cms";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
   return Astro.redirect("/admin/login");
@@ -17,164 +17,162 @@ if (Astro.request.method === "POST") {
       brandName: String(formData.get("brandName") ?? ""),
       niche: String(formData.get("niche") ?? "")
     });
+    return Astro.redirect("/admin/tenants");
   }
 
-  if (action === "update") {
-    await updateTenant({
-      hostname: String(formData.get("hostname") ?? ""),
+  if (action === "save") {
+    const hostname = String(formData.get("hostname") ?? "");
+    await updateTenantSettings({
+      hostname,
       brandName: String(formData.get("brandName") ?? ""),
       niche: String(formData.get("niche") ?? ""),
-      hero: {
-        title: String(formData.get("heroTitle") ?? ""),
-        subtitle: String(formData.get("heroSubtitle") ?? ""),
-        ctaLabel: String(formData.get("heroCtaLabel") ?? "Ver mais"),
-        ctaHref: String(formData.get("heroCtaHref") ?? "/"),
-        image: String(formData.get("heroImage") ?? "https://picsum.photos/1200/600")
-      },
-      theme: {
-        primary: String(formData.get("primary") ?? "#111827"),
-        secondary: String(formData.get("secondary") ?? "#94a3b8"),
-        accent: String(formData.get("accent") ?? "#334155"),
-        background: String(formData.get("background") ?? "#f8fafc"),
-        surface: String(formData.get("surface") ?? "#ffffff"),
-        text: String(formData.get("text") ?? "#0f172a"),
-        headingFont: String(formData.get("headingFont") ?? "'Inter', sans-serif"),
-        bodyFont: String(formData.get("bodyFont") ?? "'Inter', sans-serif")
-      },
-      ads: {
-        provider: "adsense",
-        client: String(formData.get("adClient") ?? ""),
-        slot: String(formData.get("adSlot") ?? "")
-      },
-      affiliate: {
-        network: String(formData.get("affiliateNetwork") ?? ""),
-        trackingId: String(formData.get("affiliateTrackingId") ?? ""),
-        products: []
-      },
-      posts: []
+      logoUrl: String(formData.get("logoUrl") ?? ""),
+      rssFeedUrl: String(formData.get("rssFeedUrl") ?? ""),
+      themePreset: String(formData.get("themePreset") ?? "classic"),
+      projectDescription: String(formData.get("projectDescription") ?? ""),
+      editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
+      targetAudience: String(formData.get("targetAudience") ?? ""),
+      defaultArticleTone: String(formData.get("defaultArticleTone") ?? "profissional"),
+      socialInstagram: String(formData.get("socialInstagram") ?? ""),
+      socialFacebook: String(formData.get("socialFacebook") ?? ""),
+      socialYoutube: String(formData.get("socialYoutube") ?? ""),
+      footerContactText: String(formData.get("footerContactText") ?? ""),
+      menuContactText: String(formData.get("menuContactText") ?? ""),
+      autoPublishWeekdays: String(formData.get("autoPublishWeekdays") ?? ""),
+      autoPublishHourUtc: String(formData.get("autoPublishHourUtc") ?? "")
     });
+    return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&ok=1`);
   }
-
-  return Astro.redirect("/admin/tenants");
 }
 
 const sites = await listSites();
+const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
+const tenant = selected ? await getTenantByHostname(selected) : null;
+const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
 ---
 
-<AdminLayout title="Tenants | IAE Blog Factory">
+<AdminLayout title="Tenant | IAE Blog Factory">
   <section class="rounded-2xl bg-white p-5 shadow-sm">
     <h2 class="text-xl font-semibold">Criar novo tenant</h2>
     <form method="POST" class="mt-4 grid gap-3 md:grid-cols-4">
       <input type="hidden" name="action" value="create" />
-      <input
-        class="rounded-lg border border-slate-300 px-3 py-2"
-        name="hostname"
-        placeholder="cliente.local"
-        required
-      />
-      <input class="rounded-lg border border-slate-300 px-3 py-2" name="brandName" placeholder="Nome da marca" required />
+      <input class="rounded-lg border border-slate-300 px-3 py-2" name="hostname" placeholder="blog.cliente.com" required />
+      <input class="rounded-lg border border-slate-300 px-3 py-2" name="brandName" placeholder="Nome do blog" required />
       <input class="rounded-lg border border-slate-300 px-3 py-2" name="niche" placeholder="Nicho" required />
       <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">
-        Criar tenant
+        Criar
       </button>
     </form>
   </section>
 
-  <section class="mt-6 space-y-4">
-    {sites.map((site) => (
-      <article class="rounded-2xl bg-white p-5 shadow-sm">
-        <h3 class="text-lg font-semibold">{site.hostname}</h3>
-        <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
-          <input type="hidden" name="action" value="update" />
-          <input type="hidden" name="hostname" value={site.hostname} />
-          <label class="text-sm">
-            <span class="mb-1 block">Marca</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="brandName" value={site.brandName} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Nicho</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="niche" value={site.niche} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Hero titulo</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroTitle" value={site.hero.title} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Hero subtitulo</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroSubtitle" value={site.hero.subtitle} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Cor primaria</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="primary" value={site.theme.primary} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Cor secundaria</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="secondary" value={site.theme.secondary} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Cor de destaque</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="accent" value={site.theme.accent} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Fundo</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="background" value={site.theme.background} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Surface</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="surface" value={site.theme.surface} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Texto</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="text" value={site.theme.text} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Fonte titulo</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="headingFont" value={site.theme.headingFont} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Fonte texto</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="bodyFont" value={site.theme.bodyFont} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">CTA label</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroCtaLabel" value={site.hero.ctaLabel} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">CTA link</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroCtaHref" value={site.hero.ctaHref} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Hero imagem</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="heroImage" value={site.hero.image} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Adsense client</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adClient" value={site.ads.client} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Adsense slot</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adSlot" value={site.ads.slot} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Rede afiliados</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="affiliateNetwork" value={site.affiliate.network} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Tracking afiliados</span>
-            <input
-              class="w-full rounded-lg border border-slate-300 px-3 py-2"
-              name="affiliateTrackingId"
-              value={site.affiliate.trackingId}
-            />
-          </label>
-          <button
-            class="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700 md:col-span-2"
-            type="submit"
-          >
-            Salvar configuracoes
-          </button>
-        </form>
-      </article>
-    ))}
+  <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+    <form method="GET" class="flex flex-wrap items-end gap-3">
+      <label class="text-sm">
+        <span class="mb-1 block font-medium">Tenant para configurar</span>
+        <select class="rounded-lg border border-slate-300 px-3 py-2" name="hostname">
+          {sites.map((site) => (
+            <option value={site.hostname} selected={site.hostname === selected}>
+              {site.hostname}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button class="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700" type="submit">Abrir</button>
+    </form>
   </section>
+
+  {saved && <p class="mt-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Tenant salvo com sucesso.</p>}
+
+  {tenant && (
+    <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+      <h3 class="text-lg font-semibold">{tenant.hostname}</h3>
+      <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+        <input type="hidden" name="action" value="save" />
+        <input type="hidden" name="hostname" value={tenant.hostname} />
+
+        <label class="text-sm">
+          <span class="mb-1 block">Nome do blog</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="brandName" value={tenant.brandName} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Nicho</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="niche" value={tenant.niche} />
+        </label>
+
+        <label class="text-sm">
+          <span class="mb-1 block">Logo (URL)</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="logoUrl" value={tenant.logoUrl ?? ""} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">RSS feed principal</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="rssFeedUrl" value={tenant.rssFeedUrl ?? ""} />
+        </label>
+
+        <label class="text-sm">
+          <span class="mb-1 block">Paleta de cores</span>
+          <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="themePreset">
+            <option value="classic" selected={tenant.themePreset === "classic"}>Classic</option>
+            <option value="urban" selected={tenant.themePreset === "urban"}>Urban</option>
+            <option value="regional" selected={tenant.themePreset === "regional"}>Regional</option>
+            <option value="premium" selected={tenant.themePreset === "premium"}>Premium</option>
+          </select>
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Tom padrão da IA</span>
+          <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="defaultArticleTone">
+            <option value="profissional" selected={tenant.editorial.defaultArticleTone === "profissional"}>Profissional</option>
+            <option value="didatico" selected={tenant.editorial.defaultArticleTone === "didatico"}>Didático</option>
+            <option value="direto" selected={tenant.editorial.defaultArticleTone === "direto"}>Direto</option>
+          </select>
+        </label>
+
+        <label class="text-sm md:col-span-2">
+          <span class="mb-1 block">Descrição do projeto (objetivo real do blog)</span>
+          <textarea class="min-h-[100px] w-full rounded-lg border border-slate-300 px-3 py-2" name="projectDescription">{tenant.editorial.projectDescription ?? ""}</textarea>
+        </label>
+        <label class="text-sm md:col-span-2">
+          <span class="mb-1 block">Estilo, tipos de conteúdo e instruções para IA</span>
+          <textarea class="min-h-[90px] w-full rounded-lg border border-slate-300 px-3 py-2" name="editorialStyleNotes">{tenant.editorial.editorialStyleNotes ?? ""}</textarea>
+        </label>
+        <label class="text-sm md:col-span-2">
+          <span class="mb-1 block">Público-alvo</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="targetAudience" value={tenant.editorial.targetAudience ?? ""} />
+        </label>
+
+        <label class="text-sm">
+          <span class="mb-1 block">Instagram</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="socialInstagram" value={tenant.social.instagram ?? ""} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Facebook</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="socialFacebook" value={tenant.social.facebook ?? ""} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">YouTube</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="socialYoutube" value={tenant.social.youtube ?? ""} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Contato do menu</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="menuContactText" value={tenant.contact.menuText ?? ""} />
+        </label>
+        <label class="text-sm md:col-span-2">
+          <span class="mb-1 block">Dados de contato do rodapé</span>
+          <textarea class="min-h-[70px] w-full rounded-lg border border-slate-300 px-3 py-2" name="footerContactText">{tenant.contact.footerText ?? ""}</textarea>
+        </label>
+
+        <label class="text-sm">
+          <span class="mb-1 block">Dias de publicação (UTC, ex: 1,3,5)</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="autoPublishWeekdays" value={tenant.editorial.autoPublishWeekdays ?? ""} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Hora de publicação (UTC, 0-23)</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="number" min="0" max="23" name="autoPublishHourUtc" value={tenant.editorial.autoPublishHourUtc ?? ""} />
+        </label>
+
+        <button class="rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700 md:col-span-2" type="submit">
+          Salvar configuração do tenant
+        </button>
+      </form>
+    </section>
+  )}
 </AdminLayout>

@@ -1,0 +1,72 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import AdUnit from "../../components/AdUnit.astro";
+import AffiliateWidget from "../../components/AffiliateWidget.astro";
+import { getPublishedPostBySlug } from "../../lib/cms";
+
+export const prerender = false;
+
+const siteData = Astro.locals.siteData;
+const slug = Astro.params.slug ?? "";
+const post = await getPublishedPostBySlug(siteData.hostname, slug);
+
+if (!post) {
+  return Astro.redirect("/");
+}
+---
+
+<Layout siteData={siteData} title={`${post.title} | ${siteData.brandName}`}>
+  <div class="space-y-6">
+    {siteData.ads.enabled && (
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />
+    )}
+
+    <header class="rounded-2xl bg-[var(--color-primary)] p-4 text-white">
+      <div class="flex items-center gap-3">
+        {siteData.logoUrl && <img src={siteData.logoUrl} alt={siteData.brandName} class="h-10 w-10 rounded object-cover" />}
+        <div>
+          <p class="text-sm opacity-90">{siteData.brandName}</p>
+          <h1 class="text-xl font-bold">{post.title}</h1>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <article class="space-y-4 lg:col-span-8">
+        <img src={post.image} alt={post.title} class="h-64 w-full rounded-2xl object-cover" />
+        <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
+          <p class="mb-4 text-xs uppercase tracking-wide text-slate-500">{post.category}</p>
+          <div class="prose max-w-none prose-slate">
+            {post.content ? <Fragment set:html={post.content.replace(/\n/g, "<br/>")} /> : <p>{post.excerpt}</p>}
+          </div>
+        </div>
+
+        {siteData.affiliate.enabled && (
+          <AffiliateWidget
+            network={siteData.affiliate.network}
+            trackingId={siteData.affiliate.trackingId}
+            products={siteData.affiliate.products}
+          />
+        )}
+
+        {siteData.ads.enabled && (
+          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.inContentSlot} />
+        )}
+      </article>
+
+      <aside class="space-y-4 lg:col-span-4">
+        {siteData.ads.enabled && (
+          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
+        )}
+      </aside>
+    </div>
+
+    {siteData.ads.enabled && (
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.footerSlot} />
+    )}
+
+    <footer class="rounded-2xl bg-[var(--color-primary)] p-4 text-center text-sm text-white">
+      {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}
+    </footer>
+  </div>
+</Layout>

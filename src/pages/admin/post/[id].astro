@@ -4,6 +4,7 @@ import { isAdminAuthenticated } from "../../../lib/adminAuth";
 import {
   getPostById,
   publishPostNow,
+  regeneratePostCover,
   schedulePostPublication,
   setPostStatus,
   updatePostFields,
@@ -48,6 +49,10 @@ if (Astro.request.method === "POST") {
     await publishPostNow(id);
   }
 
+  if (action === "regenerate_image") {
+    await regeneratePostCover(id);
+  }
+
   if (action === "schedule") {
     const raw = String(formData.get("scheduledAt") ?? "");
     await schedulePostPublication(id, raw);
@@ -82,7 +87,6 @@ const statusLabel: Record<PostStatus, string> = {
   </div>
 
   <form method="POST" class="space-y-6 rounded-2xl bg-white p-5 shadow-sm">
-    <input type="hidden" name="action" value="save" />
     <div class="grid gap-4 md:grid-cols-2">
       <label class="text-sm">
         <span class="mb-1 block font-medium">Titulo</span>
@@ -109,8 +113,21 @@ const statusLabel: Record<PostStatus, string> = {
       <span class="mb-1 block font-medium">Conteudo (markdown)</span>
       <textarea class="min-h-[280px] w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm" name="content">{row.content ?? ""}</textarea>
     </label>
-    <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">
+    <button
+      class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500"
+      type="submit"
+      name="action"
+      value="save"
+    >
       Salvar alteracoes
+    </button>
+    <button
+      class="ml-2 rounded-lg bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700"
+      type="submit"
+      name="action"
+      value="regenerate_image"
+    >
+      Regenerar imagem
     </button>
   </form>
 

@@ -1,0 +1,158 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { isAdminAuthenticated } from "../../lib/adminAuth";
+import {
+  addAffiliateProduct,
+  deleteAffiliateProduct,
+  getTenantByHostname,
+  listSites,
+  updateTenantMonetization
+} from "../../lib/cms";
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login");
+}
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const action = String(formData.get("action") ?? "");
+  const hostname = String(formData.get("hostname") ?? "");
+
+  if (action === "save-monetization") {
+    await updateTenantMonetization({
+      hostname,
+      adsEnabled: String(formData.get("adsEnabled") ?? "") === "on",
+      adClient: String(formData.get("adClient") ?? ""),
+      adTopSlot: String(formData.get("adTopSlot") ?? ""),
+      adSidebarSlot: String(formData.get("adSidebarSlot") ?? ""),
+      adInContentSlot: String(formData.get("adInContentSlot") ?? ""),
+      adFooterSlot: String(formData.get("adFooterSlot") ?? ""),
+      amazonEnabled: String(formData.get("amazonEnabled") ?? "") === "on",
+      affiliateTrackingId: String(formData.get("affiliateTrackingId") ?? "")
+    });
+    return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
+  }
+
+  if (action === "add-product") {
+    await addAffiliateProduct(hostname, {
+      title: String(formData.get("title") ?? ""),
+      cta: String(formData.get("cta") ?? "Ver oferta"),
+      url: String(formData.get("url") ?? "")
+    });
+    return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
+  }
+
+  if (action === "delete-product") {
+    await deleteAffiliateProduct(hostname, String(formData.get("productId") ?? ""));
+    return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
+  }
+}
+
+const sites = await listSites();
+const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
+const tenant = selected ? await getTenantByHostname(selected) : null;
+const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
+---
+
+<AdminLayout title="Monetização | IAE Blog Factory">
+  {saved && <p class="mb-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Dados salvos.</p>}
+
+  <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <form method="GET" class="flex flex-wrap items-end gap-3">
+      <label class="text-sm">
+        <span class="mb-1 block font-medium">Tenant</span>
+        <select class="rounded-lg border border-slate-300 px-3 py-2" name="hostname">
+          {sites.map((site) => (
+            <option value={site.hostname} selected={site.hostname === selected}>
+              {site.hostname}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white" type="submit">Abrir</button>
+    </form>
+  </section>
+
+  {tenant && (
+    <>
+      <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+        <h2 class="text-xl font-semibold">Google AdSense + Amazon</h2>
+        <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="action" value="save-monetization" />
+          <input type="hidden" name="hostname" value={tenant.hostname} />
+
+          <label class="text-sm md:col-span-2">
+            <input type="checkbox" name="adsEnabled" checked={tenant.ads.enabled} />
+            <span class="ml-2">Habilitar Google AdSense</span>
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">AdSense client</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adClient" value={tenant.ads.client} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Slot topo</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adTopSlot" value={tenant.ads.topSlot} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Slot sidebar</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adSidebarSlot" value={tenant.ads.sidebarSlot} />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Slot in-content</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adInContentSlot" value={tenant.ads.inContentSlot} />
+          </label>
+          <label class="text-sm md:col-span-2">
+            <span class="mb-1 block">Slot rodapé</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adFooterSlot" value={tenant.ads.footerSlot} />
+          </label>
+
+          <label class="text-sm md:col-span-2">
+            <input type="checkbox" name="amazonEnabled" checked={tenant.affiliate.enabled} />
+            <span class="ml-2">Habilitar Amazon afiliados</span>
+          </label>
+          <label class="text-sm md:col-span-2">
+            <span class="mb-1 block">Tracking ID Amazon</span>
+            <input
+              class="w-full rounded-lg border border-slate-300 px-3 py-2"
+              name="affiliateTrackingId"
+              value={tenant.affiliate.trackingId}
+            />
+          </label>
+
+          <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white md:col-span-2" type="submit">
+            Salvar monetização
+          </button>
+        </form>
+      </section>
+
+      <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+        <h3 class="text-lg font-semibold">Produtos Amazon (links completos ou amzn.to)</h3>
+        <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="action" value="add-product" />
+          <input type="hidden" name="hostname" value={tenant.hostname} />
+          <input class="rounded-lg border border-slate-300 px-3 py-2" name="title" placeholder="Nome do produto" required />
+          <input class="rounded-lg border border-slate-300 px-3 py-2" name="cta" placeholder="CTA (ex: Ver oferta)" value="Ver oferta" />
+          <input class="rounded-lg border border-slate-300 px-3 py-2 md:col-span-2" name="url" placeholder="https://www.amazon.com.br/... ou https://amzn.to/..." required />
+          <button class="rounded-lg bg-slate-900 px-4 py-2 text-white md:col-span-2" type="submit">Adicionar produto</button>
+        </form>
+
+        <ul class="mt-4 space-y-2">
+          {tenant.affiliate.products.map((product) => (
+            <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
+              <div>
+                <p class="font-medium">{product.title}</p>
+                <p class="text-xs text-slate-500">{product.url}</p>
+              </div>
+              <form method="POST">
+                <input type="hidden" name="action" value="delete-product" />
+                <input type="hidden" name="hostname" value={tenant.hostname} />
+                <input type="hidden" name="productId" value={product.id} />
+                <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm text-white" type="submit">Remover</button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
+  )}
+</AdminLayout>

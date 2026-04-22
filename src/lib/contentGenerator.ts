@@ -71,6 +71,25 @@ Estilo: clean editorial, realista, moderno, alta qualidade, sem textos na imagem
   }
 }
 
+export async function regenerateCoverImage(params: {
+  tenantName: string;
+  niche: string;
+  headline: string;
+  tone: string;
+}): Promise<string | null> {
+  const apiKey = import.meta.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  return generateImageWithOpenAI(
+    {
+      tenantName: params.tenantName,
+      niche: params.niche,
+      keyword: params.headline,
+      tone: params.tone
+    },
+    apiKey
+  );
+}
+
 async function generateWithOpenAI(input: GenerateInput): Promise<GeneratedArticle | null> {
   const apiKey = import.meta.env.OPENAI_API_KEY;
   if (!apiKey) return null;

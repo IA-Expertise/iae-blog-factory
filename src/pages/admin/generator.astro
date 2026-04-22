@@ -41,8 +41,9 @@ if (Astro.request.method === "POST") {
   try {
     if (action === "save_briefing") {
       await updateTenantEditorialBrief(hostname, {
-        editorialBrief: String(formData.get("editorialBrief") ?? ""),
+        projectDescription: String(formData.get("projectDescription") ?? ""),
         editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
+        targetAudience: String(formData.get("targetAudience") ?? ""),
         defaultArticleTone: String(formData.get("defaultArticleTone") ?? "profissional"),
         autoPublishWeekdays: String(formData.get("autoPublishWeekdays") ?? ""),
         autoPublishHourUtc: String(formData.get("autoPublishHourUtc") ?? "")
@@ -62,8 +63,8 @@ if (Astro.request.method === "POST") {
         niche: site.niche,
         monthLabel: m,
         count,
-        brief: site.editorial.editorialBrief ?? "",
-        styleNotes: site.editorial.editorialStyleNotes ?? "",
+        brief: site.editorial.projectDescription ?? "",
+        styleNotes: `${site.editorial.editorialStyleNotes ?? ""}\nPublico-alvo: ${site.editorial.targetAudience ?? ""}`.trim(),
         tone: site.editorial.defaultArticleTone ?? "profissional"
       });
 
@@ -167,9 +168,18 @@ const pitches = site ? await listPitches(selectedHost, monthKey) : [];
           <input type="hidden" name="monthKey" value={monthKey} />
           <label class="text-sm">
             <span class="mb-1 block font-medium">Sobre o blog e propostas</span>
-            <textarea class="min-h-[100px] w-full rounded-lg border border-slate-300 px-3 py-2" name="editorialBrief" placeholder="Publico-alvo, promessas do blog, tomada de voz, ofertas, etc.">
-              {site.editorial.editorialBrief ?? ""}
+            <textarea class="min-h-[100px] w-full rounded-lg border border-slate-300 px-3 py-2" name="projectDescription" placeholder="Qual e o projeto, para que serve, posicionamento editorial e objetivo do blog.">
+              {site.editorial.projectDescription ?? ""}
             </textarea>
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium">Publico-alvo</span>
+            <input
+              class="w-full rounded-lg border border-slate-300 px-3 py-2"
+              name="targetAudience"
+              placeholder="Ex: moradores de Louveira, 25-55 anos, interessados em noticias locais"
+              value={site.editorial.targetAudience ?? ""}
+            />
           </label>
           <label class="text-sm">
             <span class="mb-1 block font-medium">Estilo, referencias e restricoes</span>
