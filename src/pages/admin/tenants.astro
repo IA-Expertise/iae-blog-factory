@@ -2,6 +2,7 @@
 import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
 import { createTenant, getTenantByHostname, listSites, updateTenantSettings } from "../../lib/cms";
+import { buildTenantPublicUrl } from "../../lib/tenantUrls";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
   return Astro.redirect("/admin/login");
@@ -49,6 +50,8 @@ const sites = await listSites();
 const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
 const tenant = selected ? await getTenantByHostname(selected) : null;
 const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
+const currentOrigin = new URL(Astro.request.url).origin;
+const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.hostname) : "";
 ---
 
 <AdminLayout title="Tenant | IAE Blog Factory">
@@ -86,6 +89,12 @@ const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
   {tenant && (
     <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
       <h3 class="text-lg font-semibold">{tenant.hostname}</h3>
+      <div class="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        URL pública de teste deste tenant:
+        <a class="ml-1 font-semibold text-indigo-700 hover:underline" href={tenantPublicUrl} target="_blank" rel="noopener noreferrer">
+          {tenantPublicUrl}
+        </a>
+      </div>
       <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
         <input type="hidden" name="action" value="save" />
         <input type="hidden" name="hostname" value={tenant.hostname} />

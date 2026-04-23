@@ -1,0 +1,76 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import AdUnit from "../../../components/AdUnit.astro";
+import AffiliateWidget from "../../../components/AffiliateWidget.astro";
+import { getSiteDataByHostname } from "../../../lib/cms";
+import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
+import { buildTenantHomePath, buildTenantPostPath } from "../../../lib/tenantUrls";
+
+export const prerender = false;
+
+const hostname = Astro.params.hostname ?? "";
+const siteData = await getSiteDataByHostname(hostname);
+const [heroPost, ...secondaryPosts] = siteData.posts;
+const homeHref = buildTenantHomePath(siteData.hostname);
+---
+
+<Layout siteData={siteData} title={`${siteData.brandName} | Home`} homeHref={homeHref}>
+  <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+    <main class="space-y-8 lg:col-span-8">
+      <section class="relative overflow-hidden rounded-3xl shadow-xl">
+        <img src={siteData.hero.image} alt={siteData.hero.title} class="h-[360px] w-full object-cover sm:h-[420px]" loading="eager" />
+        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 p-6 sm:p-8">
+          <span class="mb-3 inline-block rounded-full px-3 py-1 text-xs font-medium text-white" style="background: var(--color-accent);">
+            {siteData.niche}
+          </span>
+          <h1 class="max-w-2xl text-3xl font-bold leading-tight text-white sm:text-4xl">{siteData.hero.title}</h1>
+          <p class="mt-3 max-w-2xl text-sm text-slate-100 sm:text-base">{siteData.hero.subtitle}</p>
+          <a href={siteData.hero.ctaHref} class="mt-5 inline-flex items-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white" style="background: var(--color-primary);">
+            {siteData.hero.ctaLabel}
+          </a>
+        </div>
+      </section>
+
+      {heroPost && (
+        <article class="rounded-2xl border border-slate-200 bg-[var(--color-surface)] p-5 shadow-sm">
+          <img src={resolvePublicAssetUrl(heroPost.image)} alt={heroPost.title} class="h-56 w-full rounded-xl object-cover" loading="lazy" />
+          <div class="mt-4">
+            <p class="text-xs uppercase tracking-wide text-slate-500">{heroPost.category}</p>
+            <h2 class="mt-2 text-2xl font-bold">
+              <a href={buildTenantPostPath(siteData.hostname, heroPost.slug ?? "")} class="hover:underline">{heroPost.title}</a>
+            </h2>
+            <p class="mt-1 text-sm text-slate-500">{heroPost.publishedAt}</p>
+          </div>
+        </article>
+      )}
+
+      <section>
+        <h3 class="mb-4 text-2xl font-bold">Mais lidos</h3>
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {secondaryPosts.map((post) => (
+            <article class="group overflow-hidden rounded-2xl border border-slate-200 bg-[var(--color-surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <img src={resolvePublicAssetUrl(post.image)} alt={post.title} class="h-44 w-full object-cover" loading="lazy" />
+              <div class="p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">{post.category}</p>
+                <h4 class="mt-1 line-clamp-2 text-lg font-semibold">
+                  <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="hover:underline">{post.title}</a>
+                </h4>
+                <p class="mt-2 text-sm text-slate-500">{post.publishedAt}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
+
+    <aside class="space-y-4 lg:col-span-4">
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
+      <AffiliateWidget
+        network={siteData.affiliate.network}
+        trackingId={siteData.affiliate.trackingId}
+        products={siteData.affiliate.products}
+      />
+    </aside>
+  </div>
+</Layout>

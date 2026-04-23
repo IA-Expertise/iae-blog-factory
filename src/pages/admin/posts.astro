@@ -3,6 +3,7 @@ import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
 import type { PostStatus } from "../../lib/cms";
 import { addPost, deletePost, listSites } from "../../lib/cms";
+import { buildTenantPostPath, buildTenantPublicUrl } from "../../lib/tenantUrls";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
   return Astro.redirect("/admin/login");
@@ -32,6 +33,7 @@ if (Astro.request.method === "POST") {
 }
 
 const sites = await listSites();
+const origin = new URL(Astro.request.url).origin;
 
 const statusLabel: Record<PostStatus, string> = {
   DRAFT: "Rascunho",
@@ -75,7 +77,17 @@ const statusClass: Record<PostStatus, string> = {
   <section class="mt-6 space-y-4">
     {sites.map((site) => (
       <article class="rounded-2xl bg-white p-5 shadow-sm">
-        <h3 class="text-lg font-semibold">{site.hostname}</h3>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-lg font-semibold">{site.hostname}</h3>
+          <a
+            class="text-sm font-semibold text-indigo-700 hover:underline"
+            href={buildTenantPublicUrl(origin, site.hostname)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Abrir blog
+          </a>
+        </div>
         <ul class="mt-3 space-y-2">
           {site.posts.map((post) => (
             <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
@@ -109,6 +121,14 @@ const statusClass: Record<PostStatus, string> = {
                   rel="noopener noreferrer"
                 >
                   Ver página
+                </a>
+                <a
+                  class="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-600"
+                  href={post.slug ? buildTenantPostPath(site.hostname, post.slug) : buildTenantPublicUrl(origin, site.hostname)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Ver público
                 </a>
                 <form method="POST">
                   <input type="hidden" name="action" value="delete-post" />

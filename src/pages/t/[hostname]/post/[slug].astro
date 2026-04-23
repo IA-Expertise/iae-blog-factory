@@ -1,0 +1,78 @@
+---
+import Layout from "../../../../layouts/Layout.astro";
+import AdUnit from "../../../../components/AdUnit.astro";
+import AffiliateWidget from "../../../../components/AffiliateWidget.astro";
+import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../lib/cms";
+import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
+import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
+import { buildTenantHomePath } from "../../../../lib/tenantUrls";
+
+export const prerender = false;
+
+const hostname = Astro.params.hostname ?? "";
+const slug = Astro.params.slug ?? "";
+const siteData = await getSiteDataByHostname(hostname);
+const post = await getPublishedPostBySlug(siteData.hostname, slug);
+const articleHtml = post?.content ? renderPostMarkdown(post.content) : "";
+const coverSrc = post ? resolvePublicAssetUrl(post.image) : "";
+const homeHref = buildTenantHomePath(siteData.hostname);
+
+if (!post) {
+  return Astro.redirect(homeHref);
+}
+---
+
+<Layout siteData={siteData} title={`${post.title} | ${siteData.brandName}`} homeHref={homeHref}>
+  <div class="space-y-6">
+    {siteData.ads.enabled && (
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />
+    )}
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <article class="space-y-4 lg:col-span-8">
+        <div class="space-y-2">
+          <p class="text-xs uppercase tracking-wide text-slate-500">{post.category}</p>
+          <h1 class="text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">{post.title}</h1>
+          <p class="text-sm text-slate-500">{post.publishedAt}</p>
+        </div>
+        {coverSrc ? <img src={coverSrc} alt={post.title} class="h-64 w-full rounded-2xl object-cover sm:h-72" loading="eager" /> : null}
+        <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
+          {post.content ? (
+            <div
+              class="prose prose-lg max-w-none text-slate-800 prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-slate-900 prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:text-slate-400 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
+              set:html={articleHtml}
+            />
+          ) : (
+            <p class="text-base leading-relaxed text-slate-600">{post.excerpt}</p>
+          )}
+        </div>
+
+        {siteData.affiliate.enabled && (
+          <AffiliateWidget
+            network={siteData.affiliate.network}
+            trackingId={siteData.affiliate.trackingId}
+            products={siteData.affiliate.products}
+          />
+        )}
+
+        {siteData.ads.enabled && (
+          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.inContentSlot} />
+        )}
+      </article>
+
+      <aside class="space-y-4 lg:col-span-4">
+        {siteData.ads.enabled && (
+          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
+        )}
+      </aside>
+    </div>
+
+    {siteData.ads.enabled && (
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.footerSlot} />
+    )}
+
+    <footer class="rounded-2xl bg-[var(--color-primary)] p-4 text-center text-sm text-white">
+      {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}
+    </footer>
+  </div>
+</Layout>
