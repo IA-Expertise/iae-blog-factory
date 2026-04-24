@@ -3,9 +3,11 @@ interface Props {
   provider: string;
   client: string;
   slot: string;
+  /** `banner`: faixa larga no topo; `card`: bloco lateral/padrão */
+  layout?: "card" | "banner";
 }
 
-const { provider, client, slot } = Astro.props;
+const { provider, client, slot, layout = "card" } = Astro.props;
 
 const isAdsense = provider.toLowerCase() === "adsense";
 const clientId = client?.trim() ?? "";
@@ -15,16 +17,26 @@ const validClient = /^ca-pub-\d{10,22}$/i.test(clientId);
 /** Bloco de anúncio: o slot no painel AdSense é numérico. */
 const validSlot = /^\d{6,12}$/.test(slotId);
 const renderAdsense = isAdsense && validClient && validSlot;
+const isBanner = layout === "banner";
 ---
 
-<aside class="rounded-2xl border bg-[var(--color-surface)] p-4 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
-  <p class="mb-2 text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Publicidade</p>
+<aside
+  class:list={[
+    "border bg-[var(--color-surface)] shadow-sm",
+    isBanner ? "w-full rounded-none border-x-0 px-0 py-3 sm:rounded-2xl sm:border sm:px-4" : "rounded-2xl p-4"
+  ]}
+  style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);"
+>
+  <p class="mb-2 text-xs uppercase tracking-wide px-1 sm:px-0" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Publicidade</p>
   {
     renderAdsense ? (
-      <div class="min-h-[100px] overflow-hidden rounded-xl" style="background: color-mix(in srgb, var(--color-surface) 88%, white);">
+      <div
+        class:list={["overflow-hidden", isBanner ? "min-h-[90px] rounded-none sm:rounded-xl" : "min-h-[100px] rounded-xl"]}
+        style="background: color-mix(in srgb, var(--color-surface) 88%, white);"
+      >
         <ins
           class="adsbygoogle"
-          style="display:block; min-height:100px;"
+          style={isBanner ? "display:block; min-height:90px;" : "display:block; min-height:100px;"}
           data-ad-client={clientId}
           data-ad-slot={slotId}
           data-ad-format="auto"

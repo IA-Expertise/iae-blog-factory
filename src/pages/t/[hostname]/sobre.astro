@@ -1,0 +1,42 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import TenantPublicHeader from "../../../components/TenantPublicHeader.astro";
+import { getSiteDataByHostname } from "../../../lib/cms";
+import { buildTenantHomePath, buildTenantSobrePath, normalizeTenantHostname } from "../../../lib/tenantUrls";
+
+export const prerender = false;
+
+const hostname = Astro.params.hostname ?? "";
+const siteData = await getSiteDataByHostname(hostname);
+const homeHref = buildTenantHomePath(siteData.hostname);
+const requestedHostname = normalizeTenantHostname(hostname);
+
+if (requestedHostname !== siteData.hostname) {
+  return Astro.redirect(buildTenantSobrePath(siteData.hostname));
+}
+
+const canonicalUrl = new URL(buildTenantSobrePath(siteData.hostname), Astro.url.origin).toString();
+const body = siteData.editorial.projectDescription?.trim() ?? "Em breve: descrição do projeto e missão do blog.";
+const description = body.slice(0, 160).replace(/\s+/g, " ").trim();
+---
+
+<Layout
+  siteData={siteData}
+  title={`Quem somos? | ${siteData.brandName}`}
+  homeHref={homeHref}
+  canonicalUrl={canonicalUrl}
+  description={description}
+  ogType="website"
+  tenantPublicLayout={true}
+>
+  <div class="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+    <TenantPublicHeader siteData={siteData} active="sobre" />
+
+    <main id="conteudo" class="mx-auto max-w-3xl rounded-2xl border bg-[var(--color-surface)] p-6 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+      <h1 class="text-3xl font-bold" style="color: var(--color-text);">Quem somos?</h1>
+      <p class="mt-4 whitespace-pre-wrap text-base leading-relaxed" style="color: color-mix(in srgb, var(--color-text) 88%, transparent);">
+        {body}
+      </p>
+    </main>
+  </div>
+</Layout>

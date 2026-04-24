@@ -1,0 +1,106 @@
+---
+import type { SiteData } from "../lib/cms";
+import {
+  buildTenantArquivoPath,
+  buildTenantContatoPath,
+  buildTenantHomePath,
+  buildTenantSobrePath
+} from "../lib/tenantUrls";
+
+interface Props {
+  siteData: SiteData;
+  active?: "home" | "sobre" | "arquivo" | "contato" | "other";
+}
+
+const { siteData, active = "other" } = Astro.props;
+const h = siteData.hostname;
+const homeHref = buildTenantHomePath(h);
+const logoBarBg = "color-mix(in srgb, var(--color-primary) 82%, black)";
+
+function linkClass(key: NonNullable<Props["active"]>) {
+  return active === key
+    ? "font-semibold underline decoration-2 underline-offset-4"
+    : "opacity-95 hover:underline hover:opacity-100";
+}
+---
+
+<header class="mb-6 space-y-0 shadow-md">
+  <div
+    class="flex items-center justify-start rounded-t-2xl px-5 py-4 sm:px-8 sm:py-5"
+    style={`background: ${logoBarBg};`}
+  >
+    <a
+      href={homeHref}
+      class="flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 p-2 ring-1 ring-white/25 transition hover:bg-white/15"
+      aria-label={`Início — ${siteData.brandName}`}
+    >
+      {
+        siteData.logoUrl ? (
+          <img
+            src={siteData.logoUrl}
+            alt=""
+            class="h-16 w-16 object-contain sm:h-[4.5rem] sm:w-[4.5rem]"
+            width="72"
+            height="72"
+            loading="eager"
+          />
+        ) : (
+          <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-white/15 text-2xl font-bold text-white sm:h-[4.5rem] sm:w-[4.5rem] sm:text-3xl">
+            {siteData.brandName.trim().slice(0, 1).toUpperCase() || "?"}
+          </div>
+        )
+      }
+    </a>
+  </div>
+  <nav
+    class="flex flex-wrap items-center justify-between gap-3 rounded-b-2xl bg-[#b91c1c] px-4 py-2.5 text-sm font-medium text-white sm:px-6"
+    aria-label="Navegação secundária"
+  >
+    <div class="flex flex-wrap items-center gap-3">
+      {
+        siteData.social.instagram && (
+          <a
+            href={siteData.social.instagram}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-md bg-white/15 px-2 py-1 text-xs font-bold tracking-wide opacity-95 hover:bg-white/25"
+            aria-label="Instagram"
+          >
+            IG
+          </a>
+        )
+      }
+      {
+        siteData.social.facebook && (
+          <a
+            href={siteData.social.facebook}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-md bg-white/15 px-2 py-1 text-xs font-bold tracking-wide opacity-95 hover:bg-white/25"
+            aria-label="Facebook"
+          >
+            FB
+          </a>
+        )
+      }
+      {
+        siteData.social.youtube && (
+          <a
+            href={siteData.social.youtube}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rounded-md bg-white/15 px-2 py-1 text-xs font-bold tracking-wide opacity-95 hover:bg-white/25"
+            aria-label="YouTube"
+          >
+            YT
+          </a>
+        )
+      }
+    </div>
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
+      <a href={buildTenantSobrePath(h)} class={linkClass("sobre")}>Quem somos?</a>
+      <a href={buildTenantArquivoPath(h)} class={linkClass("arquivo")}>Arquivo</a>
+      <a href={buildTenantContatoPath(h)} class={linkClass("contato")}>Contato</a>
+    </div>
+  </nav>
+</header>

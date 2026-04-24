@@ -1,6 +1,12 @@
 import type { APIRoute } from "astro";
 import { listSites } from "../lib/cms";
-import { buildTenantHomePath, buildTenantPostPath } from "../lib/tenantUrls";
+import {
+  buildTenantArquivoPath,
+  buildTenantContatoPath,
+  buildTenantHomePath,
+  buildTenantPostPath,
+  buildTenantSobrePath
+} from "../lib/tenantUrls";
 
 function escapeXml(value: string): string {
   return value
@@ -18,6 +24,9 @@ export const GET: APIRoute = async ({ url }) => {
   const entries: string[] = [];
   for (const site of sites) {
     entries.push(new URL(buildTenantHomePath(site.hostname), origin).toString());
+    entries.push(new URL(buildTenantSobrePath(site.hostname), origin).toString());
+    entries.push(new URL(buildTenantArquivoPath(site.hostname), origin).toString());
+    entries.push(new URL(buildTenantContatoPath(site.hostname), origin).toString());
     for (const post of site.posts) {
       if (post.status !== "PUBLISHED" || !post.slug) continue;
       entries.push(new URL(buildTenantPostPath(site.hostname, post.slug), origin).toString());

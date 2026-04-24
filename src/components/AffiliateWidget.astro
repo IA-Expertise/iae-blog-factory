@@ -10,11 +10,15 @@ interface Props {
   network: string;
   trackingId: string;
   products: Product[];
+  maxProducts?: number;
 }
 
-const { network, trackingId, products } = Astro.props;
+const { network, trackingId, products, maxProducts = 3 } = Astro.props;
+const items = products.slice(0, Math.max(0, maxProducts));
 ---
 
+{
+  items.length > 0 && (
 <aside class="rounded-2xl border bg-[var(--color-surface)] p-4 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
   <p class="mb-2 text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Afiliados</p>
   <p class="mb-3 text-sm" style="color: color-mix(in srgb, var(--color-text) 78%, transparent);">
@@ -24,7 +28,7 @@ const { network, trackingId, products } = Astro.props;
   </p>
   <ul class="space-y-3">
     {
-      products.map((product) => (
+      items.map((product) => (
         <li class="rounded-xl border p-3" style="background: color-mix(in srgb, var(--color-surface) 88%, white); border-color: color-mix(in srgb, var(--color-text) 14%, transparent);">
           <p class="text-sm font-semibold" style="color: var(--color-text);">{product.title}</p>
           <a
@@ -41,3 +45,5 @@ const { network, trackingId, products } = Astro.props;
     }
   </ul>
 </aside>
+  )
+}

@@ -1,0 +1,67 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import TenantPublicHeader from "../../../components/TenantPublicHeader.astro";
+import { getSiteDataByHostname, listPublishedPostsForTenant } from "../../../lib/cms";
+import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
+import { buildTenantArquivoPath, buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname } from "../../../lib/tenantUrls";
+
+export const prerender = false;
+
+const hostname = Astro.params.hostname ?? "";
+const siteData = await getSiteDataByHostname(hostname);
+const posts = await listPublishedPostsForTenant(siteData.hostname);
+const homeHref = buildTenantHomePath(siteData.hostname);
+const requestedHostname = normalizeTenantHostname(hostname);
+
+if (requestedHostname !== siteData.hostname) {
+  return Astro.redirect(buildTenantArquivoPath(siteData.hostname));
+}
+
+const canonicalUrl = new URL(buildTenantArquivoPath(siteData.hostname), Astro.url.origin).toString();
+const description = `Arquivo de matérias publicadas em ${siteData.brandName}.`;
+---
+
+<Layout
+  siteData={siteData}
+  title={`Arquivo | ${siteData.brandName}`}
+  homeHref={homeHref}
+  canonicalUrl={canonicalUrl}
+  description={description}
+  ogType="website"
+  tenantPublicLayout={true}
+>
+  <div class="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+    <TenantPublicHeader siteData={siteData} active="arquivo" />
+
+    <main id="conteudo" class="rounded-2xl border bg-[var(--color-surface)] p-6 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+      <h1 class="text-3xl font-bold" style="color: var(--color-text);">Arquivo</h1>
+      <p class="mt-2 text-sm" style="color: color-mix(in srgb, var(--color-text) 60%, transparent);">Todas as matérias publicadas, da mais recente para a mais antiga.</p>
+
+      <ul class="mt-6 divide-y" style="border-color: color-mix(in srgb, var(--color-text) 12%, transparent);">
+        {
+          posts.map((post) => (
+            <li class="flex flex-wrap gap-4 py-4 sm:flex-nowrap">
+              <img
+                src={resolvePublicAssetUrl(post.image)}
+                alt=""
+                class="h-20 w-28 shrink-0 rounded-lg object-cover"
+                width="112"
+                height="80"
+                loading="lazy"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.category}</p>
+                <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="mt-1 block text-lg font-semibold hover:underline" style="color: var(--color-text);">
+                  {post.title}
+                </a>
+                <p class="mt-1 text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.publishedAt}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+
+      {posts.length === 0 && <p class="mt-6 text-sm" style="color: color-mix(in srgb, var(--color-text) 60%, transparent);">Nenhuma matéria publicada ainda.</p>}
+    </main>
+  </div>
+</Layout>

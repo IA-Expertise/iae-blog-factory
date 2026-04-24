@@ -1,0 +1,46 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import TenantPublicHeader from "../../../components/TenantPublicHeader.astro";
+import { getSiteDataByHostname } from "../../../lib/cms";
+import { buildTenantContatoPath, buildTenantHomePath, normalizeTenantHostname } from "../../../lib/tenantUrls";
+
+export const prerender = false;
+
+const hostname = Astro.params.hostname ?? "";
+const siteData = await getSiteDataByHostname(hostname);
+const homeHref = buildTenantHomePath(siteData.hostname);
+const requestedHostname = normalizeTenantHostname(hostname);
+
+if (requestedHostname !== siteData.hostname) {
+  return Astro.redirect(buildTenantContatoPath(siteData.hostname));
+}
+
+const canonicalUrl = new URL(buildTenantContatoPath(siteData.hostname), Astro.url.origin).toString();
+const description = `Contato e informações de ${siteData.brandName}.`;
+
+const lines: string[] = [];
+if (siteData.contact.menuText?.trim()) lines.push(siteData.contact.menuText.trim());
+if (siteData.contact.footerText?.trim()) lines.push(siteData.contact.footerText.trim());
+const body = lines.length > 0 ? lines.join("\n\n") : "Em breve: telefone, e-mail e canais de contato.";
+---
+
+<Layout
+  siteData={siteData}
+  title={`Contato | ${siteData.brandName}`}
+  homeHref={homeHref}
+  canonicalUrl={canonicalUrl}
+  description={description}
+  ogType="website"
+  tenantPublicLayout={true}
+>
+  <div class="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+    <TenantPublicHeader siteData={siteData} active="contato" />
+
+    <main id="conteudo" class="mx-auto max-w-3xl rounded-2xl border bg-[var(--color-surface)] p-6 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+      <h1 class="text-3xl font-bold" style="color: var(--color-text);">Contato</h1>
+      <p class="mt-4 whitespace-pre-wrap text-base leading-relaxed" style="color: color-mix(in srgb, var(--color-text) 88%, transparent);">
+        {body}
+      </p>
+    </main>
+  </div>
+</Layout>

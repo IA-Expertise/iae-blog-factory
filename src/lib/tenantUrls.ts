@@ -45,6 +45,18 @@ export function buildTenantPostPath(hostname: string, slug: string): string {
   return `${buildTenantBasePath(hostname)}/post/${encodeURIComponent(normalizeTenantSlug(slug))}`;
 }
 
+export function buildTenantSobrePath(hostname: string): string {
+  return `${buildTenantBasePath(hostname)}/sobre`;
+}
+
+export function buildTenantArquivoPath(hostname: string): string {
+  return `${buildTenantBasePath(hostname)}/arquivo`;
+}
+
+export function buildTenantContatoPath(hostname: string): string {
+  return `${buildTenantBasePath(hostname)}/contato`;
+}
+
 export function buildTenantPublicUrl(origin: string, hostname: string): string {
   const base = origin.endsWith("/") ? origin.slice(0, -1) : origin;
   return `${base}${buildTenantHomePath(hostname)}`;

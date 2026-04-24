@@ -560,6 +560,22 @@ export async function getSiteDataByHostname(hostname: string): Promise<SiteData>
   return mapTenantToSiteData(tenant);
 }
 
+/** Lista posts publicados do tenant (para arquivo / SEO). */
+export async function listPublishedPostsForTenant(hostname: string): Promise<Post[]> {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({
+    where: { hostname: normalizeHostname(hostname) },
+    include: {
+      posts: {
+        where: { status: "PUBLISHED" },
+        orderBy: { publishedAt: "desc" }
+      }
+    }
+  });
+  if (!tenant) return [];
+  return tenant.posts.map(mapPostRow);
+}
+
 export async function createTenant(input: { hostname: string; brandName: string; niche: string }): Promise<string> {
   await ensureSeedData();
   const hostname = normalizeHostname(input.hostname);
