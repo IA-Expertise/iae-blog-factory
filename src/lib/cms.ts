@@ -774,14 +774,15 @@ export async function getPostById(postId: string) {
   });
 }
 
-export async function getPublishedPostBySlug(hostname: string, slug: string) {
+export async function getPublishedPostBySlug(hostname: string, slug: string): Promise<Post | null> {
   await ensureSeedData();
   const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
   if (!tenant) return null;
-  return prisma.post.findFirst({
-    where: { tenantId: tenant.id, slug, status: "PUBLISHED" },
-    include: { tenant: true }
+  const row = await prisma.post.findFirst({
+    where: { tenantId: tenant.id, slug, status: "PUBLISHED" }
   });
+  if (!row) return null;
+  return mapPostRow(row);
 }
 
 export async function updatePostFields(

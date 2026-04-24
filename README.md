@@ -1,46 +1,47 @@
-# Astro Starter Kit: Basics
+# IAE Blog Factory (Strong Sphere)
 
-```sh
-npm create astro@latest -- --template basics
+Plataforma multi-tenant em Astro + Prisma para operar blogs por nicho com:
+- home pública por tenant em `/t/{hostname}/`
+- página de post pública em `/t/{hostname}/post/{slug}`
+- painel admin para tenants, posts, afiliados e monetização
+
+## Requisitos
+
+- Node `>= 22.12.0`
+- banco PostgreSQL acessível via `DATABASE_URL`
+
+## Variáveis de ambiente mínimas
+
+Use `.env.example` como base:
+
+- `DATABASE_URL`
+- `ADMIN_USER`
+- `ADMIN_PASSWORD`
+
+## Fluxo local
+
+```bash
+npm install
+npm run build
+npm start
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+`npm start` aplica `prisma db push` antes de subir o servidor, garantindo que o schema atual esteja refletido no banco.
 
-## 🚀 Project Structure
+## Fase 1 (dados + deploy)
 
-Inside of your Astro project, you'll see the following folders and files:
+Checklist curto para manter ambiente previsível:
 
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
-```
+1. Confirmar `DATABASE_URL` (Postgres) no ambiente.
+2. Garantir build verde (`npm run build`).
+3. Subir app (`npm start`) e validar login admin.
+4. Smoke test de tenant: criar/editar tenant, criar post publicado, abrir `/t/{hostname}/`.
+5. Em caso de erro, coletar logs de build/start sem expor segredos.
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
+## Comandos úteis
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- `npm run dev`: desenvolvimento local
+- `npm run build`: build de produção
+- `npm start`: aplica schema no banco e sobe servidor
+- `npm run db:generate`: regenera Prisma Client
+- `npm run db:migrate`: migrações para desenvolvimento

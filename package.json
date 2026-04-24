@@ -8,9 +8,10 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "start": "prisma db push && node ./dist/server/entry.mjs",
+    "start": "npm run db:push && node ./dist/server/entry.mjs",
     "preview": "astro preview",
     "astro": "astro",
+    "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev"
   },
