@@ -27,9 +27,20 @@ const canonicalPostPath = buildTenantPostPath(siteData.hostname, post.slug ?? ""
 if (requestedHostname !== siteData.hostname || requestedSlug !== (post.slug ?? "")) {
   return Astro.redirect(canonicalPostPath);
 }
+
+const canonicalUrl = new URL(canonicalPostPath, Astro.url.origin).toString();
+const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.brandName}.`;
 ---
 
-<Layout siteData={siteData} title={`${post.title} | ${siteData.brandName}`} homeHref={homeHref}>
+<Layout
+  siteData={siteData}
+  title={`${post.title} | ${siteData.brandName}`}
+  homeHref={homeHref}
+  canonicalUrl={canonicalUrl}
+  description={description}
+  ogImage={coverSrc || siteData.hero.image}
+  ogType="article"
+>
   <div class="space-y-6">
     {siteData.ads.enabled && (
       <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />

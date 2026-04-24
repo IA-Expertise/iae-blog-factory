@@ -7,9 +7,23 @@ interface Props {
   siteData: SiteData;
   title?: string;
   homeHref?: string;
+  description?: string;
+  canonicalUrl?: string;
+  ogImage?: string;
+  noindex?: boolean;
+  ogType?: "website" | "article";
 }
 
-const { siteData, title = siteData.brandName, homeHref = "/" } = Astro.props;
+const {
+  siteData,
+  title = siteData.brandName,
+  homeHref = "/",
+  description = `Conteudo sobre ${siteData.niche}`,
+  canonicalUrl,
+  ogImage = siteData.hero.image,
+  noindex = false,
+  ogType = "website"
+} = Astro.props;
 
 const adsClient = siteData.ads.client?.trim() ?? "";
 const adsenseScript =
@@ -24,7 +38,19 @@ const adsenseScript =
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
-    <meta name="description" content={`Conteudo sobre ${siteData.niche}`} />
+    <meta name="description" content={description} />
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+    {noindex && <meta name="robots" content="noindex,nofollow" />}
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content={siteData.brandName} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
     {
       adsenseScript && (
         <script

@@ -19,7 +19,12 @@ if (!post) {
 }
 ---
 
-<Layout siteData={siteData} title={`${post.title} | ${siteData.brandName}`}>
+<Layout
+  siteData={siteData}
+  title={`${post.title} | ${siteData.brandName}`}
+  noindex={true}
+  canonicalUrl={new URL(`/t/${siteData.hostname}/post/${post.slug ?? ""}`, Astro.url.origin).toString()}
+>
   <div class="space-y-6">
     {siteData.ads.enabled && (
       <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />

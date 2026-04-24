@@ -2,6 +2,7 @@
 import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
 import { createTenant, getTenantByHostname, listSites, updateTenantSettings } from "../../lib/cms";
+import { isObjectStorageConfigured, uploadPublicImageAsset } from "../../lib/objectStorage";
 import { buildTenantPublicUrl } from "../../lib/tenantUrls";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
@@ -29,11 +30,37 @@ if (Astro.request.method === "POST") {
   if (action === "save") {
     const hostname = String(formData.get("hostname") ?? "");
     try {
+      let logoUrl = String(formData.get("logoUrl") ?? "");
+      const logoFile = formData.get("logoFile");
+      const hasUpload = logoFile instanceof File && logoFile.size > 0;
+
+      if (hasUpload) {
+        if (!isObjectStorageConfigured()) {
+          throw new Error("Upload indisponivel: configure o object storage (R2/S3) no ambiente.");
+        }
+        const logo = logoFile as File;
+        if (!/^image\/(png|jpe?g|webp)$/i.test(logo.type)) {
+          throw new Error("Formato de logo invalido. Use PNG, JPG ou WEBP.");
+        }
+        const extension = logo.type.includes("png") ? "png" : logo.type.includes("webp") ? "webp" : "jpg";
+        const safeHost = hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
+        const keyName = `${safeHost}-${Date.now()}.${extension}`;
+        const uploadedUrl = await uploadPublicImageAsset({
+          buffer: Buffer.from(await logo.arrayBuffer()),
+          objectPath: `logos/${keyName}`,
+          contentType: logo.type
+        });
+        if (!uploadedUrl) {
+          throw new Error("Falha ao enviar logo para o storage.");
+        }
+        logoUrl = uploadedUrl;
+      }
+
       await updateTenantSettings({
         hostname,
         brandName: String(formData.get("brandName") ?? ""),
         niche: String(formData.get("niche") ?? ""),
-        logoUrl: String(formData.get("logoUrl") ?? ""),
+        logoUrl,
         rssFeedUrl: String(formData.get("rssFeedUrl") ?? ""),
         themePreset: String(formData.get("themePreset") ?? "classic"),
         projectDescription: String(formData.get("projectDescription") ?? ""),
@@ -107,7 +134,7 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
           {tenantPublicUrl}
         </a>
       </div>
-      <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+      <form method="POST" enctype="multipart/form-data" class="mt-4 grid gap-3 md:grid-cols-2">
         <input type="hidden" name="action" value="save" />
         <input type="hidden" name="hostname" value={tenant.hostname} />
 
@@ -123,6 +150,11 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
         <label class="text-sm">
           <span class="mb-1 block">Logo (URL)</span>
           <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="logoUrl" value={tenant.logoUrl ?? ""} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Upload de logo (PNG/JPG/WEBP)</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="file" name="logoFile" accept="image/png,image/jpeg,image/webp" />
+          <span class="mt-1 block text-xs text-slate-500">Se enviar arquivo, ele substitui o campo de URL acima.</span>
         </label>
         <label class="text-sm">
           <span class="mb-1 block">RSS feed principal</span>

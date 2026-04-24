@@ -12,6 +12,9 @@ const hostname = Astro.params.hostname ?? "";
 const siteData = await getSiteDataByHostname(hostname);
 const [heroPost, ...secondaryPosts] = siteData.posts;
 const homeHref = buildTenantHomePath(siteData.hostname);
+const canonicalUrl = new URL(homeHref, Astro.url.origin).toString();
+const description = `${siteData.brandName}: conteudo sobre ${siteData.niche} com guias, dicas e artigos atualizados.`;
+const ogImage = siteData.hero.image;
 const requestedHostname = normalizeTenantHostname(hostname);
 
 if (requestedHostname !== siteData.hostname) {
@@ -19,7 +22,15 @@ if (requestedHostname !== siteData.hostname) {
 }
 ---
 
-<Layout siteData={siteData} title={`${siteData.brandName} | Home`} homeHref={homeHref}>
+<Layout
+  siteData={siteData}
+  title={`${siteData.brandName} | Home`}
+  homeHref={homeHref}
+  canonicalUrl={canonicalUrl}
+  description={description}
+  ogImage={ogImage}
+  ogType="website"
+>
   <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
     <main class="space-y-8 lg:col-span-8">
       <section class="relative overflow-hidden rounded-3xl shadow-xl">

@@ -39,6 +39,15 @@ function objectKeyForFilename(filename: string): string {
   return prefix ? `${prefix}/${filename}` : filename;
 }
 
+function objectKeyForPath(path: string): string | null {
+  const normalized = path.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+  if (!normalized) return null;
+  if (!/^[a-zA-Z0-9/_\.-]+$/.test(normalized)) return null;
+  if (!/\.(png|jpg|jpeg|webp)$/i.test(normalized)) return null;
+  const prefix = (trimEnv(import.meta.env.S3_KEY_PREFIX) ?? "covers").replace(/^\/+|\/+$/g, "");
+  return prefix ? `${prefix}/${normalized}` : normalized;
+}
+
 function publicUrlForKey(key: string): string {
   const base = trimEnv(import.meta.env.S3_PUBLIC_BASE_URL)!.replace(/\/$/, "");
   return `${base}/${key}`;
@@ -79,6 +88,39 @@ export async function uploadGeneratedCoverImage(params: {
     return publicUrlForKey(key);
   } catch (err) {
     console.error("Erro ao enviar imagem para object storage:", err);
+    return null;
+  }
+}
+
+/**
+ * Upload genérico de imagens públicas (logos/capas) para o mesmo bucket.
+ */
+export async function uploadPublicImageAsset(params: {
+  buffer: Buffer;
+  objectPath: string;
+  contentType: string;
+}): Promise<string | null> {
+  if (!isObjectStorageConfigured()) return null;
+  const bucket = trimEnv(import.meta.env.S3_BUCKET);
+  if (!bucket) return null;
+
+  const key = objectKeyForPath(params.objectPath);
+  if (!key) return null;
+
+  try {
+    const client = buildClient();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: params.buffer,
+        ContentType: params.contentType,
+        CacheControl: "public, max-age=31536000"
+      })
+    );
+    return publicUrlForKey(key);
+  } catch (err) {
+    console.error("Erro ao enviar asset para object storage:", err);
     return null;
   }
 }

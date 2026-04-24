@@ -8,7 +8,12 @@ const siteData = Astro.locals.siteData;
 const [heroPost, ...secondaryPosts] = siteData.posts;
 ---
 
-<Layout siteData={siteData} title={`${siteData.brandName} | Home`}>
+<Layout
+  siteData={siteData}
+  title={`${siteData.brandName} | Home`}
+  noindex={true}
+  canonicalUrl={new URL(`/t/${siteData.hostname}/`, Astro.url.origin).toString()}
+>
   <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
     <main class="space-y-8 lg:col-span-8">
       <section class="relative overflow-hidden rounded-3xl shadow-xl">
