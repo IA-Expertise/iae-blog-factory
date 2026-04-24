@@ -545,7 +545,7 @@ export async function getSiteDataByHostname(hostname: string): Promise<SiteData>
   return mapTenantToSiteData(tenant);
 }
 
-export async function createTenant(input: { hostname: string; brandName: string; niche: string }) {
+export async function createTenant(input: { hostname: string; brandName: string; niche: string }): Promise<string> {
   await ensureSeedData();
   const hostname = normalizeHostname(input.hostname);
   if (!hostname) throw new Error("Hostname invalido.");
@@ -553,42 +553,45 @@ export async function createTenant(input: { hostname: string; brandName: string;
     throw new Error("Hostname reservado. Escolha outro identificador.");
   }
   const base = DEFAULT_SITES[0];
-  await prisma.tenant.upsert({
-    where: { hostname },
-    create: {
-      hostname,
-      brandName: input.brandName,
-      niche: input.niche,
-      heroTitle: `${input.brandName}: conteudo de autoridade em ${input.niche}`,
-      heroSubtitle: `Portal especializado em ${input.niche}.`,
-      heroCtaLabel: base.hero.ctaLabel,
-      heroCtaHref: "/",
-      heroImage: base.hero.image,
-      themePrimary: base.theme.primary,
-      themeSecondary: base.theme.secondary,
-      themeAccent: base.theme.accent,
-      themeBackground: base.theme.background,
-      themeSurface: base.theme.surface,
-      themeText: base.theme.text,
-      themeHeadingFont: base.theme.headingFont,
-      themeBodyFont: base.theme.bodyFont,
-      adProvider: "adsense",
-      adsEnabled: true,
-      adClient: "ca-pub-tenant-000000",
-      adTopSlot: "tenant-top-001",
-      adSidebarSlot: "tenant-sidebar-001",
-      adInContentSlot: "tenant-incontent-001",
-      adFooterSlot: "tenant-footer-001",
-      amazonEnabled: true,
-      affiliateNetwork: "Amazon",
-      affiliateTrackingId: "tenant-20",
-      themePreset: "classic"
-    },
-    update: {
-      brandName: input.brandName,
-      niche: input.niche
+  try {
+    await prisma.tenant.create({
+      data: {
+        hostname,
+        brandName: input.brandName,
+        niche: input.niche,
+        heroTitle: `${input.brandName}: conteudo de autoridade em ${input.niche}`,
+        heroSubtitle: `Portal especializado em ${input.niche}.`,
+        heroCtaLabel: base.hero.ctaLabel,
+        heroCtaHref: "/",
+        heroImage: base.hero.image,
+        themePrimary: base.theme.primary,
+        themeSecondary: base.theme.secondary,
+        themeAccent: base.theme.accent,
+        themeBackground: base.theme.background,
+        themeSurface: base.theme.surface,
+        themeText: base.theme.text,
+        themeHeadingFont: base.theme.headingFont,
+        themeBodyFont: base.theme.bodyFont,
+        adProvider: "adsense",
+        adsEnabled: true,
+        adClient: "ca-pub-tenant-000000",
+        adTopSlot: "tenant-top-001",
+        adSidebarSlot: "tenant-sidebar-001",
+        adInContentSlot: "tenant-incontent-001",
+        adFooterSlot: "tenant-footer-001",
+        amazonEnabled: true,
+        affiliateNetwork: "Amazon",
+        affiliateTrackingId: "tenant-20",
+        themePreset: "classic"
+      }
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Unique constraint failed")) {
+      throw new Error("Hostname ja existe. Escolha outro.");
     }
-  });
+    throw error;
+  }
+  return hostname;
 }
 
 export async function getTenantByHostname(hostname: string): Promise<SiteData | null> {

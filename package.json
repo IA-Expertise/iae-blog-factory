@@ -12,6 +12,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "db:push": "prisma db push",
+    "db:check": "node ./scripts/db-check.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev"
   },

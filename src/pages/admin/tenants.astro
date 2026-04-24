@@ -14,12 +14,12 @@ if (Astro.request.method === "POST") {
 
   if (action === "create") {
     try {
-      await createTenant({
+      const createdHostname = await createTenant({
         hostname: String(formData.get("hostname") ?? ""),
         brandName: String(formData.get("brandName") ?? ""),
         niche: String(formData.get("niche") ?? "")
       });
-      return Astro.redirect("/admin/tenants?ok=1");
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(createdHostname)}&ok=1`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Nao foi possivel criar o tenant.";
       return Astro.redirect(`/admin/tenants?err=${encodeURIComponent(message)}`);
