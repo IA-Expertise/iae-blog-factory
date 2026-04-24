@@ -118,7 +118,7 @@ const adsenseScript =
       }
     </style>
   </head>
-  <body class="min-h-screen antialiased">
+  <body class:list={["min-h-screen antialiased", tenantPublicLayout && "overflow-x-hidden"]}>
     {
       tenantPublicLayout ? (
         <>

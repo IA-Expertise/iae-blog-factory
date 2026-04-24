@@ -30,24 +30,25 @@ const description = `Arquivo de matérias publicadas em ${siteData.brandName}.`;
   ogType="website"
   tenantPublicLayout={true}
 >
-  <div class="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+  <div class="mx-auto min-w-0 max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
     <TenantPublicHeader siteData={siteData} active="arquivo" />
 
-    <main id="conteudo" class="rounded-2xl border bg-[var(--color-surface)] p-6 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+    <main id="conteudo" class="min-w-0 rounded-2xl border bg-[var(--color-surface)] p-6 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
       <h1 class="text-3xl font-bold" style="color: var(--color-text);">Arquivo</h1>
       <p class="mt-2 text-sm" style="color: color-mix(in srgb, var(--color-text) 60%, transparent);">Todas as matérias publicadas, da mais recente para a mais antiga.</p>
 
       <ul class="mt-6 divide-y" style="border-color: color-mix(in srgb, var(--color-text) 12%, transparent);">
         {
           posts.map((post) => (
-            <li class="flex flex-wrap gap-4 py-4 sm:flex-nowrap">
+            <li class="flex min-w-0 flex-wrap gap-4 py-4 sm:flex-nowrap">
               <img
                 src={resolvePublicAssetUrl(post.image)}
                 alt=""
-                class="h-20 w-28 shrink-0 rounded-lg object-cover"
+                class="h-20 w-28 max-w-full shrink-0 rounded-lg object-cover"
                 width="112"
                 height="80"
                 loading="lazy"
+                decoding="async"
               />
               <div class="min-w-0 flex-1">
                 <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.category}</p>

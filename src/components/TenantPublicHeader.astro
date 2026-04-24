@@ -38,12 +38,12 @@ function linkClass(key: NonNullable<Props["active"]>) {
 }
 ---
 
-<header class:list={["mb-6 space-y-0", !hasHeaderArt && "shadow-md"]}>
+<header class:list={["mb-6 w-full min-w-0 space-y-0", !hasHeaderArt && "shadow-md"]}>
   {
     hasHeaderArt ? (
       <a
         href={homeHref}
-        class="relative isolate block min-h-[11rem] w-full overflow-hidden rounded-t-2xl bg-[var(--color-bg)] bg-cover bg-[center_22%] ring-1 ring-black/20 sm:min-h-[14rem]"
+        class="relative isolate block min-h-[11rem] w-full min-w-0 overflow-hidden rounded-t-2xl bg-[var(--color-bg)] bg-cover bg-[center_22%] ring-1 ring-black/20 sm:min-h-[14rem]"
         style={headerArtDepthStyle}
         aria-label={`Início — ${siteData.brandName}`}
       >
