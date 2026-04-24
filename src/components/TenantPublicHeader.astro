@@ -1,5 +1,6 @@
 ---
 import type { SiteData } from "../lib/cms";
+import { resolvePublicAssetUrl } from "../lib/mediaUrl";
 import {
   buildTenantArquivoPath,
   buildTenantContatoPath,
@@ -19,6 +20,9 @@ const homeHref = buildTenantHomePath(h);
 const logoBarBase = "color-mix(in srgb, var(--color-primary) 82%, black)";
 const logoBarBg = `color-mix(in srgb, ${logoBarBase} 30%, transparent)`;
 
+const headerArtResolved = resolvePublicAssetUrl(siteData.headerArtUrl?.trim());
+const hasHeaderArt = Boolean(headerArtResolved);
+
 function linkClass(key: NonNullable<Props["active"]>) {
   return active === key
     ? "font-semibold underline decoration-2 underline-offset-4"
@@ -27,33 +31,44 @@ function linkClass(key: NonNullable<Props["active"]>) {
 ---
 
 <header class="mb-6 space-y-0 shadow-md">
-  <div
-    class="flex items-center justify-start rounded-t-2xl px-5 py-4 sm:px-8 sm:py-5"
-    style={`background: ${logoBarBg};`}
-  >
-    <a
-      href={homeHref}
-      class="flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-black/5 p-3 ring-1 ring-black/10 transition hover:bg-black/10 sm:p-4"
-      aria-label={`Início — ${siteData.brandName}`}
-    >
-      {
-        siteData.logoUrl ? (
-          <img
-            src={siteData.logoUrl}
-            alt=""
-            class="h-32 w-32 object-contain sm:h-36 sm:w-36"
-            width="144"
-            height="144"
-            loading="eager"
-          />
-        ) : (
-          <div class="flex h-32 w-32 items-center justify-center rounded-xl bg-black/10 text-4xl font-bold text-slate-800 sm:h-36 sm:w-36 sm:text-5xl">
-            {siteData.brandName.trim().slice(0, 1).toUpperCase() || "?"}
-          </div>
-        )
-      }
-    </a>
-  </div>
+  {
+    hasHeaderArt ? (
+      <a
+        href={homeHref}
+        class="relative block min-h-[11rem] w-full overflow-hidden rounded-t-2xl bg-[var(--color-bg)] bg-cover bg-[center_22%] sm:min-h-[14rem]"
+        style={`background-image: url(${JSON.stringify(headerArtResolved)});`}
+        aria-label={`Início — ${siteData.brandName}`}
+      >
+        <span class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/30 to-transparent sm:h-20" aria-hidden="true" />
+      </a>
+    ) : (
+      <div
+        class="flex items-center justify-start rounded-t-2xl px-5 py-4 sm:px-8 sm:py-5"
+        style={`background: ${logoBarBg};`}
+      >
+        <a
+          href={homeHref}
+          class="flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-black/5 p-3 ring-1 ring-black/10 transition hover:bg-black/10 sm:p-4"
+          aria-label={`Início — ${siteData.brandName}`}
+        >
+          {siteData.logoUrl ? (
+            <img
+              src={siteData.logoUrl}
+              alt=""
+              class="h-32 w-32 object-contain sm:h-36 sm:w-36"
+              width="144"
+              height="144"
+              loading="eager"
+            />
+          ) : (
+            <div class="flex h-32 w-32 items-center justify-center rounded-xl bg-black/10 text-4xl font-bold text-slate-800 sm:h-36 sm:w-36 sm:text-5xl">
+              {siteData.brandName.trim().slice(0, 1).toUpperCase() || "?"}
+            </div>
+          )}
+        </a>
+      </div>
+    )
+  }
   <nav
     class="flex flex-wrap items-center justify-between gap-3 rounded-b-2xl bg-[#b91c1c] px-4 py-2.5 text-sm font-medium text-white sm:px-6"
     aria-label="Navegação secundária"

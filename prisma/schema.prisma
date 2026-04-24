@@ -36,6 +36,8 @@ model Tenant {
   affiliateNetwork   String
   affiliateTrackingId String
   logoUrl             String?
+  /// Arte da testeira (ex.: 1920×320), URL pública após upload.
+  headerArtUrl        String?
   rssFeedUrl          String?
   themePreset         String             @default("classic")
   projectDescription  String?

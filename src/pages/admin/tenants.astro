@@ -31,8 +31,11 @@ if (Astro.request.method === "POST") {
     const hostname = String(formData.get("hostname") ?? "");
     try {
       let logoUrl = String(formData.get("logoUrl") ?? "");
+      let headerArtUrl = String(formData.get("headerArtUrl") ?? "");
       const logoFile = formData.get("logoFile");
+      const headerArtFile = formData.get("headerArtFile");
       const hasUpload = logoFile instanceof File && logoFile.size > 0;
+      const hasHeaderArtUpload = headerArtFile instanceof File && headerArtFile.size > 0;
 
       if (hasUpload) {
         if (!isObjectStorageConfigured()) {
@@ -56,11 +59,34 @@ if (Astro.request.method === "POST") {
         logoUrl = uploadedUrl;
       }
 
+      if (hasHeaderArtUpload) {
+        if (!isObjectStorageConfigured()) {
+          throw new Error("Upload indisponivel: configure o object storage (R2/S3) no ambiente.");
+        }
+        const art = headerArtFile as File;
+        if (!/^image\/(png|jpe?g|webp)$/i.test(art.type)) {
+          throw new Error("Formato de arte da testeira invalido. Use PNG, JPG ou WEBP.");
+        }
+        const ext = art.type.includes("png") ? "png" : art.type.includes("webp") ? "webp" : "jpg";
+        const safeHost = hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
+        const artKey = `${safeHost}-header-${Date.now()}.${ext}`;
+        const artUploaded = await uploadPublicImageAsset({
+          buffer: Buffer.from(await art.arrayBuffer()),
+          objectPath: `headers/${artKey}`,
+          contentType: art.type
+        });
+        if (!artUploaded) {
+          throw new Error("Falha ao enviar arte da testeira para o storage.");
+        }
+        headerArtUrl = artUploaded;
+      }
+
       await updateTenantSettings({
         hostname,
         brandName: String(formData.get("brandName") ?? ""),
         niche: String(formData.get("niche") ?? ""),
         logoUrl,
+        headerArtUrl,
         rssFeedUrl: String(formData.get("rssFeedUrl") ?? ""),
         themePreset: String(formData.get("themePreset") ?? "classic"),
         projectDescription: String(formData.get("projectDescription") ?? ""),
@@ -155,6 +181,17 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
           <span class="mb-1 block">Upload de logo (PNG/JPG/WEBP)</span>
           <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="file" name="logoFile" accept="image/png,image/jpeg,image/webp" />
           <span class="mt-1 block text-xs text-slate-500">Se enviar arquivo, ele substitui o campo de URL acima.</span>
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Arte da testeira (URL)</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="headerArtUrl" value={tenant.headerArtUrl ?? ""} />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Upload da testeira (PNG/JPG/WEBP)</span>
+          <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="file" name="headerArtFile" accept="image/png,image/jpeg,image/webp" />
+          <span class="mt-1 block text-xs text-slate-500">
+            Faixa horizontal (~1920×320). Se enviar arquivo, substitui a URL. Deixe a URL vazia e salve para remover a arte.
+          </span>
         </label>
         <label class="text-sm">
           <span class="mb-1 block">RSS feed principal</span>

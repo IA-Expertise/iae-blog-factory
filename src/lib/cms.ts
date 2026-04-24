@@ -88,6 +88,7 @@ export type SiteData = {
   posts: Post[];
   editorial: TenantEditorialConfig;
   logoUrl?: string | null;
+  headerArtUrl?: string | null;
   rssFeedUrl?: string | null;
   themePreset?: string;
   social: {
@@ -241,6 +242,7 @@ const DEFAULT_SITES: SiteData[] = [
       autoPublishHourUtc: null
     },
     logoUrl: null,
+    headerArtUrl: null,
     rssFeedUrl: null,
     themePreset: "classic",
     social: { instagram: null, facebook: null, youtube: null },
@@ -308,6 +310,7 @@ const DEFAULT_SITES: SiteData[] = [
       autoPublishHourUtc: null
     },
     logoUrl: null,
+    headerArtUrl: null,
     rssFeedUrl: null,
     themePreset: "classic",
     social: { instagram: null, facebook: null, youtube: null },
@@ -411,6 +414,7 @@ async function ensureSeedData() {
         affiliateNetwork: site.affiliate.network,
         affiliateTrackingId: site.affiliate.trackingId,
         logoUrl: site.logoUrl ?? null,
+        headerArtUrl: site.headerArtUrl ?? null,
         rssFeedUrl: site.rssFeedUrl ?? null,
         themePreset: site.themePreset ?? "classic",
         projectDescription: site.editorial.projectDescription ?? null,
@@ -512,6 +516,7 @@ function mapTenantToSiteData(
       autoPublishHourUtc: tenant.autoPublishHourUtc ?? null
     },
     logoUrl: tenant.logoUrl ?? null,
+    headerArtUrl: tenant.headerArtUrl ?? null,
     rssFeedUrl: tenant.rssFeedUrl ?? null,
     themePreset: tenant.themePreset ?? "classic",
     social: {
@@ -639,6 +644,7 @@ export async function updateTenantSettings(input: {
   brandName: string;
   niche: string;
   logoUrl: string;
+  headerArtUrl: string;
   rssFeedUrl: string;
   themePreset: string;
   projectDescription: string;
@@ -671,6 +677,7 @@ export async function updateTenantSettings(input: {
       brandName: input.brandName.trim(),
       niche: input.niche.trim(),
       logoUrl: input.logoUrl.trim() || null,
+      headerArtUrl: input.headerArtUrl.trim() || null,
       rssFeedUrl: input.rssFeedUrl.trim() || null,
       themePreset: presetKey,
       themePrimary: preset.primary,
@@ -730,6 +737,7 @@ export async function updateTenant(input: SiteData) {
       affiliateNetwork: input.affiliate.network,
       affiliateTrackingId: input.affiliate.trackingId,
       logoUrl: input.logoUrl ?? null,
+      headerArtUrl: input.headerArtUrl ?? null,
       rssFeedUrl: input.rssFeedUrl ?? null,
       themePreset: input.themePreset ?? "classic",
       projectDescription: input.editorial.projectDescription ?? null,
