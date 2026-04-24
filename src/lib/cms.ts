@@ -115,44 +115,59 @@ export type ArticlePitchRow = {
 const FALLBACK_HOSTNAME = "vinil.local";
 
 const THEME_PRESETS: Record<string, ThemeConfig> = {
+  // Vintage Rock (Vinil/Colecionismo)
   classic: {
-    primary: "#0b3d91",
-    secondary: "#bfd7ff",
-    accent: "#ff7a18",
-    background: "#e9eff8",
-    surface: "#ffffff",
-    text: "#10213f",
-    headingFont: "'Inter', sans-serif",
+    primary: "#2C1E1A",
+    secondary: "#E5E7EB",
+    accent: "#D97706",
+    background: "#FDFCF0",
+    surface: "#FFFDF6",
+    text: "#2C1E1A",
+    headingFont: "'Merriweather', serif",
     bodyFont: "'Inter', sans-serif"
   },
+  // Seriedade (Gestao Publica/SaaS)
   urban: {
-    primary: "#111827",
-    secondary: "#1f2937",
-    accent: "#22d3ee",
-    background: "#0b1220",
-    surface: "#151f33",
-    text: "#e5ecff",
+    primary: "#0F172A",
+    secondary: "#F1F5F9",
+    accent: "#2563EB",
+    background: "#FFFFFF",
+    surface: "#F8FAFC",
+    text: "#0F172A",
     headingFont: "'Inter', sans-serif",
     bodyFont: "'Inter', sans-serif"
   },
+  // Viajantes (Turismo/Local)
   regional: {
-    primary: "#14532d",
-    secondary: "#b7e4c7",
-    accent: "#e67e22",
-    background: "#eef8ef",
-    surface: "#f8fff8",
-    text: "#173223",
+    primary: "#166534",
+    secondary: "#FEF08A",
+    accent: "#EF4444",
+    background: "#F0F9FF",
+    surface: "#FFFFFF",
+    text: "#14532D",
     headingFont: "'Merriweather', serif",
     bodyFont: "'Inter', sans-serif"
   },
+  // Tech Review (Gadgets/IA)
   premium: {
-    primary: "#5b1033",
-    secondary: "#2f143f",
-    accent: "#fbbf24",
-    background: "#140b1a",
-    surface: "#241230",
-    text: "#f7ecff",
-    headingFont: "'Merriweather', serif",
+    primary: "#EDEDED",
+    secondary: "#171717",
+    accent: "#22C55E",
+    background: "#0A0A0A",
+    surface: "#171717",
+    text: "#EDEDED",
+    headingFont: "'Inter', sans-serif",
+    bodyFont: "'Inter', sans-serif"
+  },
+  // Educacao 5.0 (Livros/Cursos)
+  education: {
+    primary: "#334155",
+    secondary: "#818CF8",
+    accent: "#F59E0B",
+    background: "#F8FAFC",
+    surface: "#FFFFFF",
+    text: "#334155",
+    headingFont: "'Inter', sans-serif",
     bodyFont: "'Inter', sans-serif"
   }
 };
