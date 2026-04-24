@@ -150,12 +150,12 @@ const THEME_PRESETS: Record<string, ThemeConfig> = {
   },
   // Tech Review (Gadgets/IA)
   premium: {
-    primary: "#EDEDED",
-    secondary: "#171717",
+    primary: "#1F2937",
+    secondary: "#D1D5DB",
     accent: "#22C55E",
-    background: "#0A0A0A",
-    surface: "#171717",
-    text: "#EDEDED",
+    background: "#F3F4F6",
+    surface: "#FFFFFF",
+    text: "#111827",
     headingFont: "'Inter', sans-serif",
     bodyFont: "'Inter', sans-serif"
   },
