@@ -10,9 +10,7 @@ const { siteData, homeHref = "/" } = Astro.props;
 const initial = siteData.brandName.trim().slice(0, 1).toUpperCase() || "?";
 ---
 
-<header
-  class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-[var(--color-surface)] px-4 py-4 shadow-sm sm:px-5 sm:py-5"
->
+<header class="mb-8 flex flex-wrap items-center justify-between gap-4 border-b bg-[var(--color-surface)] px-4 py-4 shadow-sm sm:px-5 sm:py-5" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
   <a href={homeHref} class="flex min-w-0 max-w-full items-center gap-3 rounded-lg transition hover:opacity-90">
     {
       siteData.logoUrl ? (
@@ -33,11 +31,11 @@ const initial = siteData.brandName.trim().slice(0, 1).toUpperCase() || "?";
       )
     }
     <div class="min-w-0">
-      <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{siteData.niche}</p>
-      <p class="truncate text-lg font-bold text-slate-900">{siteData.brandName}</p>
+      <p class="text-[11px] font-semibold uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{siteData.niche}</p>
+      <p class="truncate text-lg font-bold" style="color: var(--color-text);">{siteData.brandName}</p>
     </div>
   </a>
-  <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-semibold text-slate-600">
+  <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-semibold" style="color: color-mix(in srgb, var(--color-text) 70%, transparent);">
     <a href={homeHref} class="transition hover:text-[var(--color-accent)]">Início</a>
     {
       siteData.rssFeedUrl && (
@@ -53,7 +51,7 @@ const initial = siteData.brandName.trim().slice(0, 1).toUpperCase() || "?";
     }
     {
       siteData.contact.menuText && (
-        <span class="max-w-xs truncate text-xs font-normal text-slate-500" title={siteData.contact.menuText}>
+        <span class="max-w-xs truncate text-xs font-normal" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);" title={siteData.contact.menuText}>
           {siteData.contact.menuText}
         </span>
       )

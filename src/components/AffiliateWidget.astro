@@ -15,9 +15,9 @@ interface Props {
 const { network, trackingId, products } = Astro.props;
 ---
 
-<aside class="rounded-2xl border border-slate-200 bg-[var(--color-surface)] p-4 shadow-sm">
-  <p class="mb-2 text-xs uppercase tracking-wide text-slate-500">Afiliados</p>
-  <p class="mb-3 text-sm text-slate-700">
+<aside class="rounded-2xl border bg-[var(--color-surface)] p-4 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+  <p class="mb-2 text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Afiliados</p>
+  <p class="mb-3 text-sm" style="color: color-mix(in srgb, var(--color-text) 78%, transparent);">
     Rede: <span class="font-semibold">{network}</span>
     <br />
     Tracking: <span class="font-semibold">{trackingId}</span>
@@ -25,8 +25,8 @@ const { network, trackingId, products } = Astro.props;
   <ul class="space-y-3">
     {
       products.map((product) => (
-        <li class="rounded-xl border border-slate-200 bg-white p-3">
-          <p class="text-sm font-semibold text-slate-900">{product.title}</p>
+        <li class="rounded-xl border p-3" style="background: color-mix(in srgb, var(--color-surface) 88%, white); border-color: color-mix(in srgb, var(--color-text) 14%, transparent);">
+          <p class="text-sm font-semibold" style="color: var(--color-text);">{product.title}</p>
           <a
             href={product.url}
             class="mt-2 inline-block rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"

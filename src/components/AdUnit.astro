@@ -17,11 +17,11 @@ const validSlot = /^\d{6,12}$/.test(slotId);
 const renderAdsense = isAdsense && validClient && validSlot;
 ---
 
-<aside class="rounded-2xl border border-slate-200 bg-[var(--color-surface)] p-4 shadow-sm">
-  <p class="mb-2 text-xs uppercase tracking-wide text-slate-500">Publicidade</p>
+<aside class="rounded-2xl border bg-[var(--color-surface)] p-4 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+  <p class="mb-2 text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Publicidade</p>
   {
     renderAdsense ? (
-      <div class="min-h-[100px] overflow-hidden rounded-xl bg-white">
+      <div class="min-h-[100px] overflow-hidden rounded-xl" style="background: color-mix(in srgb, var(--color-surface) 88%, white);">
         <ins
           class="adsbygoogle"
           style="display:block; min-height:100px;"
