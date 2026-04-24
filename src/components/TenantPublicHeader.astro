@@ -15,7 +15,9 @@ interface Props {
 const { siteData, active = "other" } = Astro.props;
 const h = siteData.hostname;
 const homeHref = buildTenantHomePath(h);
-const logoBarBg = "color-mix(in srgb, var(--color-primary) 82%, black)";
+/** Base escura da testeira; 30% opacidade sobre o fundo da página (70% transparente). */
+const logoBarBase = "color-mix(in srgb, var(--color-primary) 82%, black)";
+const logoBarBg = `color-mix(in srgb, ${logoBarBase} 30%, transparent)`;
 
 function linkClass(key: NonNullable<Props["active"]>) {
   return active === key
@@ -31,7 +33,7 @@ function linkClass(key: NonNullable<Props["active"]>) {
   >
     <a
       href={homeHref}
-      class="flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 p-2 ring-1 ring-white/25 transition hover:bg-white/15"
+      class="flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-black/5 p-2 ring-1 ring-black/10 transition hover:bg-black/10"
       aria-label={`Início — ${siteData.brandName}`}
     >
       {
@@ -45,7 +47,7 @@ function linkClass(key: NonNullable<Props["active"]>) {
             loading="eager"
           />
         ) : (
-          <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-white/15 text-2xl font-bold text-white sm:h-[4.5rem] sm:w-[4.5rem] sm:text-3xl">
+          <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-black/10 text-2xl font-bold text-slate-800 sm:h-[4.5rem] sm:w-[4.5rem] sm:text-3xl">
             {siteData.brandName.trim().slice(0, 1).toUpperCase() || "?"}
           </div>
         )
