@@ -28,21 +28,25 @@ if (Astro.request.method === "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login Admin | IAE Blog Factory</title>
   </head>
-  <body class="grid min-h-screen place-items-center bg-slate-950 px-4 text-slate-100">
-    <main class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
-      <h1 class="text-2xl font-bold">Entrar no Dashboard</h1>
-      <p class="mt-1 text-sm text-slate-400">Acesse a area administrativa da IAE Blog Factory.</p>
+  <body class="relative grid min-h-screen place-items-center overflow-hidden bg-slate-950 px-4 text-slate-100">
+    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(79,70,229,0.35),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.2),transparent_40%)]"></div>
+    <main class="relative w-full max-w-md rounded-3xl border border-slate-700/70 bg-slate-900/90 p-7 shadow-2xl backdrop-blur">
+      <p class="inline-flex rounded-full border border-indigo-400/40 bg-indigo-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-200">
+        Painel administrativo
+      </p>
+      <h1 class="mt-4 text-3xl font-bold leading-tight">Entrar no Dashboard</h1>
+      <p class="mt-2 text-sm text-slate-300">Acesse a area administrativa da IAE Blog Factory com seu usuario master.</p>
 
       {error && <p class="mt-4 rounded-lg bg-rose-900/40 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
-      <form method="POST" class="mt-5 space-y-4">
+      <form method="POST" class="mt-6 space-y-4">
         <label class="block text-sm">
           <span class="mb-1 block text-slate-300">Usuario</span>
           <input
             name="username"
             type="text"
             required
-            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none ring-indigo-500 focus:ring"
+            class="w-full rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2.5 outline-none ring-indigo-500 transition focus:border-indigo-400 focus:ring"
             placeholder="admin"
           />
         </label>
@@ -53,18 +57,20 @@ if (Astro.request.method === "POST") {
             name="password"
             type="password"
             required
-            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 outline-none ring-indigo-500 focus:ring"
+            class="w-full rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2.5 outline-none ring-indigo-500 transition focus:border-indigo-400 focus:ring"
             placeholder="********"
           />
         </label>
 
         <button
           type="submit"
-          class="w-full rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500"
+          class="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 px-4 py-2.5 font-semibold text-white transition hover:brightness-110"
         >
           Entrar
         </button>
       </form>
+
+      <p class="mt-4 text-center text-xs text-slate-400">Ambiente restrito para administradores autorizados.</p>
     </main>
   </body>
 </html>
