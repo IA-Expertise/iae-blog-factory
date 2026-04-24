@@ -33,7 +33,7 @@ function linkClass(key: NonNullable<Props["active"]>) {
   >
     <a
       href={homeHref}
-      class="flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-black/5 p-2 ring-1 ring-black/10 transition hover:bg-black/10"
+      class="flex shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-black/5 p-3 ring-1 ring-black/10 transition hover:bg-black/10 sm:p-4"
       aria-label={`Início — ${siteData.brandName}`}
     >
       {
@@ -41,13 +41,13 @@ function linkClass(key: NonNullable<Props["active"]>) {
           <img
             src={siteData.logoUrl}
             alt=""
-            class="h-16 w-16 object-contain sm:h-[4.5rem] sm:w-[4.5rem]"
-            width="72"
-            height="72"
+            class="h-32 w-32 object-contain sm:h-36 sm:w-36"
+            width="144"
+            height="144"
             loading="eager"
           />
         ) : (
-          <div class="flex h-16 w-16 items-center justify-center rounded-xl bg-black/10 text-2xl font-bold text-slate-800 sm:h-[4.5rem] sm:w-[4.5rem] sm:text-3xl">
+          <div class="flex h-32 w-32 items-center justify-center rounded-xl bg-black/10 text-4xl font-bold text-slate-800 sm:h-36 sm:w-36 sm:text-5xl">
             {siteData.brandName.trim().slice(0, 1).toUpperCase() || "?"}
           </div>
         )
