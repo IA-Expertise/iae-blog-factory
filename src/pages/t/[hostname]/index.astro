@@ -4,7 +4,7 @@ import AdUnit from "../../../components/AdUnit.astro";
 import AffiliateWidget from "../../../components/AffiliateWidget.astro";
 import { getSiteDataByHostname } from "../../../lib/cms";
 import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
-import { buildTenantHomePath, buildTenantPostPath } from "../../../lib/tenantUrls";
+import { buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname } from "../../../lib/tenantUrls";
 
 export const prerender = false;
 
@@ -12,6 +12,11 @@ const hostname = Astro.params.hostname ?? "";
 const siteData = await getSiteDataByHostname(hostname);
 const [heroPost, ...secondaryPosts] = siteData.posts;
 const homeHref = buildTenantHomePath(siteData.hostname);
+const requestedHostname = normalizeTenantHostname(hostname);
+
+if (requestedHostname !== siteData.hostname) {
+  return Astro.redirect(homeHref);
+}
 ---
 
 <Layout siteData={siteData} title={`${siteData.brandName} | Home`} homeHref={homeHref}>

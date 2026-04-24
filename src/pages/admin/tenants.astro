@@ -13,36 +13,46 @@ if (Astro.request.method === "POST") {
   const action = String(formData.get("action") ?? "");
 
   if (action === "create") {
-    await createTenant({
-      hostname: String(formData.get("hostname") ?? ""),
-      brandName: String(formData.get("brandName") ?? ""),
-      niche: String(formData.get("niche") ?? "")
-    });
-    return Astro.redirect("/admin/tenants");
+    try {
+      await createTenant({
+        hostname: String(formData.get("hostname") ?? ""),
+        brandName: String(formData.get("brandName") ?? ""),
+        niche: String(formData.get("niche") ?? "")
+      });
+      return Astro.redirect("/admin/tenants?ok=1");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao foi possivel criar o tenant.";
+      return Astro.redirect(`/admin/tenants?err=${encodeURIComponent(message)}`);
+    }
   }
 
   if (action === "save") {
     const hostname = String(formData.get("hostname") ?? "");
-    await updateTenantSettings({
-      hostname,
-      brandName: String(formData.get("brandName") ?? ""),
-      niche: String(formData.get("niche") ?? ""),
-      logoUrl: String(formData.get("logoUrl") ?? ""),
-      rssFeedUrl: String(formData.get("rssFeedUrl") ?? ""),
-      themePreset: String(formData.get("themePreset") ?? "classic"),
-      projectDescription: String(formData.get("projectDescription") ?? ""),
-      editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
-      targetAudience: String(formData.get("targetAudience") ?? ""),
-      defaultArticleTone: String(formData.get("defaultArticleTone") ?? "profissional"),
-      socialInstagram: String(formData.get("socialInstagram") ?? ""),
-      socialFacebook: String(formData.get("socialFacebook") ?? ""),
-      socialYoutube: String(formData.get("socialYoutube") ?? ""),
-      footerContactText: String(formData.get("footerContactText") ?? ""),
-      menuContactText: String(formData.get("menuContactText") ?? ""),
-      autoPublishWeekdays: String(formData.get("autoPublishWeekdays") ?? ""),
-      autoPublishHourUtc: String(formData.get("autoPublishHourUtc") ?? "")
-    });
-    return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&ok=1`);
+    try {
+      await updateTenantSettings({
+        hostname,
+        brandName: String(formData.get("brandName") ?? ""),
+        niche: String(formData.get("niche") ?? ""),
+        logoUrl: String(formData.get("logoUrl") ?? ""),
+        rssFeedUrl: String(formData.get("rssFeedUrl") ?? ""),
+        themePreset: String(formData.get("themePreset") ?? "classic"),
+        projectDescription: String(formData.get("projectDescription") ?? ""),
+        editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
+        targetAudience: String(formData.get("targetAudience") ?? ""),
+        defaultArticleTone: String(formData.get("defaultArticleTone") ?? "profissional"),
+        socialInstagram: String(formData.get("socialInstagram") ?? ""),
+        socialFacebook: String(formData.get("socialFacebook") ?? ""),
+        socialYoutube: String(formData.get("socialYoutube") ?? ""),
+        footerContactText: String(formData.get("footerContactText") ?? ""),
+        menuContactText: String(formData.get("menuContactText") ?? ""),
+        autoPublishWeekdays: String(formData.get("autoPublishWeekdays") ?? ""),
+        autoPublishHourUtc: String(formData.get("autoPublishHourUtc") ?? "")
+      });
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&ok=1`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao foi possivel salvar o tenant.";
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&err=${encodeURIComponent(message)}`);
+    }
   }
 }
 
@@ -50,6 +60,7 @@ const sites = await listSites();
 const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
 const tenant = selected ? await getTenantByHostname(selected) : null;
 const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
+const errorMessage = new URL(Astro.request.url).searchParams.get("err");
 const currentOrigin = new URL(Astro.request.url).origin;
 const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.hostname) : "";
 ---
@@ -85,6 +96,7 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
   </section>
 
   {saved && <p class="mt-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Tenant salvo com sucesso.</p>}
+  {errorMessage && <p class="mt-4 rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900">{errorMessage}</p>}
 
   {tenant && (
     <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">

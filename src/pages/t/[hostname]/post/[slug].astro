@@ -5,7 +5,7 @@ import AffiliateWidget from "../../../../components/AffiliateWidget.astro";
 import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../lib/cms";
 import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
-import { buildTenantHomePath } from "../../../../lib/tenantUrls";
+import { buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname, normalizeTenantSlug } from "../../../../lib/tenantUrls";
 
 export const prerender = false;
 
@@ -16,9 +16,16 @@ const post = await getPublishedPostBySlug(siteData.hostname, slug);
 const articleHtml = post?.content ? renderPostMarkdown(post.content) : "";
 const coverSrc = post ? resolvePublicAssetUrl(post.image) : "";
 const homeHref = buildTenantHomePath(siteData.hostname);
+const requestedHostname = normalizeTenantHostname(hostname);
+const requestedSlug = normalizeTenantSlug(slug);
 
 if (!post) {
   return Astro.redirect(homeHref);
+}
+
+const canonicalPostPath = buildTenantPostPath(siteData.hostname, post.slug ?? "");
+if (requestedHostname !== siteData.hostname || requestedSlug !== (post.slug ?? "")) {
+  return Astro.redirect(canonicalPostPath);
 }
 ---
 

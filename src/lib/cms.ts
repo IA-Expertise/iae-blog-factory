@@ -1,6 +1,7 @@
 import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage } from "./contentGenerator";
 import { prisma } from "./db";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
+import { isReservedTenantHostname, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
 const ADSENSE_CLIENT_RE = /^ca-pub-\d{10,22}$/i;
 
@@ -300,7 +301,7 @@ const DEFAULT_SITES: SiteData[] = [
 ];
 
 function normalizeHostname(hostname: string): string {
-  return hostname.toLowerCase().trim().split(":")[0];
+  return normalizeTenantHostname(hostname);
 }
 
 function formatDate(date: Date): string {
@@ -312,12 +313,27 @@ function formatDate(date: Date): string {
 }
 
 function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[^\w\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
+  return normalizeTenantSlug(text);
+}
+
+async function generateUniquePostSlug(tenantId: string, desiredSlug: string, excludePostId?: string): Promise<string> {
+  const base = desiredSlug.trim() || "post";
+  let candidate = base;
+  let suffix = 1;
+
+  while (true) {
+    const existing = await prisma.post.findFirst({
+      where: {
+        tenantId,
+        slug: candidate,
+        ...(excludePostId ? { id: { not: excludePostId } } : {})
+      },
+      select: { id: true }
+    });
+    if (!existing) return candidate;
+    suffix += 1;
+    candidate = `${base}-${suffix}`;
+  }
 }
 
 function mapPostRow(post: {
@@ -532,6 +548,10 @@ export async function getSiteDataByHostname(hostname: string): Promise<SiteData>
 export async function createTenant(input: { hostname: string; brandName: string; niche: string }) {
   await ensureSeedData();
   const hostname = normalizeHostname(input.hostname);
+  if (!hostname) throw new Error("Hostname invalido.");
+  if (isReservedTenantHostname(hostname)) {
+    throw new Error("Hostname reservado. Escolha outro identificador.");
+  }
   const base = DEFAULT_SITES[0];
   await prisma.tenant.upsert({
     where: { hostname },
@@ -712,16 +732,17 @@ export async function addPost(
 
   const status = input.initialStatus ?? "DRAFT";
   const now = new Date();
+  const slug = await generateUniquePostSlug(tenant.id, slugify(input.title) || "post");
 
   const created = await prisma.post.create({
     data: {
       tenantId: tenant.id,
-      title: input.title,
-      slug: slugify(input.title),
-      category: input.category,
-      image: input.image,
-      excerpt: input.excerpt,
-      content: input.content,
+      title: input.title.trim(),
+      slug,
+      category: input.category.trim(),
+      image: input.image.trim(),
+      excerpt: input.excerpt?.trim() || undefined,
+      content: input.content?.trim() || undefined,
       publishedAt: status === "PUBLISHED" ? new Date(input.publishedAt) : now,
       status,
       scheduledPublishAt: input.scheduledPublishAt ?? null
@@ -778,8 +799,11 @@ export async function getPublishedPostBySlug(hostname: string, slug: string): Pr
   await ensureSeedData();
   const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
   if (!tenant) return null;
+  const normalizedSlug = slugify(slug);
+  if (!normalizedSlug) return null;
   const row = await prisma.post.findFirst({
-    where: { tenantId: tenant.id, slug, status: "PUBLISHED" }
+    where: { tenantId: tenant.id, slug: normalizedSlug, status: "PUBLISHED" },
+    orderBy: { publishedAt: "desc" }
   });
   if (!row) return null;
   return mapPostRow(row);
@@ -790,13 +814,27 @@ export async function updatePostFields(
   input: { title?: string; slug?: string; category?: string; image?: string; excerpt?: string; content?: string }
 ) {
   await ensureSeedData();
+  const existing = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true, tenantId: true, title: true, slug: true }
+  });
+  if (!existing) return;
+
   const data: Record<string, string | undefined> = {};
-  if (input.title !== undefined) data.title = input.title;
-  if (input.slug !== undefined) data.slug = input.slug;
-  if (input.category !== undefined) data.category = input.category;
-  if (input.image !== undefined) data.image = input.image;
-  if (input.excerpt !== undefined) data.excerpt = input.excerpt;
-  if (input.content !== undefined) data.content = input.content;
+  const nextTitle = input.title?.trim();
+  const requestedSlug = input.slug?.trim();
+
+  if (nextTitle !== undefined) data.title = nextTitle;
+  if (input.category !== undefined) data.category = input.category.trim();
+  if (input.image !== undefined) data.image = input.image.trim();
+  if (input.excerpt !== undefined) data.excerpt = input.excerpt.trim();
+  if (input.content !== undefined) data.content = input.content.trim();
+
+  if (requestedSlug !== undefined || nextTitle !== undefined) {
+    const slugBase = slugify(requestedSlug || nextTitle || existing.slug) || "post";
+    data.slug = await generateUniquePostSlug(existing.tenantId, slugBase, existing.id);
+  }
+
   if (Object.keys(data).length === 0) return;
   await prisma.post.update({
     where: { id: postId },
