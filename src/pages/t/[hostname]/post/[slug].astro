@@ -31,6 +31,15 @@ if (requestedHostname !== siteData.hostname || requestedSlug !== (post.slug ?? "
 
 const canonicalUrl = new URL(canonicalPostPath, Astro.url.origin).toString();
 const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.brandName}.`;
+const encodedUrl = encodeURIComponent(canonicalUrl);
+const encodedTitle = encodeURIComponent(post.title);
+const shareLinks = {
+  whatsapp: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
+  facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+  x: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
+  linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+  telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`
+};
 ---
 
 <Layout
@@ -57,6 +66,31 @@ const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.br
           <h1 class="text-3xl font-bold leading-tight sm:text-4xl" style="color: var(--color-text);">{post.title}</h1>
           <p class="text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.publishedAt}</p>
         </div>
+        <section
+          aria-label="Compartilhar artigo"
+          class="rounded-2xl border bg-[var(--color-surface)] p-4 shadow-sm"
+          style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);"
+        >
+          <p class="mb-3 text-xs font-semibold uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">
+            Compartilhe
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <a href={shareLinks.whatsapp} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">WhatsApp</a>
+            <a href={shareLinks.facebook} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">Facebook</a>
+            <a href={shareLinks.x} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">X</a>
+            <a href={shareLinks.linkedin} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">LinkedIn</a>
+            <a href={shareLinks.telegram} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">Telegram</a>
+            <button
+              type="button"
+              class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5"
+              style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);"
+              data-copy-link
+              data-copy-value={canonicalUrl}
+            >
+              Copiar link
+            </button>
+          </div>
+        </section>
         {coverSrc ? (
           <img
             src={coverSrc}
@@ -110,4 +144,24 @@ const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.br
       {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}
     </footer>
   </div>
+  <script is:inline>
+    document.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("[data-copy-link]");
+      if (!(button instanceof HTMLButtonElement)) return;
+      const value = button.dataset.copyValue ?? "";
+      if (!value) return;
+      try {
+        await navigator.clipboard.writeText(value);
+        const previous = button.textContent;
+        button.textContent = "Link copiado!";
+        window.setTimeout(() => {
+          button.textContent = previous;
+        }, 1600);
+      } catch {
+        button.textContent = "Falhou ao copiar";
+      }
+    });
+  </script>
 </Layout>
