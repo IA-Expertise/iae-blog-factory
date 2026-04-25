@@ -46,7 +46,8 @@ const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.br
 const encodedUrl = encodeURIComponent(canonicalUrl);
 const encodedTitle = encodeURIComponent(post.title);
 const shareLinks = {
-  whatsapp: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
+  // WhatsApp já mostra preview do link; enviar só a URL evita duplicação no texto.
+  whatsapp: `https://api.whatsapp.com/send?text=${encodedUrl}`,
   facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
   x: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
   linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
@@ -157,27 +158,6 @@ const shareLinks = {
     </footer>
   </div>
   <script is:inline>
-    (() => {
-      const currentUrl = window.location.href;
-      const currentTitle = document.title.replace(/\s*\|.*$/, "").trim();
-      const encodedRuntimeUrl = encodeURIComponent(currentUrl);
-      const encodedRuntimeTitle = encodeURIComponent(currentTitle);
-      const map = {
-        WhatsApp: `https://api.whatsapp.com/send?text=${encodedRuntimeTitle}%20${encodedRuntimeUrl}`,
-        Facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedRuntimeUrl}`,
-        X: `https://x.com/intent/tweet?text=${encodedRuntimeTitle}&url=${encodedRuntimeUrl}`,
-        LinkedIn: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedRuntimeUrl}`,
-        Telegram: `https://t.me/share/url?url=${encodedRuntimeUrl}&text=${encodedRuntimeTitle}`
-      };
-      for (const anchor of document.querySelectorAll('a[rel~="noopener"][rel~="noreferrer"]')) {
-        if (!(anchor instanceof HTMLAnchorElement)) continue;
-        const label = anchor.textContent?.trim() ?? "";
-        if (label in map) {
-          anchor.href = map[label as keyof typeof map];
-        }
-      }
-    })();
-
     document.addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
