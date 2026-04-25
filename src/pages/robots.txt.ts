@@ -33,7 +33,7 @@ export const GET: APIRoute = ({ url, request }) => {
   return new Response(body, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=3600"
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"
     }
   });
 };
