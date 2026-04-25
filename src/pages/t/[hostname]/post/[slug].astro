@@ -38,6 +38,15 @@ const publicOrigin = useConfiguredOrigin ? configuredPublicOrigin : requestOrigi
 const canonicalUrl = new URL(canonicalPostPath, `${publicOrigin}/`).toString();
 const ogImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
 const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.brandName}.`;
+const encodedUrl = encodeURIComponent(canonicalUrl);
+const encodedTitle = encodeURIComponent(post.title);
+const shareLinks = {
+  whatsapp: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
+  facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+  x: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
+  linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+  telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`
+};
 ---
 
 <Layout
@@ -73,11 +82,11 @@ const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.br
             Compartilhe
           </p>
           <div class="flex flex-wrap gap-2">
-            <button type="button" data-share-network="whatsapp" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">WhatsApp</button>
-            <button type="button" data-share-network="facebook" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">Facebook</button>
-            <button type="button" data-share-network="x" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">X</button>
-            <button type="button" data-share-network="linkedin" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">LinkedIn</button>
-            <button type="button" data-share-network="telegram" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">Telegram</button>
+            <a href={shareLinks.whatsapp} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">WhatsApp</a>
+            <a href={shareLinks.facebook} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">Facebook</a>
+            <a href={shareLinks.x} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">X</a>
+            <a href={shareLinks.linkedin} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">LinkedIn</a>
+            <a href={shareLinks.telegram} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">Telegram</a>
             <button
               type="button"
               class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5"
@@ -145,30 +154,10 @@ const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.br
     document.addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
-      const currentUrl = window.location.href;
-      const currentTitle = document.title.replace(/\s*\|.*$/, "").trim();
-      const encodedUrl = encodeURIComponent(currentUrl);
-      const encodedTitle = encodeURIComponent(currentTitle);
-
-      const shareButton = target.closest("[data-share-network]");
-      if (shareButton instanceof HTMLButtonElement) {
-        const network = shareButton.dataset.shareNetwork ?? "";
-        const map = {
-          whatsapp: `https://api.whatsapp.com/send?text=${encodedTitle}%20${encodedUrl}`,
-          facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-          x: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
-          linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-          telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`
-        } as const;
-        const shareUrl = map[network as keyof typeof map];
-        if (shareUrl) window.open(shareUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-
       const button = target.closest("[data-copy-link]");
       if (!(button instanceof HTMLButtonElement)) return;
       try {
-        await navigator.clipboard.writeText(currentUrl);
+        await navigator.clipboard.writeText(window.location.href);
         const previous = button.textContent;
         button.textContent = "Link copiado!";
         window.setTimeout(() => {
