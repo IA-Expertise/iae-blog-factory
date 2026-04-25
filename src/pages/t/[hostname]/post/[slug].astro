@@ -41,7 +41,8 @@ const publicOrigin =
   forwardedOrigin ||
   (requestLooksLocal && forwardedOrigin ? forwardedOrigin : requestOrigin);
 const canonicalUrl = new URL(canonicalPostPath, `${publicOrigin}/`).toString();
-const ogImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
+const resolvedImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
+const ogImageUrl = new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedImageUrl)}`, `${publicOrigin}/`).toString();
 const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.brandName}.`;
 const encodedUrl = encodeURIComponent(canonicalUrl);
 const encodedTitle = encodeURIComponent(post.title);
