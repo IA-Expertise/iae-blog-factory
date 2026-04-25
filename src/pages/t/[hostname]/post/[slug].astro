@@ -87,6 +87,7 @@ const shareLinks = {
             <a href={shareLinks.x} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">X</a>
             <a href={shareLinks.linkedin} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">LinkedIn</a>
             <a href={shareLinks.telegram} target="_blank" rel="noopener noreferrer" class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);">Telegram</a>
+            <span class="sr-only" data-share-fallback-url={canonicalUrl}></span>
             <button
               type="button"
               class="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-black/5"
@@ -151,6 +152,27 @@ const shareLinks = {
     </footer>
   </div>
   <script is:inline>
+    (() => {
+      const currentUrl = window.location.href;
+      const currentTitle = document.title.replace(/\s*\|.*$/, "").trim();
+      const encodedRuntimeUrl = encodeURIComponent(currentUrl);
+      const encodedRuntimeTitle = encodeURIComponent(currentTitle);
+      const map = {
+        WhatsApp: `https://api.whatsapp.com/send?text=${encodedRuntimeTitle}%20${encodedRuntimeUrl}`,
+        Facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedRuntimeUrl}`,
+        X: `https://x.com/intent/tweet?text=${encodedRuntimeTitle}&url=${encodedRuntimeUrl}`,
+        LinkedIn: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedRuntimeUrl}`,
+        Telegram: `https://t.me/share/url?url=${encodedRuntimeUrl}&text=${encodedRuntimeTitle}`
+      };
+      for (const anchor of document.querySelectorAll('a[rel~="noopener"][rel~="noreferrer"]')) {
+        if (!(anchor instanceof HTMLAnchorElement)) continue;
+        const label = anchor.textContent?.trim() ?? "";
+        if (label in map) {
+          anchor.href = map[label as keyof typeof map];
+        }
+      }
+    })();
+
     document.addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
