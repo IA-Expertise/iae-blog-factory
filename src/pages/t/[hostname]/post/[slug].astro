@@ -42,7 +42,13 @@ const publicOrigin =
   (requestLooksLocal && forwardedOrigin ? forwardedOrigin : requestOrigin);
 const canonicalUrl = new URL(canonicalPostPath, `${publicOrigin}/`).toString();
 const resolvedImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
-const ogImageUrl = new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedImageUrl)}`, `${publicOrigin}/`).toString();
+const ogImageUrl =
+  post.slug && post.slug.trim()
+    ? new URL(
+        `/api/media/post-cover/${encodeURIComponent(siteData.hostname)}/${encodeURIComponent(post.slug)}`,
+        `${publicOrigin}/`
+      ).toString()
+    : resolvedImageUrl;
 const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.brandName}.`;
 const encodedUrl = encodeURIComponent(canonicalUrl);
 const encodedTitle = encodeURIComponent(post.title);
