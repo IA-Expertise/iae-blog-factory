@@ -30,11 +30,16 @@ if (requestedHostname !== siteData.hostname || requestedSlug !== (post.slug ?? "
 }
 
 const configuredPublicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") ?? "";
+const forwardedProto = Astro.request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+const forwardedHost = Astro.request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+const forwardedOrigin = forwardedHost ? `${forwardedProto || "https"}://${forwardedHost}` : "";
 const requestOrigin = Astro.url.origin;
-const useConfiguredOrigin =
-  configuredPublicOrigin.length > 0 &&
-  (Astro.url.hostname === "localhost" || Astro.url.hostname === "127.0.0.1" || Astro.url.hostname === "::1");
-const publicOrigin = useConfiguredOrigin ? configuredPublicOrigin : requestOrigin;
+const requestHostname = Astro.url.hostname;
+const requestLooksLocal = requestHostname === "localhost" || requestHostname === "127.0.0.1" || requestHostname === "::1";
+const publicOrigin =
+  configuredPublicOrigin ||
+  forwardedOrigin ||
+  (requestLooksLocal && forwardedOrigin ? forwardedOrigin : requestOrigin);
 const canonicalUrl = new URL(canonicalPostPath, `${publicOrigin}/`).toString();
 const ogImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
 const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.brandName}.`;
