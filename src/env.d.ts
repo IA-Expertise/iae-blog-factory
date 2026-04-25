@@ -9,6 +9,8 @@ declare namespace App {
 }
 
 interface ImportMetaEnv {
+  /** Origem pública do site para canonical/OG em ambientes com proxy (ex.: https://seudominio.com). */
+  readonly PUBLIC_SITE_ORIGIN?: string;
   /** Publisher AdSense (ca-pub- + só dígitos). Usado se o tenant não tiver client válido na BD. */
   readonly PUBLIC_ADSENSE_CLIENT?: string;
   /** R2: URL do endpoint S3 API (ex.: https://ACCOUNT_ID.r2.cloudflarestorage.com). Na AWS costuma ficar vazio. */
