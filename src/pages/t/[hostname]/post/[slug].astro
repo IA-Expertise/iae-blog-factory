@@ -4,6 +4,7 @@ import AdUnit from "../../../../components/AdUnit.astro";
 import AffiliateWidget from "../../../../components/AffiliateWidget.astro";
 import TenantPublicHeader from "../../../../components/TenantPublicHeader.astro";
 import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../lib/cms";
+import { commentsEnabledForHostname, listPublishedCommentsForPost } from "../../../../lib/comments";
 import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
 import { buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname, normalizeTenantSlug } from "../../../../lib/tenantUrls";
@@ -59,6 +60,8 @@ const shareLinks = {
   x: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
   linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`
 };
+const commentsEnabled = commentsEnabledForHostname(siteData.hostname);
+const publicComments = commentsEnabled ? await listPublishedCommentsForPost(siteData.hostname, post.slug ?? "") : [];
 ---
 
 <Layout
@@ -176,6 +179,62 @@ const shareLinks = {
           )}
         </div>
 
+        {
+          commentsEnabled && (
+            <section class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm" aria-label="Comentários dos leitores">
+              <h2 class="text-xl font-bold" style="color: var(--color-text);">Comentários</h2>
+              <form class="mt-4 space-y-3" data-comment-form>
+                <input type="hidden" name="hostname" value={siteData.hostname} />
+                <input type="hidden" name="slug" value={post.slug ?? ""} />
+                <input
+                  type="text"
+                  name="website"
+                  class="hidden"
+                  tabindex="-1"
+                  autocomplete="off"
+                  aria-hidden="true"
+                />
+                <label class="block text-sm">
+                  <span class="mb-1 block font-medium">Nome</span>
+                  <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="authorName" required minlength="2" maxlength="80" />
+                </label>
+                <label class="block text-sm">
+                  <span class="mb-1 block font-medium">E-mail (opcional)</span>
+                  <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="email" name="authorEmail" />
+                </label>
+                <label class="block text-sm">
+                  <span class="mb-1 block font-medium">Comentário</span>
+                  <textarea class="min-h-[100px] w-full rounded-lg border border-slate-300 px-3 py-2" name="content" required minlength="8" maxlength="1200"></textarea>
+                </label>
+                <label class="flex items-start gap-2 text-xs text-slate-600">
+                  <input type="checkbox" name="consentGiven" required class="mt-0.5" />
+                  <span>Concordo com o uso dos dados para publicação deste comentário.</span>
+                </label>
+                <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+                  Enviar comentário
+                </button>
+                <p class="text-sm" data-comment-feedback style="color: color-mix(in srgb, var(--color-text) 70%, transparent);"></p>
+              </form>
+
+              <div class="mt-6 space-y-3">
+                {publicComments.length === 0 ? (
+                  <p class="text-sm text-slate-500">Seja o primeiro a comentar.</p>
+                ) : (
+                  publicComments.map((comment) => (
+                    <article class="rounded-xl border border-slate-200 p-3">
+                      <div class="flex items-center justify-between gap-2">
+                        <p class="text-sm font-semibold">{comment.authorName}</p>
+                        <p class="text-xs text-slate-500">{new Date(comment.createdAt).toLocaleDateString("pt-BR")}</p>
+                      </div>
+                      <p class="mt-2 whitespace-pre-wrap text-sm text-slate-700">{comment.content}</p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+          )
+        }
+
         {siteData.affiliate.enabled && (
           <AffiliateWidget
             network={siteData.affiliate.network}
@@ -222,5 +281,35 @@ const shareLinks = {
         button.textContent = "Falhou ao copiar";
       }
     });
+
+    const commentForm = document.querySelector("[data-comment-form]");
+    if (commentForm instanceof HTMLFormElement) {
+      commentForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const feedback = commentForm.querySelector("[data-comment-feedback]");
+        const payload = Object.fromEntries(new FormData(commentForm).entries());
+        payload.consentGiven = payload.consentGiven === "on";
+
+        try {
+          const response = await fetch("/api/comments/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data?.error || "Erro ao enviar comentário.");
+          }
+          if (feedback instanceof HTMLElement) {
+            feedback.textContent = data.message || "Comentário enviado.";
+          }
+          commentForm.reset();
+        } catch (error) {
+          if (feedback instanceof HTMLElement) {
+            feedback.textContent = error instanceof Error ? error.message : "Falha ao enviar comentário.";
+          }
+        }
+      });
+    }
   </script>
 </Layout>

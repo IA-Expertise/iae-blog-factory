@@ -9,6 +9,8 @@ declare namespace App {
 }
 
 interface ImportMetaEnv {
+  /** Lista de hostnames com comentários públicos habilitados (separados por vírgula). */
+  readonly COMMENTS_ENABLED_HOSTS?: string;
   /** Origem pública do site para canonical/OG em ambientes com proxy (ex.: https://seudominio.com). */
   readonly PUBLIC_SITE_ORIGIN?: string;
   /** Publisher AdSense (ca-pub- + só dígitos). Usado se o tenant não tiver client válido na BD. */

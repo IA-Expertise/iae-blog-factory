@@ -28,6 +28,23 @@ const BANNED_TERMS = [
   "adulto"
 ];
 
+const DEFAULT_COMMENTS_ENABLED_HOSTS = new Set(["historei.00"]);
+
+export function commentsEnabledForHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  const fromEnvRaw = import.meta.env.COMMENTS_ENABLED_HOSTS?.trim() ?? "";
+  if (fromEnvRaw) {
+    const fromEnv = new Set(
+      fromEnvRaw
+        .split(",")
+        .map((h) => h.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    return fromEnv.has(normalized);
+  }
+  return DEFAULT_COMMENTS_ENABLED_HOSTS.has(normalized);
+}
+
 function normalizeText(input: string): string {
   return input.replace(/\s+/g, " ").trim();
 }
@@ -193,6 +210,36 @@ export async function listCommentsForAdmin(input: {
       })
     )
   };
+}
+
+export async function listPublishedCommentsForPost(hostname: string, slug: string) {
+  const host = hostname.trim().toLowerCase();
+  const postSlug = slug.trim().toLowerCase();
+  if (!host || !postSlug) return [];
+
+  const rows = await prisma.comment.findMany({
+    where: {
+      status: "PUBLISHED",
+      post: {
+        slug: postSlug,
+        tenant: { hostname: host }
+      }
+    },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      authorName: true,
+      content: true,
+      createdAt: true
+    }
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    authorName: row.authorName,
+    content: row.content,
+    createdAt: row.createdAt.toISOString()
+  }));
 }
 
 export async function updateCommentStatus(input: { id: string; status: CommentStatus }) {

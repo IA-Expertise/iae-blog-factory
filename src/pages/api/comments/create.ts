@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { createCommentFromPublic } from "../../../lib/comments";
+import { commentsEnabledForHostname, createCommentFromPublic } from "../../../lib/comments";
 import { normalizeTenantHostname, normalizeTenantSlug } from "../../../lib/tenantUrls";
 
 export const prerender = false;
@@ -22,9 +22,16 @@ export const POST: APIRoute = async ({ request }) => {
       consentGiven?: boolean;
       website?: string;
     };
+    const normalizedHost = normalizeTenantHostname(body.hostname ?? "");
+    if (!commentsEnabledForHostname(normalizedHost)) {
+      return new Response(JSON.stringify({ ok: false, error: "Comentários indisponíveis para este blog." }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
 
     const result = await createCommentFromPublic({
-      hostname: normalizeTenantHostname(body.hostname ?? ""),
+      hostname: normalizedHost,
       slug: normalizeTenantSlug(body.slug ?? ""),
       authorName: body.authorName ?? "",
       authorEmail: body.authorEmail ?? "",
