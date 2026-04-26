@@ -606,30 +606,58 @@ export async function createTenant(input: { hostname: string; brandName: string;
     throw new Error("Hostname reservado. Escolha outro identificador.");
   }
   const base = DEFAULT_SITES[0];
-  const templateTenant = await prisma.tenant.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: {
-      heroCtaLabel: true,
-      heroCtaHref: true,
-      heroImage: true,
-      themePrimary: true,
-      themeSecondary: true,
-      themeAccent: true,
-      themeBackground: true,
-      themeSurface: true,
-      themeText: true,
-      themeHeadingFont: true,
-      themeBodyFont: true,
-      themePreset: true,
-      logoUrl: true,
-      headerArtUrl: true,
-      socialInstagram: true,
-      socialFacebook: true,
-      socialYoutube: true,
-      footerContactText: true,
-      menuContactText: true
-    }
-  });
+  const templateTenant =
+    (await prisma.tenant.findFirst({
+      where: {
+        OR: [{ logoUrl: { not: null } }, { headerArtUrl: { not: null } }]
+      },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "asc" }],
+      select: {
+        heroCtaLabel: true,
+        heroCtaHref: true,
+        heroImage: true,
+        themePrimary: true,
+        themeSecondary: true,
+        themeAccent: true,
+        themeBackground: true,
+        themeSurface: true,
+        themeText: true,
+        themeHeadingFont: true,
+        themeBodyFont: true,
+        themePreset: true,
+        logoUrl: true,
+        headerArtUrl: true,
+        socialInstagram: true,
+        socialFacebook: true,
+        socialYoutube: true,
+        footerContactText: true,
+        menuContactText: true
+      }
+    })) ??
+    (await prisma.tenant.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: {
+        heroCtaLabel: true,
+        heroCtaHref: true,
+        heroImage: true,
+        themePrimary: true,
+        themeSecondary: true,
+        themeAccent: true,
+        themeBackground: true,
+        themeSurface: true,
+        themeText: true,
+        themeHeadingFont: true,
+        themeBodyFont: true,
+        themePreset: true,
+        logoUrl: true,
+        headerArtUrl: true,
+        socialInstagram: true,
+        socialFacebook: true,
+        socialYoutube: true,
+        footerContactText: true,
+        menuContactText: true
+      }
+    }));
   try {
     await prisma.tenant.create({
       data: {
@@ -749,6 +777,61 @@ export async function updateTenantSettings(input: {
       autoPublishHourUtc: autoHour
     }
   });
+}
+
+export async function copyTenantVisualSettings(sourceHostname: string, targetHostname: string): Promise<boolean> {
+  await ensureSeedData();
+  const sourceHost = normalizeHostname(sourceHostname);
+  const targetHost = normalizeHostname(targetHostname);
+  if (!sourceHost || !targetHost || sourceHost === targetHost) return false;
+
+  const source = await prisma.tenant.findUnique({
+    where: { hostname: sourceHost },
+    select: {
+      heroImage: true,
+      themePreset: true,
+      themePrimary: true,
+      themeSecondary: true,
+      themeAccent: true,
+      themeBackground: true,
+      themeSurface: true,
+      themeText: true,
+      themeHeadingFont: true,
+      themeBodyFont: true,
+      logoUrl: true,
+      headerArtUrl: true,
+      socialInstagram: true,
+      socialFacebook: true,
+      socialYoutube: true,
+      footerContactText: true,
+      menuContactText: true
+    }
+  });
+  if (!source) return false;
+
+  await prisma.tenant.update({
+    where: { hostname: targetHost },
+    data: {
+      heroImage: source.heroImage,
+      themePreset: source.themePreset,
+      themePrimary: source.themePrimary,
+      themeSecondary: source.themeSecondary,
+      themeAccent: source.themeAccent,
+      themeBackground: source.themeBackground,
+      themeSurface: source.themeSurface,
+      themeText: source.themeText,
+      themeHeadingFont: source.themeHeadingFont,
+      themeBodyFont: source.themeBodyFont,
+      logoUrl: source.logoUrl,
+      headerArtUrl: source.headerArtUrl,
+      socialInstagram: source.socialInstagram,
+      socialFacebook: source.socialFacebook,
+      socialYoutube: source.socialYoutube,
+      footerContactText: source.footerContactText,
+      menuContactText: source.menuContactText
+    }
+  });
+  return true;
 }
 
 export async function updateTenant(input: SiteData) {
