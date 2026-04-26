@@ -2,10 +2,13 @@
 import Layout from "../../../layouts/Layout.astro";
 import AdUnit from "../../../components/AdUnit.astro";
 import AffiliateWidget from "../../../components/AffiliateWidget.astro";
+import TenantPublicHeader from "../../../components/TenantPublicHeader.astro";
 import { isAdminAuthenticated } from "../../../lib/adminAuth";
 import { getPostById, getTenantByHostname } from "../../../lib/cms";
+import { commentsEnabledForHostname, listPublishedCommentsForPost } from "../../../lib/comments";
 import { renderPostMarkdown } from "../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
+import { buildTenantHomePath, buildTenantPostPath } from "../../../lib/tenantUrls";
 
 export const prerender = false;
 
@@ -24,39 +27,102 @@ if (!siteData) return Astro.redirect("/admin/posts");
 
 const articleHtml = row.content ? renderPostMarkdown(row.content) : "";
 const coverSrc = resolvePublicAssetUrl(row.image);
+const homeHref = buildTenantHomePath(siteData.hostname);
+const canonicalPath = buildTenantPostPath(siteData.hostname, row.slug);
+const canonicalUrl = new URL(canonicalPath, Astro.url.origin).toString();
+const description = row.excerpt?.trim() || `Leia ${row.title} em ${siteData.brandName}.`;
+const encodedUrl = encodeURIComponent(canonicalUrl);
+const encodedTitle = encodeURIComponent(row.title);
+const shareLinks = {
+  whatsapp: `https://api.whatsapp.com/send?text=${encodedUrl}`,
+  facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+  x: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
+  linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`
+};
+const commentsEnabled = commentsEnabledForHostname(siteData.hostname);
+const publicComments = commentsEnabled ? await listPublishedCommentsForPost(siteData.hostname, row.slug) : [];
 ---
 
-<Layout siteData={siteData} title={`Preview | ${row.title}`}>
-  <div class="space-y-6">
+<Layout
+  siteData={siteData}
+  title={`Preview | ${row.title}`}
+  homeHref={homeHref}
+  canonicalUrl={canonicalUrl}
+  description={description}
+  ogImage={coverSrc || siteData.hero.image}
+  ogType="article"
+  tenantPublicLayout={true}
+>
+  <div class="mx-auto min-w-0 max-w-7xl space-y-6 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+    <TenantPublicHeader siteData={siteData} active="other" />
+
     <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900">
       Pré-visualização de template (admin). Este post pode estar em rascunho.
     </div>
 
     {siteData.ads.enabled && (
-      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />
+      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} layout="banner" />
     )}
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
-      <article class="space-y-4 lg:col-span-8">
+    <div id="conteudo" class="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-12">
+      <article class="min-w-0 space-y-4 lg:col-span-8">
         <div class="space-y-2">
-          <p class="text-xs uppercase tracking-wide text-slate-500">{row.category}</p>
-          <h1 class="text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">{row.title}</h1>
+          <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{row.category}</p>
+          <h1 class="text-3xl font-bold leading-tight sm:text-4xl" style="color: var(--color-text);">{row.title}</h1>
+          <p class="text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{new Date(row.publishedAt).toLocaleDateString("pt-BR")}</p>
         </div>
-        {
-          coverSrc ? (
-            <img src={coverSrc} alt={row.title} class="h-64 w-full rounded-2xl object-cover sm:h-72" loading="eager" />
-          ) : null
-        }
+        <section aria-label="Compartilhar artigo" class="flex items-center justify-start gap-2">
+          <a href={shareLinks.whatsapp} target="_blank" rel="noopener noreferrer" class="inline-flex h-10 w-10 items-center justify-center rounded-full border hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);" title="Compartilhar no WhatsApp" aria-label="Compartilhar no WhatsApp">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M19.05 4.94A9.9 9.9 0 0012.02 2C6.6 2 2.2 6.4 2.2 11.82c0 1.74.45 3.43 1.3 4.92L2 22l5.4-1.42a9.77 9.77 0 004.62 1.17h.01c5.42 0 9.82-4.4 9.82-9.82a9.77 9.77 0 00-2.8-6.99zM12.03 20.1a8.24 8.24 0 01-4.2-1.15l-.3-.18-3.2.84.86-3.12-.2-.32a8.23 8.23 0 01-1.27-4.35c0-4.56 3.72-8.28 8.3-8.28 2.2 0 4.28.86 5.84 2.43a8.2 8.2 0 012.43 5.84c0 4.58-3.73 8.29-8.29 8.29zm4.54-6.2c-.25-.12-1.47-.73-1.7-.82-.23-.08-.4-.12-.56.13-.16.24-.64.82-.78.98-.14.16-.29.18-.54.06-.25-.12-1.06-.39-2.02-1.23-.74-.66-1.25-1.48-1.4-1.73-.14-.24-.02-.37.1-.49.1-.1.24-.29.37-.43.12-.15.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.77-1.84-.2-.48-.4-.41-.56-.42h-.48c-.17 0-.43.06-.65.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.6.12.17 1.76 2.68 4.25 3.76.6.26 1.06.41 1.42.53.6.19 1.15.16 1.58.1.49-.07 1.47-.6 1.68-1.18.2-.58.2-1.07.14-1.18-.06-.1-.22-.16-.47-.28z"/></svg>
+          </a>
+          <a href={shareLinks.x} target="_blank" rel="noopener noreferrer" class="inline-flex h-10 w-10 items-center justify-center rounded-full border hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);" title="Compartilhar no X" aria-label="Compartilhar no X">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-6.78 7.74L23 22h-6.22l-4.86-6.34L6.37 22H3.25l7.25-8.29L1 2h6.38l4.39 5.77L18.9 2zm-1.09 18.13h1.72L6.45 3.78H4.6l13.21 16.35z"/></svg>
+          </a>
+          <a href={shareLinks.facebook} target="_blank" rel="noopener noreferrer" class="inline-flex h-10 w-10 items-center justify-center rounded-full border hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);" title="Compartilhar no Facebook" aria-label="Compartilhar no Facebook">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M13.5 21v-8.2h2.8l.42-3.2h-3.22V7.56c0-.92.26-1.55 1.58-1.55h1.69V3.15C15.97 3.05 15.25 3 14.42 3c-2.46 0-4.15 1.5-4.15 4.26V9.6H7.5v3.2h2.77V21h3.23z"/></svg>
+          </a>
+          <a href={shareLinks.linkedin} target="_blank" rel="noopener noreferrer" class="inline-flex h-10 w-10 items-center justify-center rounded-full border hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);" title="Compartilhar no LinkedIn" aria-label="Compartilhar no LinkedIn">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true"><path d="M6.94 8.5a1.94 1.94 0 110-3.88 1.94 1.94 0 010 3.88zM5.2 9.93h3.5V20.8H5.2V9.93zm5.54 0h3.35v1.48h.05c.46-.88 1.6-1.8 3.3-1.8 3.54 0 4.2 2.33 4.2 5.36v5.82h-3.5v-5.16c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.72v5.24h-3.5V9.93z"/></svg>
+          </a>
+          <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-full border hover:bg-black/5" style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);" data-copy-link title="Copiar link" aria-label="Copiar link">
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </section>
+        {coverSrc ? <img src={coverSrc} alt={row.title} class="h-64 w-full max-w-full rounded-2xl object-cover sm:h-72" loading="eager" /> : null}
         <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
           {row.content ? (
             <div
-              class="prose prose-lg max-w-none text-slate-800 prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-slate-900 prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:text-slate-400 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
+              class="prose prose-lg max-w-none prose-img:max-w-full prose-headings:font-bold prose-headings:tracking-tight prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:opacity-50 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
+              style="color: color-mix(in srgb, var(--color-text) 92%, transparent); --tw-prose-headings: var(--color-text);"
               set:html={articleHtml}
             />
           ) : (
-            <p class="text-base leading-relaxed text-slate-600">{row.excerpt}</p>
+            <p class="text-base leading-relaxed" style="color: color-mix(in srgb, var(--color-text) 78%, transparent);">{row.excerpt}</p>
           )}
         </div>
+        {
+          commentsEnabled && (
+            <section class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm" aria-label="Comentários dos leitores">
+              <h2 class="text-xl font-bold" style="color: var(--color-text);">Comentários</h2>
+              <p class="mt-1 text-sm text-slate-500">Pré-visualização admin: envio de comentários fica no post público.</p>
+              <div class="mt-4 space-y-3">
+                {publicComments.length === 0 ? (
+                  <p class="text-sm text-slate-500">Sem comentários publicados para este post.</p>
+                ) : (
+                  publicComments.map((comment) => (
+                    <article class="rounded-xl border border-slate-200 p-3">
+                      <div class="flex items-center justify-between gap-2">
+                        <p class="text-sm font-semibold">{comment.authorName}</p>
+                        <p class="text-xs text-slate-500">{new Date(comment.createdAt).toLocaleDateString("pt-BR")}</p>
+                      </div>
+                      <p class="mt-2 whitespace-pre-wrap text-sm text-slate-700">{comment.content}</p>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+          )
+        }
         {siteData.affiliate.enabled && (
           <AffiliateWidget
             network={siteData.affiliate.network}
@@ -66,11 +132,29 @@ const coverSrc = resolvePublicAssetUrl(row.image);
         )}
       </article>
 
-      <aside class="space-y-4 lg:col-span-4">
+      <aside class="min-w-0 space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
         {siteData.ads.enabled && (
           <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
         )}
       </aside>
     </div>
   </div>
+  <script is:inline>
+    document.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const button = target.closest("[data-copy-link]");
+      if (!(button instanceof HTMLButtonElement)) return;
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        const previous = button.textContent;
+        button.textContent = "Link copiado!";
+        window.setTimeout(() => {
+          button.textContent = previous;
+        }, 1600);
+      } catch {
+        button.textContent = "Falhou ao copiar";
+      }
+    });
+  </script>
 </Layout>
