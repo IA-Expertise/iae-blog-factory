@@ -132,9 +132,19 @@ if (Astro.request.method === "POST") {
   }
 }
 
-const sites = await listSites();
-const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
-const tenant = selected ? await getTenantByHostname(selected) : null;
+let sites: Awaited<ReturnType<typeof listSites>> = [];
+let selected = "";
+let tenant: Awaited<ReturnType<typeof getTenantByHostname>> = null;
+let loadError: string | null = null;
+
+try {
+  sites = await listSites();
+  selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
+  tenant = selected ? await getTenantByHostname(selected) : null;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : "Falha ao carregar tenants.";
+}
+
 const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
 const deleted = new URL(Astro.request.url).searchParams.get("deleted") === "1";
 const removedAssets = Number(new URL(Astro.request.url).searchParams.get("assets") ?? "0");
@@ -179,6 +189,7 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
       Tenant excluido com sucesso. Arquivos removidos do storage: {Number.isFinite(removedAssets) ? removedAssets : 0}.
     </p>
   )}
+  {loadError && <p class="mt-4 rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900">Erro ao carregar tenants: {loadError}</p>}
   {errorMessage && <p class="mt-4 rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900">{errorMessage}</p>}
 
   {tenant && (
