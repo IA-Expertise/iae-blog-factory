@@ -243,6 +243,14 @@ export type MonthlyPitchIdea = {
   category: string;
 };
 
+type RssJsonItem = {
+  title?: string;
+  url?: string;
+  content_text?: string;
+  content_html?: string;
+  date_published?: string;
+};
+
 type MonthlyPitchInput = {
   tenantName: string;
   niche: string;
@@ -347,6 +355,76 @@ function fallbackMonthlyPitches(input: MonthlyPitchInput): MonthlyPitchIdea[] {
 export async function generateMonthlyPitches(input: MonthlyPitchInput): Promise<MonthlyPitchIdea[]> {
   const ai = await generateMonthlyPitchesWithOpenAI(input);
   return ai?.length ? ai : fallbackMonthlyPitches(input);
+}
+
+function stripHtml(input: string): string {
+  return input
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeSummary(input: string): string {
+  const clean = stripHtml(input).replace(/[\u2026]|(\[\.\.\.\])|(\.\.\.)/g, "").trim();
+  if (!clean) return "";
+  if (clean.length <= 260) return clean;
+  return `${clean.slice(0, 257).trimEnd()}...`;
+}
+
+function looksGenericTitle(title: string): boolean {
+  const t = title.trim().toLowerCase();
+  if (!t) return true;
+  return t === "em breve" || t.includes(" archives");
+}
+
+export async function generateMonthlyPitchesFromRss(input: {
+  rssFeedUrl: string;
+  count: number;
+  niche: string;
+}): Promise<MonthlyPitchIdea[]> {
+  const feedUrl = input.rssFeedUrl.trim();
+  if (!feedUrl) return [];
+
+  try {
+    const response = await fetch(feedUrl, {
+      headers: { "User-Agent": "IAE-Blog-Factory/1.0 (+rss)" }
+    });
+    if (!response.ok) return [];
+
+    const text = await response.text();
+    if (!text.trim().startsWith("{")) return [];
+    const parsed = JSON.parse(text) as { items?: RssJsonItem[] };
+    const items = parsed.items ?? [];
+    if (!items.length) return [];
+
+    const seen = new Set<string>();
+    const ideas: MonthlyPitchIdea[] = [];
+
+    for (const item of items) {
+      if (ideas.length >= input.count) break;
+      const title = (item.title ?? "").trim();
+      const url = (item.url ?? "").trim();
+      if (!title || looksGenericTitle(title) || !url) continue;
+
+      const dedupeKey = `${title.toLowerCase()}|${url.toLowerCase()}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+
+      const rawSummary = normalizeSummary(item.content_text ?? item.content_html ?? "");
+      if (rawSummary.length < 50) continue;
+
+      const dateLabel = item.date_published ? `Data: ${new Date(item.date_published).toLocaleDateString("pt-BR")}. ` : "";
+      ideas.push({
+        title,
+        summary: `${dateLabel}${rawSummary} Fonte: ${url}`,
+        category: "Atualidades"
+      });
+    }
+
+    return ideas;
+  } catch {
+    return [];
+  }
 }
 
 type FromPitchInput = {

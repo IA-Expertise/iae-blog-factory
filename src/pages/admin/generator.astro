@@ -9,7 +9,7 @@ import {
   writeArticlesFromApprovedPitches,
   type PitchStatus
 } from "../../lib/cms";
-import { generateMonthlyPitches } from "../../lib/contentGenerator";
+import { generateMonthlyPitches, generateMonthlyPitchesFromRss } from "../../lib/contentGenerator";
 
 export const prerender = false;
 
@@ -49,15 +49,35 @@ if (Astro.request.method === "POST") {
       const site = sites.find((s) => s.hostname === hostname);
       if (!site) throw new Error("Tenant nao encontrado.");
 
-      const ideas = await generateMonthlyPitches({
-        tenantName: site.brandName,
-        niche: site.niche,
-        monthLabel: m,
-        count,
-        brief: site.editorial.projectDescription ?? "",
-        styleNotes: `${site.editorial.editorialStyleNotes ?? ""}\nPublico-alvo: ${site.editorial.targetAudience ?? ""}`.trim(),
-        tone: site.editorial.defaultArticleTone ?? "profissional"
-      });
+      let ideas = [] as Array<{ title: string; summary: string; category: string }>;
+      const rssUrl = site.rssFeedUrl?.trim() ?? "";
+      if (rssUrl) {
+        ideas = await generateMonthlyPitchesFromRss({
+          rssFeedUrl: rssUrl,
+          count,
+          niche: site.niche
+        });
+      }
+
+      if (ideas.length < count) {
+        const aiIdeas = await generateMonthlyPitches({
+          tenantName: site.brandName,
+          niche: site.niche,
+          monthLabel: m,
+          count,
+          brief: site.editorial.projectDescription ?? "",
+          styleNotes: `${site.editorial.editorialStyleNotes ?? ""}\nPublico-alvo: ${site.editorial.targetAudience ?? ""}`.trim(),
+          tone: site.editorial.defaultArticleTone ?? "profissional"
+        });
+        const have = new Set(ideas.map((p) => p.title.trim().toLowerCase()));
+        for (const p of aiIdeas) {
+          if (ideas.length >= count) break;
+          const k = p.title.trim().toLowerCase();
+          if (have.has(k)) continue;
+          ideas.push(p);
+          have.add(k);
+        }
+      }
 
       await replaceSuggestedPitches(
         hostname,
