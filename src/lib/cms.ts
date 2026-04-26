@@ -606,6 +606,30 @@ export async function createTenant(input: { hostname: string; brandName: string;
     throw new Error("Hostname reservado. Escolha outro identificador.");
   }
   const base = DEFAULT_SITES[0];
+  const templateTenant = await prisma.tenant.findFirst({
+    orderBy: { createdAt: "asc" },
+    select: {
+      heroCtaLabel: true,
+      heroCtaHref: true,
+      heroImage: true,
+      themePrimary: true,
+      themeSecondary: true,
+      themeAccent: true,
+      themeBackground: true,
+      themeSurface: true,
+      themeText: true,
+      themeHeadingFont: true,
+      themeBodyFont: true,
+      themePreset: true,
+      logoUrl: true,
+      headerArtUrl: true,
+      socialInstagram: true,
+      socialFacebook: true,
+      socialYoutube: true,
+      footerContactText: true,
+      menuContactText: true
+    }
+  });
   try {
     await prisma.tenant.create({
       data: {
@@ -614,17 +638,17 @@ export async function createTenant(input: { hostname: string; brandName: string;
         niche: input.niche,
         heroTitle: `${input.brandName}: conteudo de autoridade em ${input.niche}`,
         heroSubtitle: `Portal especializado em ${input.niche}.`,
-        heroCtaLabel: base.hero.ctaLabel,
-        heroCtaHref: "/",
-        heroImage: base.hero.image,
-        themePrimary: base.theme.primary,
-        themeSecondary: base.theme.secondary,
-        themeAccent: base.theme.accent,
-        themeBackground: base.theme.background,
-        themeSurface: base.theme.surface,
-        themeText: base.theme.text,
-        themeHeadingFont: base.theme.headingFont,
-        themeBodyFont: base.theme.bodyFont,
+        heroCtaLabel: templateTenant?.heroCtaLabel || base.hero.ctaLabel,
+        heroCtaHref: templateTenant?.heroCtaHref || "/",
+        heroImage: templateTenant?.heroImage || base.hero.image,
+        themePrimary: templateTenant?.themePrimary || base.theme.primary,
+        themeSecondary: templateTenant?.themeSecondary || base.theme.secondary,
+        themeAccent: templateTenant?.themeAccent || base.theme.accent,
+        themeBackground: templateTenant?.themeBackground || base.theme.background,
+        themeSurface: templateTenant?.themeSurface || base.theme.surface,
+        themeText: templateTenant?.themeText || base.theme.text,
+        themeHeadingFont: templateTenant?.themeHeadingFont || base.theme.headingFont,
+        themeBodyFont: templateTenant?.themeBodyFont || base.theme.bodyFont,
         adProvider: "adsense",
         adsEnabled: true,
         adClient: "ca-pub-tenant-000000",
@@ -635,7 +659,14 @@ export async function createTenant(input: { hostname: string; brandName: string;
         amazonEnabled: true,
         affiliateNetwork: "Amazon",
         affiliateTrackingId: "tenant-20",
-        themePreset: "classic"
+        themePreset: templateTenant?.themePreset || "classic",
+        logoUrl: templateTenant?.logoUrl ?? null,
+        headerArtUrl: templateTenant?.headerArtUrl ?? null,
+        socialInstagram: templateTenant?.socialInstagram ?? null,
+        socialFacebook: templateTenant?.socialFacebook ?? null,
+        socialYoutube: templateTenant?.socialYoutube ?? null,
+        footerContactText: templateTenant?.footerContactText ?? null,
+        menuContactText: templateTenant?.menuContactText ?? null
       }
     });
   } catch (error) {
