@@ -35,7 +35,11 @@ if (Astro.request.method === "POST") {
     });
     if (createdPostId && !imageInput) {
       // Mantém padrão visual dos posts gerados: tenta capa por IA usando o título.
-      await regeneratePostCover(createdPostId);
+      try {
+        await regeneratePostCover(createdPostId);
+      } catch (error) {
+        console.error("Falha ao regenerar capa do post manual:", error);
+      }
     }
     if (createdPostId) {
       return Astro.redirect(`/admin/post/${createdPostId}`);

@@ -900,10 +900,23 @@ export async function regeneratePostCover(postId: string): Promise<string | null
   });
   if (!image) return null;
 
-  await prisma.post.update({
-    where: { id: postId },
-    data: { image }
-  });
+  try {
+    await prisma.post.update({
+      where: { id: postId },
+      data: { image }
+    });
+  } catch (error: unknown) {
+    // Evita quebrar fluxo de criação quando houver corrida de dados (P2025).
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "P2025"
+    ) {
+      return null;
+    }
+    throw error;
+  }
   return image;
 }
 
