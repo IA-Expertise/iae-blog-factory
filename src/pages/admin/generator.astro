@@ -31,6 +31,11 @@ const defaultMonth = () => {
 
 let selectedHost = url.searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
 let monthKey = url.searchParams.get("month") ?? defaultMonth();
+const pitchStatusFilter = (url.searchParams.get("pitchStatus") ?? "all").toUpperCase();
+const pitchSearch = (url.searchParams.get("pitchSearch") ?? "").trim();
+const pitchPageParam = Number.parseInt(url.searchParams.get("pitchPage") ?? "1", 10);
+const pitchPage = Number.isFinite(pitchPageParam) && pitchPageParam > 0 ? pitchPageParam : 1;
+const PITCH_PAGE_SIZE = 12;
 
 if (Astro.request.method === "POST") {
   const formData = await Astro.request.formData();
@@ -91,6 +96,34 @@ if (site) {
   selectedHost = site.hostname;
 }
 const pitches = site ? await listPitches(selectedHost, monthKey) : [];
+const filteredPitches = pitches.filter((p) => {
+  if (pitchStatusFilter !== "ALL" && p.status !== pitchStatusFilter) return false;
+  if (pitchSearch) {
+    const haystack = `${p.title} ${p.summary}`.toLowerCase();
+    if (!haystack.includes(pitchSearch.toLowerCase())) return false;
+  }
+  return true;
+});
+const pitchCounts = pitches.reduce<Record<string, number>>(
+  (acc, p) => {
+    acc[p.status] = (acc[p.status] ?? 0) + 1;
+    return acc;
+  },
+  { SUGGESTED: 0, APPROVED: 0, REJECTED: 0, WRITTEN: 0 }
+);
+const totalPitchPages = Math.max(1, Math.ceil(filteredPitches.length / PITCH_PAGE_SIZE));
+const safePitchPage = Math.min(pitchPage, totalPitchPages);
+const pitchStart = (safePitchPage - 1) * PITCH_PAGE_SIZE;
+const pitchPageItems = filteredPitches.slice(pitchStart, pitchStart + PITCH_PAGE_SIZE);
+const buildPitchPageQuery = (targetPage: number) => {
+  const p = new URLSearchParams();
+  p.set("hostname", selectedHost);
+  p.set("month", monthKey);
+  if (pitchStatusFilter !== "ALL") p.set("pitchStatus", pitchStatusFilter.toLowerCase());
+  if (pitchSearch) p.set("pitchSearch", pitchSearch);
+  if (targetPage > 1) p.set("pitchPage", String(targetPage));
+  return p.toString();
+};
 ---
 
 <AdminLayout title="Gerador de artigos | IAE Blog Factory">
@@ -163,8 +196,38 @@ const pitches = site ? await listPitches(selectedHost, monthKey) : [];
         {pitches.length === 0 ? (
           <p class="mt-2 text-sm text-slate-500">Nenhuma pauta para este mes ainda. Gere sugestoes acima.</p>
         ) : (
-          <ul class="mt-4 space-y-3">
-            {pitches.map((p) => (
+          <>
+            <form method="GET" class="mt-4 grid gap-3 md:grid-cols-4">
+              <input type="hidden" name="hostname" value={selectedHost} />
+              <input type="hidden" name="month" value={monthKey} />
+              <label class="text-sm">
+                <span class="mb-1 block font-medium">Status</span>
+                <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="pitchStatus">
+                  <option value="all" selected={pitchStatusFilter === "ALL"}>Todos</option>
+                  <option value="suggested" selected={pitchStatusFilter === "SUGGESTED"}>Sugeridas</option>
+                  <option value="approved" selected={pitchStatusFilter === "APPROVED"}>Aprovadas</option>
+                  <option value="rejected" selected={pitchStatusFilter === "REJECTED"}>Rejeitadas</option>
+                  <option value="written" selected={pitchStatusFilter === "WRITTEN"}>Já escritas</option>
+                </select>
+              </label>
+              <label class="text-sm md:col-span-2">
+                <span class="mb-1 block font-medium">Busca</span>
+                <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="pitchSearch" value={pitchSearch} placeholder="Título ou resumo" />
+              </label>
+              <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white md:self-end" type="submit">
+                Filtrar
+              </button>
+            </form>
+
+            <div class="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+              <span class="rounded-full bg-slate-200 px-2 py-1 text-slate-700">Sugeridas: {pitchCounts.SUGGESTED ?? 0}</span>
+              <span class="rounded-full bg-sky-200 px-2 py-1 text-sky-900">Aprovadas: {pitchCounts.APPROVED ?? 0}</span>
+              <span class="rounded-full bg-rose-200 px-2 py-1 text-rose-900">Rejeitadas: {pitchCounts.REJECTED ?? 0}</span>
+              <span class="rounded-full bg-emerald-200 px-2 py-1 text-emerald-900">Escritas: {pitchCounts.WRITTEN ?? 0}</span>
+            </div>
+
+            <ul class="mt-4 space-y-3">
+              {pitchPageItems.map((p) => (
               <li class="rounded-xl border border-slate-200 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div class="min-w-0 flex-1">
@@ -224,8 +287,31 @@ const pitches = site ? await listPitches(selectedHost, monthKey) : [];
                   </div>
                 </div>
               </li>
-            ))}
-          </ul>
+              ))}
+            </ul>
+            {pitchPageItems.length === 0 && <p class="text-sm text-slate-500">Nenhuma pauta com os filtros atuais.</p>}
+            <div class="mt-4 flex items-center justify-between text-sm">
+              <p class="text-slate-500">
+                Página {safePitchPage} de {totalPitchPages}
+              </p>
+              <div class="flex gap-2">
+                {safePitchPage > 1 ? (
+                  <a class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href={`/admin/generator?${buildPitchPageQuery(safePitchPage - 1)}`}>
+                    Anterior
+                  </a>
+                ) : (
+                  <span class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-400">Anterior</span>
+                )}
+                {safePitchPage < totalPitchPages ? (
+                  <a class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href={`/admin/generator?${buildPitchPageQuery(safePitchPage + 1)}`}>
+                    Próxima
+                  </a>
+                ) : (
+                  <span class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-400">Próxima</span>
+                )}
+              </div>
+            </div>
+          </>
         )}
       </section>
 

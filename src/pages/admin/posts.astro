@@ -13,6 +13,15 @@ if (Astro.request.method === "POST") {
   const formData = await Astro.request.formData();
   const action = String(formData.get("action") ?? "");
   const hostname = String(formData.get("hostname") ?? "");
+  const selected = String(formData.get("selectedHostname") ?? "");
+  const status = String(formData.get("statusFilter") ?? "all");
+  const search = String(formData.get("search") ?? "");
+  const page = String(formData.get("page") ?? "1");
+  const redirectParams = new URLSearchParams();
+  if (selected) redirectParams.set("hostname", selected);
+  if (status && status !== "all") redirectParams.set("status", status);
+  if (search.trim()) redirectParams.set("search", search.trim());
+  if (page && page !== "1") redirectParams.set("page", page);
 
   if (action === "create-post") {
     await addPost(hostname, {
@@ -29,11 +38,19 @@ if (Astro.request.method === "POST") {
     await deletePost(hostname, postId);
   }
 
-  return Astro.redirect("/admin/posts");
+  const query = redirectParams.toString();
+  return Astro.redirect(query ? `/admin/posts?${query}` : "/admin/posts");
 }
 
 const sites = await listSites();
-const origin = new URL(Astro.request.url).origin;
+const currentUrl = new URL(Astro.request.url);
+const origin = currentUrl.origin;
+const selectedHostname = currentUrl.searchParams.get("hostname") ?? "all";
+const statusFilter = (currentUrl.searchParams.get("status") ?? "all").toUpperCase();
+const searchTerm = (currentUrl.searchParams.get("search") ?? "").trim();
+const pageParam = Number.parseInt(currentUrl.searchParams.get("page") ?? "1", 10);
+const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+const PAGE_SIZE = 20;
 
 const statusLabel: Record<PostStatus, string> = {
   DRAFT: "Rascunho",
@@ -48,6 +65,53 @@ const statusClass: Record<PostStatus, string> = {
   APPROVED: "bg-sky-200 text-sky-900",
   PUBLISHED: "bg-emerald-200 text-emerald-900"
 };
+
+const allPosts = sites.flatMap((site) =>
+  site.posts.map((post) => ({
+    hostname: site.hostname,
+    brandName: site.brandName,
+    post
+  }))
+);
+
+const filteredPosts = allPosts.filter((row) => {
+  if (selectedHostname !== "all" && row.hostname !== selectedHostname) return false;
+  if (statusFilter !== "ALL" && row.post.status !== statusFilter) return false;
+  if (searchTerm) {
+    const haystack = `${row.post.title} ${row.post.slug ?? ""} ${row.post.category}`.toLowerCase();
+    if (!haystack.includes(searchTerm.toLowerCase())) return false;
+  }
+  return true;
+});
+
+filteredPosts.sort((a, b) => {
+  const aTime = a.post.scheduledPublishAt ? new Date(a.post.scheduledPublishAt).getTime() : Date.parse(a.post.publishedAt);
+  const bTime = b.post.scheduledPublishAt ? new Date(b.post.scheduledPublishAt).getTime() : Date.parse(b.post.publishedAt);
+  return bTime - aTime;
+});
+
+const totalItems = filteredPosts.length;
+const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+const safePage = Math.min(page, totalPages);
+const pageStart = (safePage - 1) * PAGE_SIZE;
+const pageItems = filteredPosts.slice(pageStart, pageStart + PAGE_SIZE);
+
+const countByStatus = filteredPosts.reduce<Record<string, number>>(
+  (acc, row) => {
+    acc[row.post.status] = (acc[row.post.status] ?? 0) + 1;
+    return acc;
+  },
+  { DRAFT: 0, IN_REVIEW: 0, APPROVED: 0, PUBLISHED: 0 }
+);
+
+const queryForPage = (targetPage: number) => {
+  const p = new URLSearchParams();
+  if (selectedHostname !== "all") p.set("hostname", selectedHostname);
+  if (statusFilter !== "ALL") p.set("status", statusFilter.toLowerCase());
+  if (searchTerm) p.set("search", searchTerm);
+  if (targetPage > 1) p.set("page", String(targetPage));
+  return p.toString();
+};
 ---
 
 <AdminLayout title="Posts | IAE Blog Factory">
@@ -56,6 +120,10 @@ const statusClass: Record<PostStatus, string> = {
     <p class="mt-1 text-sm text-slate-500">Cria como rascunho. Edite e publique pelo fluxo editorial.</p>
     <form method="POST" class="mt-4 grid gap-3 md:grid-cols-5">
       <input type="hidden" name="action" value="create-post" />
+      <input type="hidden" name="selectedHostname" value={selectedHostname} />
+      <input type="hidden" name="statusFilter" value={statusFilter.toLowerCase()} />
+      <input type="hidden" name="search" value={searchTerm} />
+      <input type="hidden" name="page" value={String(safePage)} />
       <select class="rounded-lg border border-slate-300 px-3 py-2" name="hostname" required>
         {sites.map((site) => (
           <option value={site.hostname}>{site.hostname}</option>
@@ -74,75 +142,130 @@ const statusClass: Record<PostStatus, string> = {
     </form>
   </section>
 
-  <section class="mt-6 space-y-4">
-    {sites.map((site) => (
-      <article class="rounded-2xl bg-white p-5 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h3 class="text-lg font-semibold">{site.hostname}</h3>
-          <a
-            class="text-sm font-semibold text-indigo-700 hover:underline"
-            href={buildTenantPublicUrl(origin, site.hostname)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Abrir blog
-          </a>
-        </div>
-        <ul class="mt-3 space-y-2">
-          {site.posts.map((post) => (
-            <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass[post.status]}`}>
-                    {statusLabel[post.status]}
-                  </span>
-                  {post.scheduledPublishAt && (
-                    <span class="text-xs text-slate-500">
-                      Agendado: {new Date(post.scheduledPublishAt).toLocaleString("pt-BR")}
-                    </span>
-                  )}
-                </div>
-                <p class="mt-1 font-medium">{post.title}</p>
-                <p class="text-xs text-slate-500">
-                  {post.category} - {post.publishedAt}
-                </p>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                <a
-                  class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700"
-                  href={`/admin/post/${post.id}`}
-                >
-                  Revisar
-                </a>
-                <a
-                  class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500"
-                  href={`/admin/preview/${post.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Ver página
-                </a>
-                <a
-                  class="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-600"
-                  href={post.slug ? buildTenantPostPath(site.hostname, post.slug) : buildTenantPublicUrl(origin, site.hostname)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Ver público
-                </a>
-                <form method="POST">
-                  <input type="hidden" name="action" value="delete-post" />
-                  <input type="hidden" name="hostname" value={site.hostname} />
-                  <input type="hidden" name="postId" value={post.id} />
-                  <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-600" type="submit">
-                    Excluir
-                  </button>
-                </form>
-              </div>
-            </li>
+  <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="text-xl font-semibold">Organização de posts</h2>
+    <form method="GET" class="mt-4 grid gap-3 md:grid-cols-4">
+      <label class="text-sm">
+        <span class="mb-1 block font-medium">Tenant</span>
+        <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="hostname">
+          <option value="all" selected={selectedHostname === "all"}>Todos os tenants</option>
+          {sites.map((site) => (
+            <option value={site.hostname} selected={site.hostname === selectedHostname}>
+              {site.hostname}
+            </option>
           ))}
-        </ul>
-      </article>
-    ))}
+        </select>
+      </label>
+      <label class="text-sm">
+        <span class="mb-1 block font-medium">Status</span>
+        <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="status">
+          <option value="all" selected={statusFilter === "ALL"}>Todos</option>
+          <option value="draft" selected={statusFilter === "DRAFT"}>Rascunhos</option>
+          <option value="in_review" selected={statusFilter === "IN_REVIEW"}>Em revisão</option>
+          <option value="approved" selected={statusFilter === "APPROVED"}>Aprovados</option>
+          <option value="published" selected={statusFilter === "PUBLISHED"}>Publicados</option>
+        </select>
+      </label>
+      <label class="text-sm md:col-span-2">
+        <span class="mb-1 block font-medium">Busca</span>
+        <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="search" value={searchTerm} placeholder="Título, slug ou categoria" />
+      </label>
+      <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 md:col-span-4 md:w-fit" type="submit">
+        Aplicar filtros
+      </button>
+    </form>
+
+    <div class="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+      <span class="rounded-full bg-slate-200 px-2 py-1 text-slate-700">Total: {totalItems}</span>
+      <span class="rounded-full bg-slate-200 px-2 py-1 text-slate-700">Rascunhos: {countByStatus.DRAFT ?? 0}</span>
+      <span class="rounded-full bg-amber-200 px-2 py-1 text-amber-900">Revisão: {countByStatus.IN_REVIEW ?? 0}</span>
+      <span class="rounded-full bg-sky-200 px-2 py-1 text-sky-900">Aprovados: {countByStatus.APPROVED ?? 0}</span>
+      <span class="rounded-full bg-emerald-200 px-2 py-1 text-emerald-900">Publicados: {countByStatus.PUBLISHED ?? 0}</span>
+    </div>
+  </section>
+
+  <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+    {pageItems.length === 0 ? (
+      <p class="text-sm text-slate-500">Nenhum post encontrado com os filtros atuais.</p>
+    ) : (
+      <ul class="space-y-2">
+        {pageItems.map(({ hostname, post }) => (
+          <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass[post.status]}`}>
+                  {statusLabel[post.status]}
+                </span>
+                <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{hostname}</span>
+                {post.scheduledPublishAt && (
+                  <span class="text-xs text-slate-500">
+                    Agendado: {new Date(post.scheduledPublishAt).toLocaleString("pt-BR")}
+                  </span>
+                )}
+              </div>
+              <p class="mt-1 font-medium">{post.title}</p>
+              <p class="text-xs text-slate-500">
+                {post.category} - {post.publishedAt}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-700" href={`/admin/post/${post.id}`}>
+                Revisar
+              </a>
+              <a
+                class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500"
+                href={`/admin/preview/${post.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ver página
+              </a>
+              <a
+                class="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-600"
+                href={post.slug ? buildTenantPostPath(hostname, post.slug) : buildTenantPublicUrl(origin, hostname)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ver público
+              </a>
+              <form method="POST">
+                <input type="hidden" name="action" value="delete-post" />
+                <input type="hidden" name="hostname" value={hostname} />
+                <input type="hidden" name="postId" value={post.id} />
+                <input type="hidden" name="selectedHostname" value={selectedHostname} />
+                <input type="hidden" name="statusFilter" value={statusFilter.toLowerCase()} />
+                <input type="hidden" name="search" value={searchTerm} />
+                <input type="hidden" name="page" value={String(safePage)} />
+                <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-600" type="submit">
+                  Excluir
+                </button>
+              </form>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+
+    <div class="mt-4 flex items-center justify-between text-sm">
+      <p class="text-slate-500">
+        Página {safePage} de {totalPages}
+      </p>
+      <div class="flex gap-2">
+        {safePage > 1 ? (
+          <a class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href={`/admin/posts?${queryForPage(safePage - 1)}`}>
+            Anterior
+          </a>
+        ) : (
+          <span class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-400">Anterior</span>
+        )}
+        {safePage < totalPages ? (
+          <a class="rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-slate-50" href={`/admin/posts?${queryForPage(safePage + 1)}`}>
+            Próxima
+          </a>
+        ) : (
+          <span class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-400">Próxima</span>
+        )}
+      </div>
+    </div>
   </section>
 </AdminLayout>
