@@ -1,6 +1,5 @@
 import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage } from "./contentGenerator";
 import { prisma } from "./db";
-import { deletePublicAssetByUrl } from "./objectStorage";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
 import { isReservedTenantHostname, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
@@ -802,46 +801,6 @@ export async function deletePost(hostname: string, postId: string) {
   await prisma.post.deleteMany({
     where: { id: postId, tenantId: tenant.id }
   });
-}
-
-export async function deleteTenantAndAssets(hostname: string): Promise<{ deleted: boolean; removedAssets: number }> {
-  await ensureSeedData();
-  const normalized = normalizeHostname(hostname);
-  if (!normalized) throw new Error("Hostname invalido.");
-  if (isReservedTenantHostname(normalized)) {
-    throw new Error("Este tenant eh reservado e nao pode ser removido.");
-  }
-
-  const tenant = await prisma.tenant.findUnique({
-    where: { hostname: normalized },
-    select: {
-      id: true,
-      hostname: true,
-      logoUrl: true,
-      headerArtUrl: true,
-      posts: { select: { image: true } }
-    }
-  });
-  if (!tenant) return { deleted: false, removedAssets: 0 };
-
-  const candidateUrls = new Set<string>();
-  if (tenant.logoUrl?.trim()) candidateUrls.add(tenant.logoUrl.trim());
-  if (tenant.headerArtUrl?.trim()) candidateUrls.add(tenant.headerArtUrl.trim());
-  for (const post of tenant.posts) {
-    if (post.image?.trim()) candidateUrls.add(post.image.trim());
-  }
-
-  await prisma.tenant.delete({
-    where: { id: tenant.id }
-  });
-
-  let removedAssets = 0;
-  for (const url of candidateUrls) {
-    const ok = await deletePublicAssetByUrl(url);
-    if (ok) removedAssets += 1;
-  }
-
-  return { deleted: true, removedAssets };
 }
 
 export async function logGenerationJob(input: {
