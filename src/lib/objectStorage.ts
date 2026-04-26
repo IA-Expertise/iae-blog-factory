@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const SAFE_FILENAME = /^[a-zA-Z0-9._-]+\.(png|jpg|jpeg|webp)$/i;
 
@@ -122,5 +122,44 @@ export async function uploadPublicImageAsset(params: {
   } catch (err) {
     console.error("Erro ao enviar asset para object storage:", err);
     return null;
+  }
+}
+
+/**
+ * Remove um objeto do storage a partir da URL pública (somente se pertencer ao S3_PUBLIC_BASE_URL).
+ */
+export async function deletePublicAssetByUrl(publicUrl: string): Promise<boolean> {
+  if (!isObjectStorageConfigured()) return false;
+
+  const bucket = trimEnv(import.meta.env.S3_BUCKET);
+  const base = trimEnv(import.meta.env.S3_PUBLIC_BASE_URL)?.replace(/\/+$/, "");
+  if (!bucket || !base) return false;
+
+  const url = publicUrl.trim();
+  if (!url) return false;
+
+  let key: string | null = null;
+  if (url.startsWith(`${base}/`)) {
+    key = url.slice(base.length + 1);
+  } else {
+    return false;
+  }
+
+  if (!key) return false;
+  key = key.replace(/^\/+|\/+$/g, "");
+  if (!key || !/^[a-zA-Z0-9/_\.-]+$/.test(key)) return false;
+
+  try {
+    const client = buildClient();
+    await client.send(
+      new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: key
+      })
+    );
+    return true;
+  } catch (err) {
+    console.error("Erro ao remover asset do object storage:", err);
+    return false;
   }
 }
