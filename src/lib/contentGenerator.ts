@@ -216,7 +216,8 @@ Retorne SOMENTE JSON com este formato:
 
   return {
     ...parsed,
-    imageUrl: generatedImageUrl ?? `https://picsum.photos/1200/600?random=${Math.floor(Math.random() * 1000)}`
+    // Fallback estável por keyword para evitar "troca" de imagem a cada reload.
+    imageUrl: generatedImageUrl ?? `https://picsum.photos/1200/600?seed=${slugKeyword(input.keyword)}`
   };
 }
 
@@ -419,7 +420,8 @@ Retorne SOMENTE JSON:
   }
   return {
     ...parsed,
-    imageUrl: generatedImageUrl ?? `https://picsum.photos/1200/600?random=${Math.floor(Math.random() * 1000)}`
+    // Fallback estável por pauta para manter consistência visual no post.
+    imageUrl: generatedImageUrl ?? `https://picsum.photos/1200/600?seed=${slugKeyword(input.pitchTitle)}`
   };
 }
 
