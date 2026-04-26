@@ -3,6 +3,7 @@ import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
 import { createTenant, getTenantByHostname, listSites, updateTenantSettings } from "../../lib/cms";
 import { isObjectStorageConfigured, uploadPublicImageAsset } from "../../lib/objectStorage";
+import { resolvePublicOrigin } from "../../lib/publicOrigin";
 import { buildTenantPublicUrl } from "../../lib/tenantUrls";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
@@ -114,7 +115,7 @@ const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? site
 const tenant = selected ? await getTenantByHostname(selected) : null;
 const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
 const errorMessage = new URL(Astro.request.url).searchParams.get("err");
-const currentOrigin = new URL(Astro.request.url).origin;
+const currentOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.hostname) : "";
 ---
 

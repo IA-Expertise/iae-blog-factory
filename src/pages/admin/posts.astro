@@ -3,6 +3,7 @@ import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
 import type { PostStatus } from "../../lib/cms";
 import { addPost, deletePost, listSites } from "../../lib/cms";
+import { resolvePublicOrigin } from "../../lib/publicOrigin";
 import { buildTenantPostPath, buildTenantPublicUrl } from "../../lib/tenantUrls";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
@@ -44,7 +45,7 @@ if (Astro.request.method === "POST") {
 
 const sites = await listSites();
 const currentUrl = new URL(Astro.request.url);
-const origin = currentUrl.origin;
+const origin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const selectedHostname = currentUrl.searchParams.get("hostname") ?? "all";
 const statusFilter = (currentUrl.searchParams.get("status") ?? "all").toUpperCase();
 const searchTerm = (currentUrl.searchParams.get("search") ?? "").trim();
