@@ -928,9 +928,28 @@ export async function publishPostNow(postId: string) {
   });
 }
 
-export async function schedulePostPublication(postId: string, isoDateTime: string) {
+function parseClientLocalDateTimeToUtc(isoDateTime: string, timezoneOffsetMinutes?: number | null): Date {
+  const normalized = isoDateTime.trim();
+  const m = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!m) {
+    const fallback = new Date(normalized);
+    if (Number.isNaN(fallback.getTime())) throw new Error("Data de agendamento invalida.");
+    return fallback;
+  }
+
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  const hour = Number(m[4]);
+  const minute = Number(m[5]);
+  const offset = Number.isFinite(timezoneOffsetMinutes ?? NaN) ? Number(timezoneOffsetMinutes) : 0;
+  const utcMs = Date.UTC(year, month, day, hour, minute) + offset * 60_000;
+  return new Date(utcMs);
+}
+
+export async function schedulePostPublication(postId: string, isoDateTime: string, timezoneOffsetMinutes?: number | null) {
   await ensureSeedData();
-  const when = new Date(isoDateTime);
+  const when = parseClientLocalDateTimeToUtc(isoDateTime, timezoneOffsetMinutes);
   if (Number.isNaN(when.getTime())) throw new Error("Data de agendamento invalida.");
 
   await prisma.post.update({

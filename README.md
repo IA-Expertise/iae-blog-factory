@@ -46,6 +46,12 @@ Checklist curto para manter ambiente previsível:
 - `npm run db:generate`: regenera Prisma Client
 - `npm run db:migrate`: migrações para desenvolvimento
 
+## Agendamento e publicação automática
+
+- O endpoint de publicação programada é `GET /api/cron/publish?key=CRON_SECRET`.
+- Configure um job recorrente (ex.: a cada 1 minuto) no provedor de deploy para chamar esse endpoint.
+- Sem esse job, posts agendados ficam em `APPROVED` e não viram `PUBLISHED` automaticamente.
+
 ## Comentários (etapa 1: backend + moderação automática)
 
 Esta etapa adiciona backend de comentários e painel admin de moderação, mantendo o front público desacoplado.
