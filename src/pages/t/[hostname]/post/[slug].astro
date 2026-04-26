@@ -55,6 +55,7 @@ const encodedTitle = encodeURIComponent(post.title);
 const shareLinks = {
   // WhatsApp já mostra preview do link; enviar só a URL evita duplicação no texto.
   whatsapp: `https://api.whatsapp.com/send?text=${encodedUrl}`,
+  facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
   x: `https://x.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
   linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`
 };
@@ -109,6 +110,19 @@ const shareLinks = {
           >
             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true">
               <path d="M18.9 2H22l-6.78 7.74L23 22h-6.22l-4.86-6.34L6.37 22H3.25l7.25-8.29L1 2h6.38l4.39 5.77L18.9 2zm-1.09 18.13h1.72L6.45 3.78H4.6l13.21 16.35z" />
+            </svg>
+          </a>
+          <a
+            href={shareLinks.facebook}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border hover:bg-black/5"
+            style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);"
+            title="Compartilhar no Facebook"
+            aria-label="Compartilhar no Facebook"
+          >
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true">
+              <path d="M13.5 21v-8.2h2.8l.42-3.2h-3.22V7.56c0-.92.26-1.55 1.58-1.55h1.69V3.15C15.97 3.05 15.25 3 14.42 3c-2.46 0-4.15 1.5-4.15 4.26V9.6H7.5v3.2h2.77V21h3.23z" />
             </svg>
           </a>
           <a
