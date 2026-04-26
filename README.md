@@ -45,3 +45,47 @@ Checklist curto para manter ambiente previsível:
 - `npm start`: aplica schema no banco e sobe servidor
 - `npm run db:generate`: regenera Prisma Client
 - `npm run db:migrate`: migrações para desenvolvimento
+
+## Comentários (etapa 1: backend + moderação automática)
+
+Esta etapa adiciona backend de comentários e painel admin de moderação, mantendo o front público desacoplado.
+
+### Setup após pull/deploy
+
+```bash
+npx prisma db push
+npx prisma generate
+npm run build
+```
+
+### O que foi adicionado
+
+- Modelo `Comment` no Prisma (`tenantId`, `postId`, `authorName`, `authorEmail`, `content`, `status`, `consentGiven`, `ipHash`, `userAgent`, flags).
+- API pública: `POST /api/comments/create`.
+- Admin: `/admin/comments` com filtros e ações (`Publicar`, `Ocultar`, `Excluir`).
+- Link de comentários no menu do admin.
+
+### Regras de moderação automática (MVP)
+
+- `PUBLISHED` quando limpo.
+- `AUTO_HIDDEN` quando suspeito (honeypot preenchido, blacklist, muitos links, rate limit por hash de IP).
+
+### Exemplo de payload da API
+
+```json
+{
+  "hostname": "historei.00",
+  "slug": "babado-chocante-o-segredo-de-cleopatra-revelado",
+  "authorName": "Leitor Exemplo",
+  "authorEmail": "leitor@email.com",
+  "content": "Comentário de teste com consentimento.",
+  "consentGiven": true,
+  "website": ""
+}
+```
+
+### Teste rápido
+
+1. Enviar comentário pela API.
+2. Abrir `/admin/comments`.
+3. Filtrar por tenant/status e validar fluxo de ação rápida.

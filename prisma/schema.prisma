@@ -54,6 +54,7 @@ model Tenant {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   posts              Post[]
+  comments           Comment[]
   affiliateProducts  AffiliateProduct[]
   generationJobs     GenerationJob[]
   articlePitches     ArticlePitch[]
@@ -90,10 +91,34 @@ model Post {
   createdAt          DateTime  @default(now())
   publishedAt        DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  comments           Comment[]
 
   @@index([tenantId])
   @@index([status])
   @@index([scheduledPublishAt])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorName  String
+  authorEmail String?
+  content     String
+  status      String   @default("PUBLISHED")
+  source      String   @default("PUBLIC_FORM")
+  consentGiven Boolean @default(false)
+  ipHash      String?
+  userAgent   String?
+  isFlagged   Boolean  @default(false)
+  flagReason  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, status, createdAt])
+  @@index([postId, createdAt])
 }
 
 model AffiliateProduct {
