@@ -1,6 +1,8 @@
 ---
 import AdminLayout from "../../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../../lib/adminAuth";
+import { resolvePublicOrigin } from "../../../lib/publicOrigin";
+import { buildTenantPostPath } from "../../../lib/tenantUrls";
 import {
   getPostById,
   publishPostNow,
@@ -67,6 +69,14 @@ const row = await getPostById(id);
 if (!row) {
   return Astro.redirect("/admin/posts");
 }
+
+const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
+const postUrl = new URL(buildTenantPostPath(row.tenant.hostname, row.slug), `${publicOrigin}/`).toString();
+const socialBase = `${row.title}\n\n${row.excerpt ?? "Confira este conteúdo no blog."}`.trim();
+const instagramCaption = `${socialBase}\n\nLeia mais no link da bio.\n#historia #noticias #blog`;
+const facebookCaption = `${socialBase}\n\nLeia a matéria completa:\n${postUrl}`;
+const xCaption = `${row.title}\n\nLeia a matéria completa: ${postUrl}`;
+const linkedinCaption = `${socialBase}\n\nAcesse o conteúdo completo: ${postUrl}`;
 
 const statusLabel: Record<PostStatus, string> = {
   DRAFT: "Rascunho",
@@ -199,7 +209,151 @@ const statusLabel: Record<PostStatus, string> = {
       </p>
     </form>
   </section>
+  <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="text-lg font-semibold">Social (Fase 1)</h2>
+    <p class="mt-1 text-sm text-slate-500">
+      Gera peças prontas por rede com disparo assistido. O post no site não é alterado por este bloco.
+    </p>
+    <div class="mt-4 grid gap-4 md:grid-cols-2">
+      <article class="rounded-xl border border-slate-200 p-4">
+        <div class="mb-2 flex items-center justify-between">
+          <p class="font-semibold">Instagram</p>
+          <span class="rounded bg-fuchsia-100 px-2 py-0.5 text-xs font-semibold text-fuchsia-800">Assistido</span>
+        </div>
+        <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="instagram">{instagramCaption}</textarea>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700" type="button" data-social-disparar="instagram">
+            Disparar
+          </button>
+          <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50" type="button" data-social-programar="instagram">
+            Programar
+          </button>
+        </div>
+      </article>
+
+      <article class="rounded-xl border border-slate-200 p-4">
+        <div class="mb-2 flex items-center justify-between">
+          <p class="font-semibold">Facebook</p>
+          <span class="rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Link share</span>
+        </div>
+        <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="facebook">{facebookCaption}</textarea>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700" type="button" data-social-disparar="facebook">
+            Disparar
+          </button>
+          <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50" type="button" data-social-programar="facebook">
+            Programar
+          </button>
+        </div>
+      </article>
+
+      <article class="rounded-xl border border-slate-200 p-4">
+        <div class="mb-2 flex items-center justify-between">
+          <p class="font-semibold">X (Twitter)</p>
+          <span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">Link share</span>
+        </div>
+        <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="x">{xCaption}</textarea>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700" type="button" data-social-disparar="x">
+            Disparar
+          </button>
+          <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50" type="button" data-social-programar="x">
+            Programar
+          </button>
+        </div>
+      </article>
+
+      <article class="rounded-xl border border-slate-200 p-4">
+        <div class="mb-2 flex items-center justify-between">
+          <p class="font-semibold">LinkedIn</p>
+          <span class="rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">Link share</span>
+        </div>
+        <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="linkedin">{linkedinCaption}</textarea>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700" type="button" data-social-disparar="linkedin">
+            Disparar
+          </button>
+          <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50" type="button" data-social-programar="linkedin">
+            Programar
+          </button>
+        </div>
+      </article>
+    </div>
+    <p class="mt-3 text-xs text-slate-500">
+      Dica: “Disparar” abre o fluxo da rede com o link. Em plataformas com limitação (ex.: Instagram), copiamos legenda + link e abrimos o app.
+    </p>
+  </section>
   <script is:inline>
+    const postUrl = {JSON.stringify(postUrl)};
+
+    function getCaption(network) {
+      const el = document.querySelector(`[data-social-caption="${network}"]`);
+      if (!(el instanceof HTMLTextAreaElement)) return "";
+      return el.value.trim();
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function openShare(network, caption) {
+      const encodedUrl = encodeURIComponent(postUrl);
+      const encodedCaption = encodeURIComponent(caption);
+      const shareMap = {
+        facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+        x: `https://x.com/intent/tweet?text=${encodedCaption}`,
+        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`
+      };
+      const target = shareMap[network];
+      if (target) window.open(target, "_blank", "noopener,noreferrer");
+    }
+
+    function openScheduleReminder(network, caption) {
+      const now = new Date();
+      const start = new Date(now.getTime() + 30 * 60 * 1000);
+      const end = new Date(start.getTime() + 15 * 60 * 1000);
+      const toGCal = (d) =>
+        `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}T${String(
+          d.getUTCHours()
+        ).padStart(2, "0")}${String(d.getUTCMinutes()).padStart(2, "0")}00Z`;
+      const text = encodeURIComponent(`Publicar card no ${network.toUpperCase()} — ${document.title}`);
+      const details = encodeURIComponent(`${caption}\n\nLink do post: ${postUrl}`);
+      const href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&details=${details}&dates=${toGCal(start)}/${toGCal(end)}`;
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+
+    document.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const dispararBtn = target.closest("[data-social-disparar]");
+      if (dispararBtn instanceof HTMLButtonElement) {
+        const network = dispararBtn.getAttribute("data-social-disparar");
+        if (!network) return;
+        const caption = getCaption(network);
+        if (network === "instagram") {
+          await copyToClipboard(`${caption}\n\n${postUrl}`);
+          window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+          return;
+        }
+        openShare(network, `${caption}\n${postUrl}`);
+        return;
+      }
+
+      const programarBtn = target.closest("[data-social-programar]");
+      if (programarBtn instanceof HTMLButtonElement) {
+        const network = programarBtn.getAttribute("data-social-programar");
+        if (!network) return;
+        const caption = getCaption(network);
+        openScheduleReminder(network, caption);
+      }
+    });
+
     const tzField = document.querySelector("[data-tz-offset]");
     if (tzField instanceof HTMLInputElement) {
       tzField.value = String(new Date().getTimezoneOffset());
