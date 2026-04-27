@@ -283,8 +283,7 @@ const statusLabel: Record<PostStatus, string> = {
       Dica: “Disparar” abre o fluxo da rede com o link. Em plataformas com limitação (ex.: Instagram), copiamos legenda + link e abrimos o app.
     </p>
   </section>
-  <script is:inline>
-    const postUrl = {JSON.stringify(postUrl)};
+  <script is:inline define:vars={{ postUrl }}>
 
     function getCaption(network) {
       const el = document.querySelector(`[data-social-caption="${network}"]`);
