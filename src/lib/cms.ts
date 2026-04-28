@@ -113,8 +113,6 @@ export type ArticlePitchRow = {
   postId: string | null;
 };
 
-const FALLBACK_HOSTNAME = "vinil.local";
-
 const THEME_PRESETS: Record<string, ThemeConfig> = {
   // Vintage Rock (Vinil/Colecionismo)
   classic: {
@@ -593,10 +591,7 @@ export async function getSiteDataByHostname(hostname: string): Promise<SiteData>
     );
   }
 
-  const tenant =
-    (await findTenantByHostname(FALLBACK_HOSTNAME, true)) ??
-    (await findFirstTenant(true)) ??
-    (await findFirstTenant(false));
+  const tenant = (await findFirstTenant(true)) ?? (await findFirstTenant(false));
   if (!tenant) throw new Error("Nenhum tenant encontrado.");
   return mapTenantToSiteData(tenant);
 }
