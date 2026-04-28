@@ -139,7 +139,7 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
     <h2 class="text-xl font-semibold">Criar novo tenant</h2>
     <form method="POST" class="mt-4 grid gap-3 md:grid-cols-4">
       <input type="hidden" name="action" value="create" />
-      <input class="rounded-lg border border-slate-300 px-3 py-2" name="hostname" placeholder="blog.cliente.com" required />
+      <input class="rounded-lg border border-slate-300 px-3 py-2" name="hostname" placeholder="cliente.com.br (prod) ou tenant-dev (dev)" required />
       <input class="rounded-lg border border-slate-300 px-3 py-2" name="brandName" placeholder="Nome do blog" required />
       <input class="rounded-lg border border-slate-300 px-3 py-2" name="niche" placeholder="Nicho" required />
       <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">

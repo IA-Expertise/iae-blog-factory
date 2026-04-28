@@ -564,6 +564,12 @@ function isLocalDevHost(hostname: string): boolean {
   return h === "localhost" || h === "127.0.0.1" || h === "::1" || h.endsWith(".local") || h.endsWith(".localhost");
 }
 
+/** Domínio público registrável (ex.: site.com, site.com.br). */
+function isLikelyRegistrableDomain(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(h);
+}
+
 export async function listSites(): Promise<SiteData[]> {
   await ensureSeedData();
   const tenants = await prisma.tenant.findMany({
@@ -614,6 +620,11 @@ export async function createTenant(input: { hostname: string; brandName: string;
   await ensureSeedData();
   const hostname = normalizeHostname(input.hostname);
   if (!hostname) throw new Error("Hostname invalido.");
+  // Convenção do projeto: blogs em operação usam domínio .com.br.
+  // Nomes genéricos continuam permitidos para desenvolvimento (tenant-dev, viajante.60, *.local, etc.).
+  if (isLikelyRegistrableDomain(hostname) && !hostname.endsWith(".com.br")) {
+    throw new Error("Para produção, use um domínio .com.br. Para desenvolvimento, use nome genérico/local.");
+  }
   if (isReservedTenantHostname(hostname)) {
     throw new Error("Hostname reservado. Escolha outro identificador.");
   }

@@ -3,8 +3,8 @@ import { getSiteDataByHostname } from "./lib/cms";
 
 export const onRequest = defineMiddleware(async ({ request, locals }, next) => {
   const pathname = new URL(request.url).pathname;
-  // Rotas de admin não dependem de tenant público por domínio.
-  if (pathname.startsWith("/admin")) return next();
+  // Rotas de admin e /t/... resolvem tenant por outro mecanismo (não por host).
+  if (pathname.startsWith("/admin") || pathname.startsWith("/t/")) return next();
 
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
   const hostHeader = request.headers.get("host")?.trim();
