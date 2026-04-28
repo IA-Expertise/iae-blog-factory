@@ -1,3 +1,18 @@
+/**
+ * Host visível ao cliente (domínio custom na Railway, etc.).
+ * `request.url` atrás do proxy costuma ser o host interno — usar forwarded/host primeiro.
+ */
+export function resolveRequestHostname(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const fromForwarded = forwarded?.split(":")[0]?.trim() ?? "";
+  if (fromForwarded) return normalizeTenantHostname(fromForwarded);
+
+  const rawHost = request.headers.get("host")?.split(":")[0]?.trim() ?? "";
+  if (rawHost) return normalizeTenantHostname(rawHost);
+
+  return normalizeTenantHostname(new URL(request.url).hostname);
+}
+
 export function normalizeTenantHostname(input: string): string {
   const noProtocol = input.trim().toLowerCase().replace(/^https?:\/\//, "");
   const hostOnly = noProtocol.split(/[/?#]/)[0]?.split(":")[0] ?? "";
