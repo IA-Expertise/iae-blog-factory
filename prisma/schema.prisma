@@ -128,7 +128,6 @@ model AffiliateProduct {
   title    String
   cta      String
   url      String
-  imageUrl String?
 
   @@index([tenantId])
 }
