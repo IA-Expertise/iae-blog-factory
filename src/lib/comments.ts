@@ -28,7 +28,7 @@ const BANNED_TERMS = [
   "adulto"
 ];
 
-const DEFAULT_COMMENTS_ENABLED_HOSTS = new Set(["historei.00"]);
+const DEFAULT_COMMENTS_ENABLED_HOSTS = new Set(["historei.00", "historei.com.br", "techpolis.com.br"]);
 
 export function commentsEnabledForHostname(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase();
