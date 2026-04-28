@@ -1,13 +1,25 @@
+function looksLikeRailwayServiceHostname(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  return h.endsWith(".up.railway.app");
+}
+
 /**
- * Host visível ao cliente (domínio custom na Railway, etc.).
- * `request.url` atrás do proxy costuma ser o host interno — usar forwarded/host primeiro.
+ * Host usado para resolver o tenant.
+ * Em alguns proxies, `X-Forwarded-Host` vem com o host interno (`*.up.railway.app`) enquanto `Host` traz o domínio custom — priorizamos o público.
  */
 export function resolveRequestHostname(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const fromForwarded = forwarded?.split(":")[0]?.trim() ?? "";
-  if (fromForwarded) return normalizeTenantHostname(fromForwarded);
+  const forwardedRaw = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? "";
+  const fromForwarded = forwardedRaw.split(":")[0]?.trim() ?? "";
 
   const rawHost = request.headers.get("host")?.split(":")[0]?.trim() ?? "";
+
+  if (rawHost && !looksLikeRailwayServiceHostname(rawHost)) {
+    return normalizeTenantHostname(rawHost);
+  }
+  if (fromForwarded && !looksLikeRailwayServiceHostname(fromForwarded)) {
+    return normalizeTenantHostname(fromForwarded);
+  }
+  if (fromForwarded) return normalizeTenantHostname(fromForwarded);
   if (rawHost) return normalizeTenantHostname(rawHost);
 
   return normalizeTenantHostname(new URL(request.url).hostname);
