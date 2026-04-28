@@ -596,12 +596,16 @@ export async function getSiteDataForRequest(request: Request): Promise<SiteData>
     candidates.push(n);
   };
 
-  const envDefault = process.env.TENANT_DEFAULT_HOSTNAME?.trim();
-  if (envDefault) push(envDefault);
   for (const c of fromHeaders) push(c);
 
   for (const h of candidates) {
     const tenant = await findTenantByHostname(normalizeHostname(h), true);
+    if (tenant) return mapTenantToSiteData(tenant);
+  }
+
+  const envDefault = process.env.TENANT_DEFAULT_HOSTNAME?.trim();
+  if (envDefault) {
+    const tenant = await findTenantByHostname(normalizeHostname(envDefault), true);
     if (tenant) return mapTenantToSiteData(tenant);
   }
 
