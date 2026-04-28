@@ -4,6 +4,8 @@ type Product = {
   title: string;
   cta: string;
   url: string;
+  imageUrl?: string;
+  summary?: string;
 };
 
 interface Props {
@@ -11,10 +13,34 @@ interface Props {
   trackingId: string;
   products: Product[];
   maxProducts?: number;
+  cardsPerRow?: 1 | 2 | 3;
 }
 
-const { network, trackingId, products, maxProducts = 3 } = Astro.props;
+const { network, trackingId, products, maxProducts = 3, cardsPerRow = 3 } = Astro.props;
 const items = products.slice(0, Math.max(0, maxProducts));
+
+const gridClass =
+  cardsPerRow === 1
+    ? "grid-cols-1"
+    : cardsPerRow === 2
+      ? "grid-cols-1 md:grid-cols-2"
+      : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3";
+
+const fallbackCoverSvg = encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="480" viewBox="0 0 320 480">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="480" fill="url(#g)"/>
+  <rect x="20" y="20" width="280" height="440" rx="14" fill="none" stroke="#93c5fd" stroke-width="2" opacity="0.35"/>
+  <text x="34" y="86" fill="#dbeafe" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700">Produto</text>
+  <text x="34" y="118" fill="#bfdbfe" font-family="Inter, Arial, sans-serif" font-size="16">Recomendado</text>
+</svg>
+`);
+const fallbackCover = `data:image/svg+xml;charset=utf-8,${fallbackCoverSvg}`;
 ---
 
 {
@@ -26,19 +52,29 @@ const items = products.slice(0, Math.max(0, maxProducts));
     <br />
     Tracking: <span class="font-semibold">{trackingId}</span>
   </p>
-  <ul class="space-y-3">
+  <ul class:list={["grid gap-3", gridClass]}>
     {
       items.map((product) => (
-        <li class="rounded-xl border p-3" style="background: color-mix(in srgb, var(--color-surface) 88%, white); border-color: color-mix(in srgb, var(--color-text) 14%, transparent);">
+        <li class="flex h-full flex-col rounded-xl border p-3" style="background: color-mix(in srgb, var(--color-surface) 88%, white); border-color: color-mix(in srgb, var(--color-text) 14%, transparent);">
+          <img
+            src={product.imageUrl?.trim() || fallbackCover}
+            alt={product.title}
+            class="mb-3 aspect-[2/3] w-full rounded-lg object-cover"
+            loading="lazy"
+            decoding="async"
+          />
           <p class="text-sm font-semibold" style="color: var(--color-text);">{product.title}</p>
+          <p class="mt-1 text-xs" style="color: color-mix(in srgb, var(--color-text) 72%, transparent);">
+            {product.summary?.trim() || "Recomendado para quem quer aprofundar conhecimento e aplicar na prática."}
+          </p>
           <a
             href={product.url}
-            class="mt-2 inline-block rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+            class="mt-auto inline-block rounded-lg px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90"
             style="background: var(--color-primary);"
             target="_blank"
             rel="noopener noreferrer sponsored"
           >
-            {product.cta}
+            {product.cta || "Comprar na Amazon"}
           </a>
         </li>
       ))
