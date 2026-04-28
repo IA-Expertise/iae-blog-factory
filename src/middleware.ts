@@ -6,12 +6,6 @@ export const onRequest = defineMiddleware(async ({ request, locals }, next) => {
   const hostHeader = request.headers.get("host")?.trim();
   const hostnameRaw = forwardedHost || hostHeader || new URL(request.url).hostname;
   const hostname = hostnameRaw.split(":")[0]?.trim() || "";
-  const urlHost = new URL(request.url).hostname;
-
-  console.log(
-    `[tenant-debug] x-forwarded-host=${forwardedHost ?? "(null)"} host=${hostHeader ?? "(null)"} urlHost=${urlHost} resolved=${hostname}`
-  );
-
   locals.siteData = await getSiteDataByHostname(hostname);
   return next();
 });
