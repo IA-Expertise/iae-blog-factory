@@ -538,15 +538,23 @@ function mapTenantToSiteData(
 async function findTenantByHostname(hostname: string, publishedPostsOnly: boolean) {
   if (!hostname) return null;
   await ensureSeedData();
-  return prisma.tenant.findUnique({
+  const include = {
+    posts: {
+      where: publishedPostsOnly ? { status: "PUBLISHED" as const } : undefined,
+      orderBy: { publishedAt: "desc" as const }
+    },
+    affiliateProducts: true
+  };
+
+  const exact = await prisma.tenant.findUnique({
     where: { hostname },
-    include: {
-      posts: {
-        where: publishedPostsOnly ? { status: "PUBLISHED" } : undefined,
-        orderBy: { publishedAt: "desc" }
-      },
-      affiliateProducts: true
-    }
+    include
+  });
+  if (exact) return exact;
+
+  return prisma.tenant.findFirst({
+    where: { hostname: { equals: hostname, mode: "insensitive" } },
+    include
   });
 }
 
@@ -578,7 +586,19 @@ export async function listSites(): Promise<SiteData[]> {
 
 /** Resolve tenant para a home e rotas que usam `locals.siteData` — tenta todos os hosts do pedido. */
 export async function getSiteDataForRequest(request: Request): Promise<SiteData> {
-  const candidates = collectHostnameCandidates(request);
+  const fromHeaders = collectHostnameCandidates(request);
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string) => {
+    const n = normalizeTenantHostname(raw);
+    if (!n || seen.has(n)) return;
+    seen.add(n);
+    candidates.push(n);
+  };
+
+  const envDefault = process.env.TENANT_DEFAULT_HOSTNAME?.trim();
+  if (envDefault) push(envDefault);
+  for (const c of fromHeaders) push(c);
 
   for (const h of candidates) {
     const tenant = await findTenantByHostname(normalizeHostname(h), true);
@@ -588,7 +608,7 @@ export async function getSiteDataForRequest(request: Request): Promise<SiteData>
   const publicCandidates = candidates.filter(isLikelyProductionCustomDomain);
   if (publicCandidates.length > 0) {
     throw new Error(
-      `Nenhum tenant para os hosts: ${candidates.join(", ")}. O campo hostname na tabela Tenant deve coincidir com um deles (ex.: techpolis.com.br).`
+      `Nenhum tenant para os hosts: ${candidates.join(", ")}. Confira o campo hostname na tabela Tenant. Opcional na Railway: TENANT_DEFAULT_HOSTNAME=techpolis.com.br`
     );
   }
 

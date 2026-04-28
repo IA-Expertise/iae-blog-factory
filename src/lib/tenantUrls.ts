@@ -1,3 +1,23 @@
+/** RFC 7239 `Forwarded:` — extrai cada parâmetro `host=`. */
+function hostsFromForwardedHeader(value: string | null): string[] {
+  if (!value) return [];
+  const hosts: string[] = [];
+  for (const entry of value.split(",")) {
+    for (const part of entry.trim().split(";")) {
+      const t = part.trim();
+      const m = /^host\s*=\s*(.+)$/i.exec(t);
+      if (!m) continue;
+      let v = m[1].trim();
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.slice(1, -1).trim();
+      }
+      const hostOnly = v.split(":")[0]?.trim();
+      if (hostOnly) hosts.push(hostOnly);
+    }
+  }
+  return hosts;
+}
+
 /** Domínio público real (ex.: techpolis.com.br) — não confundir com .local ou Railway. */
 export function isLikelyProductionCustomDomain(hostname: string): boolean {
   const h = hostname.trim().toLowerCase();
@@ -14,6 +34,10 @@ export function isLikelyProductionCustomDomain(hostname: string): boolean {
  */
 export function collectHostnameCandidates(request: Request): string[] {
   const raw: string[] = [];
+
+  for (const h of hostsFromForwardedHeader(request.headers.get("forwarded"))) {
+    raw.push(h);
+  }
 
   const pushHeaderList = (header: string | null) => {
     if (!header) return;
