@@ -532,9 +532,10 @@ function mapTenantToSiteData(
 }
 
 async function findTenantByHostname(hostname: string, publishedPostsOnly: boolean) {
+  if (!hostname) return null;
   await ensureSeedData();
-  return prisma.tenant.findUnique({
-    where: { hostname },
+  return prisma.tenant.findFirst({
+    where: { hostname: { equals: hostname, mode: "insensitive" } },
     include: {
       posts: {
         where: publishedPostsOnly ? { status: "PUBLISHED" } : undefined,
@@ -543,6 +544,16 @@ async function findTenantByHostname(hostname: string, publishedPostsOnly: boolea
       affiliateProducts: true
     }
   });
+}
+
+/** Domínio público real (ex.: techpolis.com.br) — não misturar com fallback de dev. */
+function isLikelyProductionCustomDomain(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  if (!h || !h.includes(".")) return false;
+  if (h.endsWith(".local") || h.endsWith(".localhost")) return false;
+  if (h === "localhost") return false;
+  if (h.endsWith(".up.railway.app")) return false;
+  return true;
 }
 
 async function findFirstTenant(publishedPostsOnly: boolean) {
@@ -573,8 +584,16 @@ export async function listSites(): Promise<SiteData[]> {
 
 export async function getSiteDataByHostname(hostname: string): Promise<SiteData> {
   const normalized = normalizeHostname(hostname);
+  const primary = await findTenantByHostname(normalized, true);
+  if (primary) return mapTenantToSiteData(primary);
+
+  if (isLikelyProductionCustomDomain(normalized)) {
+    throw new Error(
+      `Nenhum tenant para o host "${normalized}". O campo hostname na tabela Tenant deve ser exatamente esse dominio (ja normalizado em minusculas).`
+    );
+  }
+
   const tenant =
-    (await findTenantByHostname(normalized, true)) ??
     (await findTenantByHostname(FALLBACK_HOSTNAME, true)) ??
     (await findFirstTenant(true)) ??
     (await findFirstTenant(false));
