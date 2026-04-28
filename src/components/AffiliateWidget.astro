@@ -59,7 +59,7 @@ const fallbackCover = `data:image/svg+xml;charset=utf-8,${fallbackCoverSvg}`;
           <img
             src={product.imageUrl?.trim() || fallbackCover}
             alt={product.title}
-            class="mb-3 aspect-[2/3] w-full rounded-lg object-cover"
+            class="mb-3 aspect-square w-full rounded-lg object-cover"
             loading="lazy"
             decoding="async"
           />

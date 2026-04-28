@@ -46,6 +46,7 @@ export type AffiliateConfig = {
     title: string;
     cta: string;
     url: string;
+    imageUrl?: string;
   }>;
 };
 
@@ -503,7 +504,8 @@ function mapTenantToSiteData(
         id: product.id,
         title: product.title,
         cta: product.cta,
-        url: product.url
+        url: product.url,
+        imageUrl: product.imageUrl ?? undefined
       }))
     },
     posts: tenant.posts.map(mapPostRow),
@@ -1173,7 +1175,7 @@ export async function listScheduledPostsForCalendar(): Promise<ScheduledPostRow[
   }));
 }
 
-export async function addAffiliateProduct(hostname: string, input: { title: string; cta: string; url: string }) {
+export async function addAffiliateProduct(hostname: string, input: { title: string; cta: string; url: string; imageUrl?: string }) {
   await ensureSeedData();
   const tenant = await prisma.tenant.findUnique({ where: { hostname: normalizeHostname(hostname) } });
   if (!tenant) return;
@@ -1183,7 +1185,8 @@ export async function addAffiliateProduct(hostname: string, input: { title: stri
       tenantId: tenant.id,
       title: input.title,
       cta: input.cta,
-      url: input.url
+      url: input.url,
+      imageUrl: input.imageUrl?.trim() || null
     }
   });
 }

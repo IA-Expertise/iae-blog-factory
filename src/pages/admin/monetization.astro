@@ -8,6 +8,7 @@ import {
   listSites,
   updateTenantMonetization
 } from "../../lib/cms";
+import { isObjectStorageConfigured, uploadPublicImageAsset } from "../../lib/objectStorage";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
   return Astro.redirect("/admin/login");
@@ -34,10 +35,37 @@ if (Astro.request.method === "POST") {
   }
 
   if (action === "add-product") {
+    let imageUrl = String(formData.get("imageUrl") ?? "");
+    const imageFile = formData.get("imageFile");
+    const hasImageUpload = imageFile instanceof File && imageFile.size > 0;
+
+    if (hasImageUpload) {
+      if (!isObjectStorageConfigured()) {
+        throw new Error("Upload indisponível: configure o object storage (R2/S3).");
+      }
+      const file = imageFile as File;
+      if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+        throw new Error("Imagem inválida. Use PNG, JPG ou WEBP.");
+      }
+      const ext = file.type.includes("png") ? "png" : file.type.includes("webp") ? "webp" : "jpg";
+      const safeHost = hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
+      const keyName = `${safeHost}-affiliate-${Date.now()}.${ext}`;
+      const uploadedUrl = await uploadPublicImageAsset({
+        buffer: Buffer.from(await file.arrayBuffer()),
+        objectPath: `affiliate/${keyName}`,
+        contentType: file.type
+      });
+      if (!uploadedUrl) {
+        throw new Error("Falha ao enviar imagem do produto.");
+      }
+      imageUrl = uploadedUrl;
+    }
+
     await addAffiliateProduct(hostname, {
       title: String(formData.get("title") ?? ""),
       cta: String(formData.get("cta") ?? "Ver oferta"),
-      url: String(formData.get("url") ?? "")
+      url: String(formData.get("url") ?? ""),
+      imageUrl
     });
     return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
   }
@@ -137,11 +165,17 @@ const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
 
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
         <h3 class="text-lg font-semibold">Produtos Amazon (links completos ou amzn.to)</h3>
-        <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
+        <form method="POST" enctype="multipart/form-data" class="mt-4 grid gap-3 md:grid-cols-2">
           <input type="hidden" name="action" value="add-product" />
           <input type="hidden" name="hostname" value={tenant.hostname} />
           <input class="rounded-lg border border-slate-300 px-3 py-2" name="title" placeholder="Nome do produto" required />
           <input class="rounded-lg border border-slate-300 px-3 py-2" name="cta" placeholder="CTA (ex: Ver oferta)" value="Ver oferta" />
+          <input class="rounded-lg border border-slate-300 px-3 py-2 md:col-span-2" name="imageUrl" placeholder="URL da imagem (opcional)" />
+          <label class="text-sm md:col-span-2">
+            <span class="mb-1 block">Upload da imagem do produto (opcional)</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="file" name="imageFile" accept="image/png,image/jpeg,image/webp" />
+            <span class="mt-1 block text-xs text-slate-500">Se enviar arquivo, ele substitui a URL da imagem.</span>
+          </label>
           <input class="rounded-lg border border-slate-300 px-3 py-2 md:col-span-2" name="url" placeholder="https://www.amazon.com.br/... ou https://amzn.to/..." required />
           <button class="rounded-lg bg-slate-900 px-4 py-2 text-white md:col-span-2" type="submit">Adicionar produto</button>
         </form>
@@ -151,6 +185,7 @@ const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
             <li class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
               <div>
                 <p class="font-medium">{product.title}</p>
+                {product.imageUrl && <p class="text-xs text-slate-500">{product.imageUrl}</p>}
                 <p class="text-xs text-slate-500">{product.url}</p>
               </div>
               <form method="POST">
