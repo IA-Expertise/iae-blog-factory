@@ -113,6 +113,8 @@ export type ArticlePitchRow = {
   postId: string | null;
 };
 
+const FALLBACK_HOSTNAME = "vinil.local";
+
 const THEME_PRESETS: Record<string, ThemeConfig> = {
   // Vintage Rock (Vinil/Colecionismo)
   classic: {
@@ -543,6 +545,20 @@ async function findTenantByHostname(hostname: string, publishedPostsOnly: boolea
   });
 }
 
+async function findFirstTenant(publishedPostsOnly: boolean) {
+  await ensureSeedData();
+  return prisma.tenant.findFirst({
+    orderBy: { createdAt: "asc" },
+    include: {
+      posts: {
+        where: publishedPostsOnly ? { status: "PUBLISHED" } : undefined,
+        orderBy: { publishedAt: "desc" }
+      },
+      affiliateProducts: true
+    }
+  });
+}
+
 export async function listSites(): Promise<SiteData[]> {
   await ensureSeedData();
   const tenants = await prisma.tenant.findMany({
@@ -557,10 +573,12 @@ export async function listSites(): Promise<SiteData[]> {
 
 export async function getSiteDataByHostname(hostname: string): Promise<SiteData> {
   const normalized = normalizeHostname(hostname);
-  const tenant = await findTenantByHostname(normalized, true);
-  if (!tenant) {
-    throw new Error(`Tenant nao encontrado para o host "${normalized || "(vazio)"}".`);
-  }
+  const tenant =
+    (await findTenantByHostname(normalized, true)) ??
+    (await findTenantByHostname(FALLBACK_HOSTNAME, true)) ??
+    (await findFirstTenant(true)) ??
+    (await findFirstTenant(false));
+  if (!tenant) throw new Error("Nenhum tenant encontrado.");
   return mapTenantToSiteData(tenant);
 }
 
