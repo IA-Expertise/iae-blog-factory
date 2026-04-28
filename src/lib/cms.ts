@@ -559,6 +559,11 @@ async function findFirstTenant(publishedPostsOnly: boolean) {
   });
 }
 
+function isLocalDevHost(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "::1" || h.endsWith(".local") || h.endsWith(".localhost");
+}
+
 export async function listSites(): Promise<SiteData[]> {
   await ensureSeedData();
   const tenants = await prisma.tenant.findMany({
@@ -573,8 +578,15 @@ export async function listSites(): Promise<SiteData[]> {
 
 export async function getSiteDataByHostname(hostname: string): Promise<SiteData> {
   const normalized = normalizeHostname(hostname);
+  const primary = await findTenantByHostname(normalized, true);
+  if (primary) return mapTenantToSiteData(primary);
+
+  // Em produção: host sem tenant deve falhar explicitamente (sem abrir site errado).
+  if (!isLocalDevHost(normalized)) {
+    throw new Error(`Tenant nao encontrado para o host "${normalized || "(vazio)"}".`);
+  }
+
   const tenant =
-    (await findTenantByHostname(normalized, true)) ??
     (await findTenantByHostname(FALLBACK_HOSTNAME, true)) ??
     (await findFirstTenant(true)) ??
     (await findFirstTenant(false));
