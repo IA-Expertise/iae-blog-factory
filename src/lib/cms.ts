@@ -538,8 +538,8 @@ function mapTenantToSiteData(
 async function findTenantByHostname(hostname: string, publishedPostsOnly: boolean) {
   if (!hostname) return null;
   await ensureSeedData();
-  return prisma.tenant.findFirst({
-    where: { hostname: { equals: hostname, mode: "insensitive" } },
+  return prisma.tenant.findUnique({
+    where: { hostname },
     include: {
       posts: {
         where: publishedPostsOnly ? { status: "PUBLISHED" } : undefined,
