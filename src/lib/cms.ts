@@ -1,7 +1,13 @@
 import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage } from "./contentGenerator";
 import { prisma } from "./db";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
-import { isReservedTenantHostname, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
+import {
+  collectHostnameCandidates,
+  isLikelyProductionCustomDomain,
+  isReservedTenantHostname,
+  normalizeTenantHostname,
+  normalizeTenantSlug
+} from "./tenantUrls";
 
 const ADSENSE_CLIENT_RE = /^ca-pub-\d{10,22}$/i;
 
@@ -544,16 +550,6 @@ async function findTenantByHostname(hostname: string, publishedPostsOnly: boolea
   });
 }
 
-/** Domínio público real (ex.: techpolis.com.br) — não misturar com fallback de dev. */
-function isLikelyProductionCustomDomain(hostname: string): boolean {
-  const h = hostname.trim().toLowerCase();
-  if (!h || !h.includes(".")) return false;
-  if (h.endsWith(".local") || h.endsWith(".localhost")) return false;
-  if (h === "localhost") return false;
-  if (h.endsWith(".up.railway.app")) return false;
-  return true;
-}
-
 async function findFirstTenant(publishedPostsOnly: boolean) {
   await ensureSeedData();
   return prisma.tenant.findFirst({
@@ -578,6 +574,27 @@ export async function listSites(): Promise<SiteData[]> {
     }
   });
   return tenants.map(mapTenantToSiteData);
+}
+
+/** Resolve tenant para a home e rotas que usam `locals.siteData` — tenta todos os hosts do pedido. */
+export async function getSiteDataForRequest(request: Request): Promise<SiteData> {
+  const candidates = collectHostnameCandidates(request);
+
+  for (const h of candidates) {
+    const tenant = await findTenantByHostname(normalizeHostname(h), true);
+    if (tenant) return mapTenantToSiteData(tenant);
+  }
+
+  const publicCandidates = candidates.filter(isLikelyProductionCustomDomain);
+  if (publicCandidates.length > 0) {
+    throw new Error(
+      `Nenhum tenant para os hosts: ${candidates.join(", ")}. O campo hostname na tabela Tenant deve coincidir com um deles (ex.: techpolis.com.br).`
+    );
+  }
+
+  const tenant = (await findFirstTenant(true)) ?? (await findFirstTenant(false));
+  if (!tenant) throw new Error("Nenhum tenant encontrado.");
+  return mapTenantToSiteData(tenant);
 }
 
 export async function getSiteDataByHostname(hostname: string): Promise<SiteData> {

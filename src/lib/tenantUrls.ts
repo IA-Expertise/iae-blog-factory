@@ -1,28 +1,49 @@
-function looksLikeRailwayServiceHostname(hostname: string): boolean {
+/** Domínio público real (ex.: techpolis.com.br) — não confundir com .local ou Railway. */
+export function isLikelyProductionCustomDomain(hostname: string): boolean {
   const h = hostname.trim().toLowerCase();
-  return h.endsWith(".up.railway.app");
+  if (!h || !h.includes(".")) return false;
+  if (h.endsWith(".local") || h.endsWith(".localhost")) return false;
+  if (h === "localhost") return false;
+  if (h.endsWith(".up.railway.app")) return false;
+  return true;
 }
 
 /**
- * Host usado para resolver o tenant.
- * Em alguns proxies, `X-Forwarded-Host` vem com o host interno (`*.up.railway.app`) enquanto `Host` traz o domínio custom — priorizamos o público.
+ * Todos os hosts candidatos do pedido (ordem: domínios custom primeiro, depois o resto).
+ * Resolve o caso em que um header traz techpolis.com.br e outro traz *.railway.app.
  */
-export function resolveRequestHostname(request: Request): string {
-  const forwardedRaw = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? "";
-  const fromForwarded = forwardedRaw.split(":")[0]?.trim() ?? "";
+export function collectHostnameCandidates(request: Request): string[] {
+  const raw: string[] = [];
 
-  const rawHost = request.headers.get("host")?.split(":")[0]?.trim() ?? "";
+  const pushHeaderList = (header: string | null) => {
+    if (!header) return;
+    for (const seg of header.split(",")) {
+      const p = seg.trim().split(":")[0]?.trim();
+      if (p) raw.push(p);
+    }
+  };
 
-  if (rawHost && !looksLikeRailwayServiceHostname(rawHost)) {
-    return normalizeTenantHostname(rawHost);
+  pushHeaderList(request.headers.get("host"));
+  pushHeaderList(request.headers.get("x-forwarded-host"));
+  pushHeaderList(request.headers.get("cf-connecting-host"));
+  try {
+    raw.push(new URL(request.url).hostname);
+  } catch {
+    /* ignore */
   }
-  if (fromForwarded && !looksLikeRailwayServiceHostname(fromForwarded)) {
-    return normalizeTenantHostname(fromForwarded);
-  }
-  if (fromForwarded) return normalizeTenantHostname(fromForwarded);
-  if (rawHost) return normalizeTenantHostname(rawHost);
 
-  return normalizeTenantHostname(new URL(request.url).hostname);
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const r of raw) {
+    const n = normalizeTenantHostname(r);
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    normalized.push(n);
+  }
+
+  const custom = normalized.filter(isLikelyProductionCustomDomain);
+  const rest = normalized.filter((h) => !isLikelyProductionCustomDomain(h));
+  return [...custom, ...rest];
 }
 
 export function normalizeTenantHostname(input: string): string {
