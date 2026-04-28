@@ -5,6 +5,7 @@ import AffiliateWidget from "../../components/AffiliateWidget.astro";
 import { getPublishedPostBySlug } from "../../lib/cms";
 import { renderPostMarkdown } from "../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../lib/mediaUrl";
+import { buildTenantPostPath } from "../../lib/tenantUrls";
 
 export const prerender = false;
 
@@ -16,6 +17,11 @@ const coverSrc = post ? resolvePublicAssetUrl(post.image) : "";
 
 if (!post) {
   return Astro.redirect("/");
+}
+
+const canonicalPostPath = buildTenantPostPath(siteData.hostname, post.slug ?? "");
+if (Astro.url.pathname !== canonicalPostPath) {
+  return Astro.redirect(canonicalPostPath);
 }
 ---
 

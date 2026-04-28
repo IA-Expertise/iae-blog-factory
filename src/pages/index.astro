@@ -3,9 +3,15 @@ import Layout from "../layouts/Layout.astro";
 import AdUnit from "../components/AdUnit.astro";
 import AffiliateWidget from "../components/AffiliateWidget.astro";
 import { resolvePublicAssetUrl } from "../lib/mediaUrl";
+import { buildTenantHomePath } from "../lib/tenantUrls";
 
 const siteData = Astro.locals.siteData;
 const [heroPost, ...secondaryPosts] = siteData.posts;
+const canonicalHomePath = buildTenantHomePath(siteData.hostname);
+
+if (Astro.url.pathname === "/") {
+  return Astro.redirect(canonicalHomePath);
+}
 ---
 
 <Layout
