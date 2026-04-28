@@ -1,13 +1,7 @@
 import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage } from "./contentGenerator";
 import { prisma } from "./db";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
-import {
-  collectHostnameCandidates,
-  isLikelyProductionCustomDomain,
-  isReservedTenantHostname,
-  normalizeTenantHostname,
-  normalizeTenantSlug
-} from "./tenantUrls";
+import { isReservedTenantHostname, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
 const ADSENSE_CLIENT_RE = /^ca-pub-\d{10,22}$/i;
 
@@ -118,6 +112,8 @@ export type ArticlePitchRow = {
   status: PitchStatus;
   postId: string | null;
 };
+
+const FALLBACK_HOSTNAME = "vinil.local";
 
 const THEME_PRESETS: Record<string, ThemeConfig> = {
   // Vintage Rock (Vinil/Colecionismo)
@@ -536,25 +532,16 @@ function mapTenantToSiteData(
 }
 
 async function findTenantByHostname(hostname: string, publishedPostsOnly: boolean) {
-  if (!hostname) return null;
   await ensureSeedData();
-  const include = {
-    posts: {
-      where: publishedPostsOnly ? { status: "PUBLISHED" as const } : undefined,
-      orderBy: { publishedAt: "desc" as const }
-    },
-    affiliateProducts: true
-  };
-
-  const exact = await prisma.tenant.findUnique({
+  return prisma.tenant.findUnique({
     where: { hostname },
-    include
-  });
-  if (exact) return exact;
-
-  return prisma.tenant.findFirst({
-    where: { hostname: { equals: hostname, mode: "insensitive" } },
-    include
+    include: {
+      posts: {
+        where: publishedPostsOnly ? { status: "PUBLISHED" } : undefined,
+        orderBy: { publishedAt: "desc" }
+      },
+      affiliateProducts: true
+    }
   });
 }
 
@@ -584,51 +571,13 @@ export async function listSites(): Promise<SiteData[]> {
   return tenants.map(mapTenantToSiteData);
 }
 
-/** Resolve tenant para a home e rotas que usam `locals.siteData` — tenta todos os hosts do pedido. */
-export async function getSiteDataForRequest(request: Request): Promise<SiteData> {
-  const fromHeaders = collectHostnameCandidates(request);
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-  const push = (raw: string) => {
-    const n = normalizeTenantHostname(raw);
-    if (!n || seen.has(n)) return;
-    seen.add(n);
-    candidates.push(n);
-  };
-
-  const envDefault = process.env.TENANT_DEFAULT_HOSTNAME?.trim();
-  if (envDefault) push(envDefault);
-  for (const c of fromHeaders) push(c);
-
-  for (const h of candidates) {
-    const tenant = await findTenantByHostname(normalizeHostname(h), true);
-    if (tenant) return mapTenantToSiteData(tenant);
-  }
-
-  const publicCandidates = candidates.filter(isLikelyProductionCustomDomain);
-  if (publicCandidates.length > 0) {
-    throw new Error(
-      `Nenhum tenant para os hosts: ${candidates.join(", ")}. Confira o campo hostname na tabela Tenant. Opcional na Railway: TENANT_DEFAULT_HOSTNAME=techpolis.com.br`
-    );
-  }
-
-  const tenant = (await findFirstTenant(true)) ?? (await findFirstTenant(false));
-  if (!tenant) throw new Error("Nenhum tenant encontrado.");
-  return mapTenantToSiteData(tenant);
-}
-
 export async function getSiteDataByHostname(hostname: string): Promise<SiteData> {
   const normalized = normalizeHostname(hostname);
-  const primary = await findTenantByHostname(normalized, true);
-  if (primary) return mapTenantToSiteData(primary);
-
-  if (isLikelyProductionCustomDomain(normalized)) {
-    throw new Error(
-      `Nenhum tenant para o host "${normalized}". O campo hostname na tabela Tenant deve ser exatamente esse dominio (ja normalizado em minusculas).`
-    );
-  }
-
-  const tenant = (await findFirstTenant(true)) ?? (await findFirstTenant(false));
+  const tenant =
+    (await findTenantByHostname(normalized, true)) ??
+    (await findTenantByHostname(FALLBACK_HOSTNAME, true)) ??
+    (await findFirstTenant(true)) ??
+    (await findFirstTenant(false));
   if (!tenant) throw new Error("Nenhum tenant encontrado.");
   return mapTenantToSiteData(tenant);
 }

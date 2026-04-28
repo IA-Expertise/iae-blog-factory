@@ -3,7 +3,6 @@ import Layout from "../layouts/Layout.astro";
 import AdUnit from "../components/AdUnit.astro";
 import AffiliateWidget from "../components/AffiliateWidget.astro";
 import { resolvePublicAssetUrl } from "../lib/mediaUrl";
-import { buildTenantPostPath } from "../lib/tenantUrls";
 
 const siteData = Astro.locals.siteData;
 const [heroPost, ...secondaryPosts] = siteData.posts;
@@ -57,7 +56,7 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
           <div class="mt-4">
             <p class="text-xs uppercase tracking-wide text-slate-500">{heroPost.category}</p>
             <h2 class="mt-2 text-2xl font-bold">
-              <a href={buildTenantPostPath(siteData.hostname, heroPost.slug ?? "")} class="hover:underline">{heroPost.title}</a>
+              <a href={`/post/${heroPost.slug}`} class="hover:underline">{heroPost.title}</a>
             </h2>
             <p class="mt-1 text-sm text-slate-500">{heroPost.publishedAt}</p>
           </div>
@@ -73,7 +72,7 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
               <div class="p-4">
                 <p class="text-xs uppercase tracking-wide text-slate-500">{post.category}</p>
                 <h4 class="mt-1 line-clamp-2 text-lg font-semibold">
-                  <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="hover:underline">{post.title}</a>
+                  <a href={`/post/${post.slug}`} class="hover:underline">{post.title}</a>
                 </h4>
                 <p class="mt-2 text-sm text-slate-500">{post.publishedAt}</p>
               </div>
