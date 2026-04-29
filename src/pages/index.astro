@@ -3,11 +3,18 @@ import Layout from "../layouts/Layout.astro";
 import AdUnit from "../components/AdUnit.astro";
 import AffiliateWidget from "../components/AffiliateWidget.astro";
 import { resolvePublicAssetUrl } from "../lib/mediaUrl";
+import { resolvePublicOrigin } from "../lib/publicOrigin";
 import { buildTenantHomePath } from "../lib/tenantUrls";
 
 const siteData = Astro.locals.siteData;
 const [heroPost, ...secondaryPosts] = siteData.posts;
 const canonicalHomePath = buildTenantHomePath(siteData.hostname);
+const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
+const heroImageHref = resolvePublicAssetUrl(siteData.hero.image);
+const resolvedOgImage = new URL(heroImageHref || siteData.hero.image, `${publicOrigin}/`).toString();
+const ogImage = resolvedOgImage.startsWith(`${publicOrigin}/`)
+  ? resolvedOgImage
+  : new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedOgImage)}`, `${publicOrigin}/`).toString();
 
 if (Astro.url.pathname === "/") {
   return Astro.redirect(canonicalHomePath);
@@ -18,7 +25,8 @@ if (Astro.url.pathname === "/") {
   siteData={siteData}
   title={`${siteData.brandName} | Home`}
   noindex={true}
-  canonicalUrl={new URL(`/t/${siteData.hostname}/`, Astro.url.origin).toString()}
+  canonicalUrl={new URL(`/t/${siteData.hostname}/`, `${publicOrigin}/`).toString()}
+  ogImage={ogImage}
 >
   <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
     <main class="space-y-8 lg:col-span-8">

@@ -3,6 +3,7 @@ import Layout from "../../layouts/Layout.astro";
 import AdUnit from "../../components/AdUnit.astro";
 import AffiliateWidget from "../../components/AffiliateWidget.astro";
 import { getPublishedPostBySlug } from "../../lib/cms";
+import { resolvePublicOrigin } from "../../lib/publicOrigin";
 import { renderPostMarkdown } from "../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../lib/mediaUrl";
 import { buildTenantPostPath } from "../../lib/tenantUrls";
@@ -14,6 +15,7 @@ const slug = Astro.params.slug ?? "";
 const post = await getPublishedPostBySlug(siteData.hostname, slug);
 const articleHtml = post?.content ? renderPostMarkdown(post.content) : "";
 const coverSrc = post ? resolvePublicAssetUrl(post.image) : "";
+const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 
 if (!post) {
   return Astro.redirect("/");
@@ -23,13 +25,18 @@ const canonicalPostPath = buildTenantPostPath(siteData.hostname, post.slug ?? ""
 if (Astro.url.pathname !== canonicalPostPath) {
   return Astro.redirect(canonicalPostPath);
 }
+const resolvedImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
+const ogImageUrl = resolvedImageUrl.startsWith(`${publicOrigin}/`)
+  ? resolvedImageUrl
+  : new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedImageUrl)}`, `${publicOrigin}/`).toString();
 ---
 
 <Layout
   siteData={siteData}
   title={`${post.title} | ${siteData.brandName}`}
   noindex={true}
-  canonicalUrl={new URL(`/t/${siteData.hostname}/post/${post.slug ?? ""}`, Astro.url.origin).toString()}
+  canonicalUrl={new URL(`/t/${siteData.hostname}/post/${post.slug ?? ""}`, `${publicOrigin}/`).toString()}
+  ogImage={ogImageUrl}
 >
   <div class="space-y-6">
     {siteData.ads.enabled && (
