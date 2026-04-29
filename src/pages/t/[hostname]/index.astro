@@ -5,6 +5,7 @@ import AffiliateWidget from "../../../components/AffiliateWidget.astro";
 import TenantPublicHeader from "../../../components/TenantPublicHeader.astro";
 import { getSiteDataByHostname } from "../../../lib/cms";
 import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
+import { resolvePublicOrigin } from "../../../lib/publicOrigin";
 import { buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname } from "../../../lib/tenantUrls";
 
 export const prerender = false;
@@ -13,9 +14,14 @@ const hostname = Astro.params.hostname ?? "";
 const siteData = await getSiteDataByHostname(hostname);
 const [heroPost, ...secondaryPosts] = siteData.posts;
 const homeHref = buildTenantHomePath(siteData.hostname);
-const canonicalUrl = new URL(homeHref, Astro.url.origin).toString();
+const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
+const canonicalUrl = new URL(homeHref, `${publicOrigin}/`).toString();
 const description = `${siteData.brandName}: conteudo sobre ${siteData.niche} com guias, dicas e artigos atualizados.`;
-const ogImage = siteData.hero.image;
+const heroImageHref = resolvePublicAssetUrl(siteData.hero.image);
+const resolvedOgImage = new URL(heroImageHref || siteData.hero.image, `${publicOrigin}/`).toString();
+const ogImage = resolvedOgImage.startsWith(`${publicOrigin}/`)
+  ? resolvedOgImage
+  : new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedOgImage)}`, `${publicOrigin}/`).toString();
 const requestedHostname = normalizeTenantHostname(hostname);
 
 if (requestedHostname !== siteData.hostname) {

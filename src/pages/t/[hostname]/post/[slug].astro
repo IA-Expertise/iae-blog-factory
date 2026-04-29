@@ -5,6 +5,7 @@ import AffiliateWidget from "../../../../components/AffiliateWidget.astro";
 import TenantPublicHeader from "../../../../components/TenantPublicHeader.astro";
 import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../lib/cms";
 import { commentsEnabledForHostname, listPublishedCommentsForPost } from "../../../../lib/comments";
+import { resolvePublicOrigin } from "../../../../lib/publicOrigin";
 import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
 import { buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname, normalizeTenantSlug } from "../../../../lib/tenantUrls";
@@ -30,20 +31,12 @@ if (requestedHostname !== siteData.hostname || requestedSlug !== (post.slug ?? "
   return Astro.redirect(canonicalPostPath);
 }
 
-const configuredPublicOrigin = import.meta.env.PUBLIC_SITE_ORIGIN?.trim()?.replace(/\/+$/, "") ?? "";
-const forwardedProto = Astro.request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
-const forwardedHost = Astro.request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-const forwardedOrigin = forwardedHost ? `${forwardedProto || "https"}://${forwardedHost}` : "";
-const requestOrigin = Astro.url.origin;
-const requestHostname = Astro.url.hostname;
-const requestLooksLocal = requestHostname === "localhost" || requestHostname === "127.0.0.1" || requestHostname === "::1";
-const publicOrigin =
-  configuredPublicOrigin ||
-  forwardedOrigin ||
-  (requestLooksLocal && forwardedOrigin ? forwardedOrigin : requestOrigin);
+const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const canonicalUrl = new URL(canonicalPostPath, `${publicOrigin}/`).toString();
 const resolvedImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
-const ogImageUrl = resolvedImageUrl;
+const ogImageUrl = resolvedImageUrl.startsWith(`${publicOrigin}/`)
+  ? resolvedImageUrl
+  : new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedImageUrl)}`, `${publicOrigin}/`).toString();
 const description = post.excerpt?.trim() || `Leia ${post.title} em ${siteData.brandName}.`;
 const encodedUrl = encodeURIComponent(canonicalUrl);
 const encodedTitle = encodeURIComponent(post.title);
