@@ -33,6 +33,18 @@ const adsenseScript =
   siteData.ads.enabled &&
   siteData.ads.provider === "adsense" &&
   /^ca-pub-\d{10,22}$/i.test(adsClient);
+const ga4Id = import.meta.env.PUBLIC_GA4_ID?.trim() ?? "";
+const ga4Enabled = tenantPublicLayout && /^G-[A-Z0-9]+$/i.test(ga4Id);
+const ga4InitScript = ga4Enabled
+  ? `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag("js", new Date());
+gtag("config", ${JSON.stringify(ga4Id)}, {
+  page_title: document.title,
+  page_path: window.location.pathname,
+  tenant_hostname: ${JSON.stringify(siteData.hostname)}
+});`
+  : "";
 ---
 
 <!doctype html>
@@ -65,6 +77,14 @@ const adsenseScript =
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsClient)}`}
           crossorigin="anonymous"
         />
+      )
+    }
+    {
+      ga4Enabled && (
+        <>
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(ga4Id)}`} />
+          <script is:inline set:html={ga4InitScript} />
+        </>
       )
     }
     <style
