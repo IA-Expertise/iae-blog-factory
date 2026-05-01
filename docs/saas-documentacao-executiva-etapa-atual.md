@@ -80,6 +80,7 @@ Mitigacao em curso:
 2. Regras de prioridade/rotacao entre AdSense e anuncios diretos.
 3. Observabilidade operacional (jobs, falhas de upload, cron).
 4. Relatorio sintetico por tenant (editorial + monetizacao).
+5. **Inscricao e notificacoes:** permitir que leitores se inscrevam para receber avisos automaticos de novos artigos (por blog/tenant), com consentimento e base para crescimento de audiencia.
 
 ## Conclusao
 

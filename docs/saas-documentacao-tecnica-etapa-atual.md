@@ -212,6 +212,7 @@ Pronto para:
 3. Observabilidade de jobs (cron, geracao, upload).
 4. Hardening de validacoes de URL e politica de links patrocinados.
 5. Relatorios simples por tenant (publicacao, comentarios, monetizacao configurada).
+6. **Inscricao de leitores (newsletter / alertas):** campo ou fluxo para o usuario se cadastrar e receber notificacoes automaticas de novos artigos (por tenant), com opt-in, confirmacao de e-mail e preferencia de frequencia; integracao com provedor de e-mail ou fila de envio apos publicacao.
 
 ---
 
