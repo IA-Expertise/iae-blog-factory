@@ -1,9 +1,13 @@
 import type { APIRoute } from "astro";
+import sharp from "sharp";
 import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../../lib/cms";
 import { resolvePublicAssetUrl } from "../../../../../lib/mediaUrl";
 import { normalizeTenantHostname, normalizeTenantSlug } from "../../../../../lib/tenantUrls";
 
 export const prerender = false;
+const OG_WIDTH = 1200;
+const OG_HEIGHT = 630;
+const OG_MAX_BYTES = 300 * 1024;
 
 function contentTypeFromUrl(url: string): string {
   const lower = url.toLowerCase();
@@ -32,6 +36,30 @@ async function fetchImageBytes(url: string): Promise<{ bytes: ArrayBuffer; conte
   }
 }
 
+async function normalizeForSocialOg(bytes: ArrayBuffer): Promise<Buffer | null> {
+  const input = Buffer.from(bytes);
+  const qualities = [72, 64, 56, 48, 40];
+
+  try {
+    // Primeiro pass: enquadra no formato OG (1.91:1) e tenta compressão padrão.
+    let candidate = await sharp(input)
+      .resize(OG_WIDTH, OG_HEIGHT, { fit: "cover", position: "attention" })
+      .jpeg({ quality: qualities[0], mozjpeg: true, chromaSubsampling: "4:2:0" })
+      .toBuffer();
+    if (candidate.byteLength <= OG_MAX_BYTES) return candidate;
+
+    // Segundo pass: reduz qualidade até ficar em faixa mais estável para WhatsApp.
+    for (const quality of qualities.slice(1)) {
+      candidate = await sharp(candidate).jpeg({ quality, mozjpeg: true, chromaSubsampling: "4:2:0" }).toBuffer();
+      if (candidate.byteLength <= OG_MAX_BYTES) return candidate;
+    }
+
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
 export const GET: APIRoute = async ({ params, request }) => {
   const hostname = normalizeTenantHostname(params.hostname ?? "");
   const slug = normalizeTenantSlug(params.slug ?? "");
@@ -49,11 +77,15 @@ export const GET: APIRoute = async ({ params, request }) => {
     for (const absolute of candidates) {
       const fetched = await fetchImageBytes(absolute);
       if (!fetched) continue;
-      return new Response(fetched.bytes, {
+      const normalized = await normalizeForSocialOg(fetched.bytes);
+      const body = normalized ?? Buffer.from(fetched.bytes);
+      const contentType = normalized ? "image/jpeg" : fetched.contentType;
+
+      return new Response(body, {
         status: 200,
         headers: {
-          "Content-Type": fetched.contentType,
-          "Content-Length": String(fetched.bytes.byteLength),
+          "Content-Type": contentType,
+          "Content-Length": String(body.byteLength),
           // Mais estável para scrapers sociais: mantém cache curto e revalidação frequente.
           "Cache-Control": "public, max-age=3600"
         }
