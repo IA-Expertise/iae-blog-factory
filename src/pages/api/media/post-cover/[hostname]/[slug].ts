@@ -21,7 +21,8 @@ async function fetchImageBytes(url: string): Promise<{ bytes: ArrayBuffer; conte
     const upstream = await fetch(url, {
       redirect: "follow",
       headers: {
-        "User-Agent": "WhatsApp/2.24 IAE-Blog-Factory-OG/1.0",
+        // User-Agent neutro para Facebook/LinkedIn/WhatsApp scrapers.
+        "User-Agent": "facebookexternalhit/1.1 WhatsApp/2.24 LinkedInBot/1.0 IAE-Blog-Factory-OG/1.0",
         Accept: "image/*,*/*;q=0.8"
       },
       signal: AbortSignal.timeout(8000)
@@ -68,7 +69,7 @@ export const GET: APIRoute = async ({ params, request }) => {
   try {
     const siteData = await getSiteDataByHostname(hostname);
     const post = await getPublishedPostBySlug(siteData.hostname, slug);
-    if (!post?.image) return new Response("Not found", { status: 404 });
+    if (!post) return new Response("Not found", { status: 404 });
 
     const primaryHref = resolvePublicAssetUrl(post.image);
     const fallbackHref = resolvePublicAssetUrl(siteData.hero.image);
@@ -86,8 +87,8 @@ export const GET: APIRoute = async ({ params, request }) => {
         headers: {
           "Content-Type": contentType,
           "Content-Length": String(body.byteLength),
-          // Mais estável para scrapers sociais: mantém cache curto e revalidação frequente.
-          "Cache-Control": "public, max-age=3600"
+          // Cache mais agressivo para reduzir latência em scrapers sociais (Meta/LinkedIn/WhatsApp).
+          "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
         }
       });
     }
