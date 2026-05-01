@@ -36,6 +36,7 @@ const adsenseScript =
 const ga4Id = import.meta.env.PUBLIC_GA4_ID?.trim() ?? "";
 const ga4Enabled = tenantPublicLayout && /^G-[A-Z0-9]+$/i.test(ga4Id);
 const facebookAppId = import.meta.env.PUBLIC_FACEBOOK_APP_ID?.trim() ?? "";
+const authorName = import.meta.env.PUBLIC_SITE_AUTHOR?.trim() || "Eduardo Sona";
 const ga4InitScript = ga4Enabled
   ? `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
@@ -54,6 +55,7 @@ gtag("config", ${JSON.stringify(ga4Id)}, {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title}</title>
+    <meta name="author" content={authorName} />
     <meta name="description" content={description} />
     {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
     {noindex && <meta name="robots" content="noindex,nofollow" />}
@@ -68,7 +70,7 @@ gtag("config", ${JSON.stringify(ga4Id)}, {
     {ogImage && <meta property="og:image:secure_url" content={ogImage} />}
     {ogImage && <meta property="og:image:type" content="image/jpeg" />}
     {ogImage && <meta property="og:image:width" content="1200" />}
-    {ogImage && <meta property="og:image:height" content="630" />}
+    {ogImage && <meta property="og:image:height" content="627" />}
     {ogImage && <meta property="og:image:alt" content={title} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />

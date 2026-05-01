@@ -6,7 +6,7 @@ import { normalizeTenantHostname, normalizeTenantSlug } from "../../../../../lib
 
 export const prerender = false;
 const OG_WIDTH = 1200;
-const OG_HEIGHT = 630;
+const OG_HEIGHT = 627;
 const OG_MAX_BYTES = 300 * 1024;
 
 function contentTypeFromUrl(url: string): string {
