@@ -73,7 +73,14 @@ if (!row) {
 
 const imgFlash = new URL(Astro.request.url).searchParams.get("img");
 const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
-const postUrl = new URL(buildTenantPostPath(row.tenant.hostname, row.slug), `${publicOrigin}/`).toString();
+const tenantHost = row.tenant.hostname.trim().toLowerCase();
+const tenantLooksPublicDomain =
+  /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(tenantHost) &&
+  tenantHost !== "localhost" &&
+  !tenantHost.endsWith(".local") &&
+  !tenantHost.endsWith(".localhost");
+const socialOrigin = tenantLooksPublicDomain ? `https://${tenantHost}` : publicOrigin;
+const postUrl = new URL(buildTenantPostPath(row.tenant.hostname, row.slug), `${socialOrigin}/`).toString();
 const socialBase = `${row.title}\n\n${row.excerpt ?? "Confira este conteúdo no blog."}`.trim();
 const whatsappCaption = `${socialBase}\n\n${postUrl}`;
 const instagramCaption = `${socialBase}\n\nLeia mais no link da bio.\n#blog #artigo`;
