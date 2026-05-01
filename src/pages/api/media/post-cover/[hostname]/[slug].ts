@@ -12,6 +12,26 @@ function contentTypeFromUrl(url: string): string {
   return "image/png";
 }
 
+async function fetchImageBytes(url: string): Promise<{ bytes: ArrayBuffer; contentType: string } | null> {
+  try {
+    const upstream = await fetch(url, {
+      redirect: "follow",
+      headers: {
+        "User-Agent": "WhatsApp/2.24 IAE-Blog-Factory-OG/1.0",
+        Accept: "image/*,*/*;q=0.8"
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!upstream.ok) return null;
+    const bytes = await upstream.arrayBuffer();
+    const contentType = upstream.headers.get("content-type") || contentTypeFromUrl(url);
+    if (!contentType.toLowerCase().startsWith("image/")) return null;
+    return { bytes, contentType };
+  } catch {
+    return null;
+  }
+}
+
 export const GET: APIRoute = async ({ params, request }) => {
   const hostname = normalizeTenantHostname(params.hostname ?? "");
   const slug = normalizeTenantSlug(params.slug ?? "");
@@ -22,26 +42,25 @@ export const GET: APIRoute = async ({ params, request }) => {
     const post = await getPublishedPostBySlug(siteData.hostname, slug);
     if (!post?.image) return new Response("Not found", { status: 404 });
 
-    const imageHref = resolvePublicAssetUrl(post.image);
-    if (!imageHref) return new Response("Not found", { status: 404 });
+    const primaryHref = resolvePublicAssetUrl(post.image);
+    const fallbackHref = resolvePublicAssetUrl(siteData.hero.image);
+    const candidates = [primaryHref, fallbackHref].filter(Boolean).map((href) => new URL(href, request.url).toString());
 
-    const absolute = new URL(imageHref, request.url).toString();
-    const upstream = await fetch(absolute, {
-      redirect: "follow",
-      headers: { "User-Agent": "IAE-Blog-Factory-OG-Cover/1.0" }
-    });
-    if (!upstream.ok) return new Response("Not found", { status: 404 });
+    for (const absolute of candidates) {
+      const fetched = await fetchImageBytes(absolute);
+      if (!fetched) continue;
+      return new Response(fetched.bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": fetched.contentType,
+          "Content-Length": String(fetched.bytes.byteLength),
+          // Mais estável para scrapers sociais: mantém cache curto e revalidação frequente.
+          "Cache-Control": "public, max-age=3600"
+        }
+      });
+    }
 
-    const buf = await upstream.arrayBuffer();
-    const contentType = upstream.headers.get("content-type") || contentTypeFromUrl(absolute);
-    return new Response(buf, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Content-Length": String(buf.byteLength),
-        "Cache-Control": "public, max-age=86400"
-      }
-    });
+    return new Response("Not found", { status: 404 });
   } catch {
     return new Response("Not found", { status: 404 });
   }
