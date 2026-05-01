@@ -133,6 +133,7 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
             class="inline-flex h-10 w-10 items-center justify-center rounded-full border hover:bg-black/5"
             style="border-color: color-mix(in srgb, var(--color-text) 20%, transparent);"
             data-copy-link
+            data-copy-url={canonicalUrl}
             title="Copiar link"
             aria-label="Copiar link"
           >
@@ -252,20 +253,44 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
     </footer>
   </div>
   <script is:inline>
+    async function copyTextWithFallback(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      if (!ok) throw new Error("copy_failed");
+    }
+
     document.addEventListener("click", async (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
       const button = target.closest("[data-copy-link]");
       if (!(button instanceof HTMLButtonElement)) return;
+      const url = button.dataset.copyUrl || window.location.href;
       try {
-        await navigator.clipboard.writeText(window.location.href);
-        const previous = button.textContent;
-        button.textContent = "Link copiado!";
+        await copyTextWithFallback(url);
+        const previousLabel = button.getAttribute("aria-label") || "Copiar link";
+        button.setAttribute("aria-label", "Link copiado");
+        button.setAttribute("title", "Link copiado");
+        button.classList.add("ring-2", "ring-emerald-400");
         window.setTimeout(() => {
-          button.textContent = previous;
+          button.setAttribute("aria-label", previousLabel);
+          button.setAttribute("title", previousLabel);
+          button.classList.remove("ring-2", "ring-emerald-400");
         }, 1600);
       } catch {
-        button.textContent = "Falhou ao copiar";
+        button.setAttribute("title", "Falhou ao copiar");
       }
     });
 
