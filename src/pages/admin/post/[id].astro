@@ -28,6 +28,11 @@ if (Astro.request.method === "POST") {
   const formData = await Astro.request.formData();
   const action = String(formData.get("action") ?? "");
 
+  if (action === "regenerate_image") {
+    const newUrl = await regeneratePostCover(id);
+    return Astro.redirect(`/admin/post/${id}?img=${newUrl ? "1" : "0"}`);
+  }
+
   if (action === "save") {
     await updatePostFields(id, {
       title: String(formData.get("title") ?? ""),
@@ -51,10 +56,6 @@ if (Astro.request.method === "POST") {
     await publishPostNow(id);
   }
 
-  if (action === "regenerate_image") {
-    await regeneratePostCover(id);
-  }
-
   if (action === "schedule") {
     const raw = String(formData.get("scheduledAt") ?? "");
     const tzRaw = Number.parseInt(String(formData.get("tzOffsetMinutes") ?? ""), 10);
@@ -70,6 +71,7 @@ if (!row) {
   return Astro.redirect("/admin/posts");
 }
 
+const imgFlash = new URL(Astro.request.url).searchParams.get("img");
 const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const postUrl = new URL(buildTenantPostPath(row.tenant.hostname, row.slug), `${publicOrigin}/`).toString();
 const socialBase = `${row.title}\n\n${row.excerpt ?? "Confira este conteúdo no blog."}`.trim();
@@ -87,6 +89,14 @@ const statusLabel: Record<PostStatus, string> = {
 ---
 
 <AdminLayout title={`Editar post | ${row.title}`}>
+  {imgFlash === "1" && (
+    <p class="mb-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Capa regenerada com sucesso.</p>
+  )}
+  {imgFlash === "0" && (
+    <p class="mb-4 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">
+      Nao foi possivel regenerar a capa (verifique OPENAI_API_KEY e limites da API). A URL da imagem nao foi alterada.
+    </p>
+  )}
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div>
       <p class="text-xs uppercase tracking-wide text-slate-500">Status atual</p>

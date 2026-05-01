@@ -7,7 +7,46 @@ type GenerateInput = {
   niche: string;
   keyword: string;
   tone: string;
+  /** Preset visual do tenant (classic, urban, etc.) para variar mood. */
+  themePreset?: string;
+  /** Trecho curto de briefing/estilo editorial (opcional). */
+  styleHint?: string;
 };
+
+function truncateForPrompt(text: string, maxLen: number): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t.length <= maxLen) return t;
+  return `${t.slice(0, maxLen - 1)}…`;
+}
+
+/** Prompt rico por tenant — antes o modelo ignorava marca/tom e repetia o mesmo estilo. */
+function buildEditorialImagePrompt(input: GenerateInput): string {
+  const brand = truncateForPrompt(input.tenantName || "Blog", 80);
+  const niche = truncateForPrompt(input.niche || "conteudo editorial", 120);
+  const headline = truncateForPrompt(input.keyword || "artigo", 160);
+  const tone = truncateForPrompt(input.tone || "profissional", 60);
+  const preset = input.themePreset?.trim() ? `Preset visual do site: ${input.themePreset.trim()}.` : "";
+  const hint = input.styleHint?.trim()
+    ? `Notas de estilo (referencia, nao texto na imagem): ${truncateForPrompt(input.styleHint, 220)}.`
+    : "";
+  const variationId = Date.now();
+
+  return `Crie UMA imagem de capa horizontal para blog (formato largo), SEM texto, SEM logotipo, SEM letras ou numeros na imagem.
+
+Marca/blog: "${brand}".
+Nicho editorial: ${niche}.
+Titulo do artigo (use apenas como inspiracao visual, nao escreva na imagem): ${headline}.
+Tom/atmosfera desejada: ${tone}.
+${preset}
+${hint}
+
+Diretrizes:
+- A cena, paleta e elementos visuais devem refletir claramente o NICHO acima (ex.: historia → epoca/cenario coerente; gestao publica → cidade/servicos/cidadania; bem-estar → luz suave e humanizada; tecnologia → ambiente moderno sem ficar generico demais).
+- Evite o visual "corporativo generico de stock" quando o nicho nao for corporativo.
+- Composicao limpa com espaco negativo para titulo em overlay no site.
+- Ilustracao fotorrealista ou semi-fotorrealista, alta qualidade, sem marcas d'agua.
+- Variacao desta geracao (para nao repetir capas identicas): ${variationId}.`;
+}
 
 export type GeneratedArticle = {
   title: string;
@@ -104,8 +143,7 @@ async function downloadRemoteImageToPublic(url: string, keyword: string): Promis
 
 async function generateImageWithOpenAI(input: GenerateInput, apiKey: string): Promise<string | null> {
   const imageModel = import.meta.env.OPENAI_IMAGE_MODEL ?? "gpt-image-1";
-  const imagePrompt = `Crie uma imagem editorial premium para capa de artigo sobre "${input.keyword}" no nicho "${input.niche}".
-Estilo: clean editorial, realista, moderno, alta qualidade, sem textos na imagem, composição horizontal para blog.`;
+  const imagePrompt = buildEditorialImagePrompt(input);
 
   const body = buildImageGenerationBody(imageModel, imagePrompt);
 
@@ -155,6 +193,8 @@ export async function regenerateCoverImage(params: {
   niche: string;
   headline: string;
   tone: string;
+  themePreset?: string | null;
+  editorialStyleNotes?: string | null;
 }): Promise<string | null> {
   const apiKey = import.meta.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -163,7 +203,9 @@ export async function regenerateCoverImage(params: {
       tenantName: params.tenantName,
       niche: params.niche,
       keyword: params.headline,
-      tone: params.tone
+      tone: params.tone,
+      themePreset: params.themePreset ?? undefined,
+      styleHint: params.editorialStyleNotes ?? undefined
     },
     apiKey
   );
@@ -435,6 +477,7 @@ type FromPitchInput = {
   styleNotes: string;
   pitchTitle: string;
   pitchSummary: string;
+  themePreset?: string | null;
 };
 
 async function generateFromPitchOpenAI(input: FromPitchInput): Promise<GeneratedArticle | null> {
@@ -488,7 +531,9 @@ Retorne SOMENTE JSON:
     tenantName: input.tenantName,
     niche: input.niche,
     keyword: input.pitchTitle,
-    tone: input.tone
+    tone: input.tone,
+    themePreset: input.themePreset ?? undefined,
+    styleHint: [input.styleNotes, input.brief].filter(Boolean).join(" ").trim() || undefined
   };
   let generatedImageUrl: string | null = null;
   try {

@@ -1050,7 +1050,9 @@ export async function regeneratePostCover(postId: string): Promise<string | null
     tenantName: post.tenant.brandName,
     niche: post.tenant.niche,
     headline: post.title,
-    tone: post.tenant.defaultArticleTone ?? "profissional"
+    tone: post.tenant.defaultArticleTone ?? "profissional",
+    themePreset: post.tenant.themePreset,
+    editorialStyleNotes: post.tenant.editorialStyleNotes
   });
   if (!image) return null;
 
@@ -1343,7 +1345,8 @@ export async function writeArticlesFromApprovedPitches(hostname: string, monthKe
       brief: tenant.projectDescription ?? "",
       styleNotes: tenant.editorialStyleNotes ?? "",
       pitchTitle: pitch.title,
-      pitchSummary: pitch.summary
+      pitchSummary: pitch.summary,
+      themePreset: tenant.themePreset
     });
 
     const slot = useAuto ? slots[i] : undefined;
