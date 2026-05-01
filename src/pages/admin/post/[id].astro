@@ -75,10 +75,11 @@ const imgFlash = new URL(Astro.request.url).searchParams.get("img");
 const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const postUrl = new URL(buildTenantPostPath(row.tenant.hostname, row.slug), `${publicOrigin}/`).toString();
 const socialBase = `${row.title}\n\n${row.excerpt ?? "Confira este conteúdo no blog."}`.trim();
-const instagramCaption = `${socialBase}\n\nLeia mais no link da bio.\n#historia #noticias #blog`;
-const facebookCaption = `${socialBase}\n\nLeia a matéria completa:\n${postUrl}`;
-const xCaption = `${row.title}\n\nLeia a matéria completa: ${postUrl}`;
-const linkedinCaption = `${socialBase}\n\nAcesse o conteúdo completo: ${postUrl}`;
+const whatsappCaption = `${socialBase}\n\n${postUrl}`;
+const instagramCaption = `${socialBase}\n\nLeia mais no link da bio.\n#blog #artigo`;
+const facebookCaption = `${socialBase}\n\nLeia a matéria completa:`;
+const xCaption = `${row.title}\n\n${row.excerpt ?? "Confira este conteúdo no blog."}`;
+const linkedinCaption = `${socialBase}\n\nAcesse o conteúdo completo:`;
 
 const statusLabel: Record<PostStatus, string> = {
   DRAFT: "Rascunho",
@@ -227,6 +228,22 @@ const statusLabel: Record<PostStatus, string> = {
     <div class="mt-4 grid gap-4 md:grid-cols-2">
       <article class="rounded-xl border border-slate-200 p-4">
         <div class="mb-2 flex items-center justify-between">
+          <p class="font-semibold">WhatsApp</p>
+          <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">URL limpa</span>
+        </div>
+        <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="whatsapp">{whatsappCaption}</textarea>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700" type="button" data-social-disparar="whatsapp">
+            Disparar
+          </button>
+          <button class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50" type="button" data-social-programar="whatsapp">
+            Programar
+          </button>
+        </div>
+      </article>
+
+      <article class="rounded-xl border border-slate-200 p-4">
+        <div class="mb-2 flex items-center justify-between">
           <p class="font-semibold">Instagram</p>
           <span class="rounded bg-fuchsia-100 px-2 py-0.5 text-xs font-semibold text-fuchsia-800">Assistido</span>
         </div>
@@ -244,7 +261,7 @@ const statusLabel: Record<PostStatus, string> = {
       <article class="rounded-xl border border-slate-200 p-4">
         <div class="mb-2 flex items-center justify-between">
           <p class="font-semibold">Facebook</p>
-          <span class="rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">Link share</span>
+          <span class="rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">URL limpa</span>
         </div>
         <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="facebook">{facebookCaption}</textarea>
         <div class="mt-3 flex flex-wrap gap-2">
@@ -260,7 +277,7 @@ const statusLabel: Record<PostStatus, string> = {
       <article class="rounded-xl border border-slate-200 p-4">
         <div class="mb-2 flex items-center justify-between">
           <p class="font-semibold">X (Twitter)</p>
-          <span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">Link share</span>
+          <span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">Texto + URL</span>
         </div>
         <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="x">{xCaption}</textarea>
         <div class="mt-3 flex flex-wrap gap-2">
@@ -276,7 +293,7 @@ const statusLabel: Record<PostStatus, string> = {
       <article class="rounded-xl border border-slate-200 p-4">
         <div class="mb-2 flex items-center justify-between">
           <p class="font-semibold">LinkedIn</p>
-          <span class="rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">Link share</span>
+          <span class="rounded bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800">URL limpa</span>
         </div>
         <textarea class="min-h-[120px] w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" data-social-caption="linkedin">{linkedinCaption}</textarea>
         <div class="mt-3 flex flex-wrap gap-2">
@@ -290,7 +307,7 @@ const statusLabel: Record<PostStatus, string> = {
       </article>
     </div>
     <p class="mt-3 text-xs text-slate-500">
-      Dica: “Disparar” abre o fluxo da rede com o link. Em plataformas com limitação (ex.: Instagram), copiamos legenda + link e abrimos o app.
+      Padrão operacional: cole o link limpo primeiro na rede e aguarde o card carregar. Depois complemente o texto final.
     </p>
   </section>
   <script is:inline define:vars={{ postUrl }}>
@@ -314,8 +331,9 @@ const statusLabel: Record<PostStatus, string> = {
       const encodedUrl = encodeURIComponent(postUrl);
       const encodedCaption = encodeURIComponent(caption);
       const shareMap = {
+        whatsapp: `https://api.whatsapp.com/send?text=${encodedUrl}`,
         facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
-        x: `https://x.com/intent/tweet?text=${encodedCaption}`,
+        x: `https://x.com/intent/tweet?text=${encodedCaption}&url=${encodedUrl}`,
         linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`
       };
       const target = shareMap[network];
@@ -350,7 +368,9 @@ const statusLabel: Record<PostStatus, string> = {
           window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
           return;
         }
-        openShare(network, `${caption}\n${postUrl}`);
+        // Redes baseadas em URL (whatsapp/facebook/linkedin) recebem link limpo.
+        // X recebe texto + URL pelo intent.
+        openShare(network, caption);
         return;
       }
 
