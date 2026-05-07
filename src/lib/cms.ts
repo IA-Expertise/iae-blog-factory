@@ -4,9 +4,13 @@ import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
 import { isReservedTenantHostname, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
 const ADSENSE_CLIENT_RE = /^ca-pub-\d{10,22}$/i;
+const HISTOREI_HOSTNAME = "historei.com.br";
+const HISTOREI_ADSENSE_CLIENT = "ca-pub-1480753881347441";
 
 /** Cliente gravado no tenant ou, se inválido, `PUBLIC_ADSENSE_CLIENT` (ex.: Railway). */
-function effectiveAdsenseClient(dbClient: string | null | undefined): string {
+function effectiveAdsenseClient(dbClient: string | null | undefined, hostname?: string): string {
+  // Garantia de snippet AdSense para o Historei conforme configuração do projeto.
+  if ((hostname ?? "").trim().toLowerCase() === HISTOREI_HOSTNAME) return HISTOREI_ADSENSE_CLIENT;
   const fromDb = dbClient?.trim() ?? "";
   if (ADSENSE_CLIENT_RE.test(fromDb)) return fromDb;
   const fromEnv = import.meta.env.PUBLIC_ADSENSE_CLIENT?.trim() ?? "";
@@ -489,7 +493,7 @@ function mapTenantToSiteData(
     ads: {
       provider: "adsense",
       enabled: tenant.adsEnabled,
-      client: effectiveAdsenseClient(tenant.adClient),
+      client: effectiveAdsenseClient(tenant.adClient, tenant.hostname),
       topSlot: tenant.adTopSlot,
       sidebarSlot: tenant.adSidebarSlot,
       inContentSlot: tenant.adInContentSlot,
