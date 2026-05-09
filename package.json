@@ -9,7 +9,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "start": "node ./dist/server/entry.mjs",
-    "start:prod": "npx prisma generate && npx prisma migrate deploy && node ./dist/server/entry.mjs",
+    "start:prod": "npx prisma generate && npx prisma migrate deploy && node ./scripts/ensure-internal-ads-schema.mjs && node ./dist/server/entry.mjs",
     "db:baseline": "node ./scripts/db-baseline.mjs",
     "db:migrate:deploy": "prisma migrate deploy",
     "preview": "astro preview",
