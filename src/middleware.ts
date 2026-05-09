@@ -3,8 +3,9 @@ import { getSiteDataByHostname } from "./lib/cms";
 
 export const onRequest = defineMiddleware(async ({ request, locals }, next) => {
   const pathname = new URL(request.url).pathname;
-  // Rotas de admin e /t/... resolvem tenant por outro mecanismo (não por host).
-  if (pathname.startsWith("/admin") || pathname.startsWith("/t/")) return next();
+  // Admin, multi-tenant por path (/t/...) e APIs públicas não usam Host como chave de tenant.
+  // Sem isso, em *.up.railway.app o getSiteDataByHostname falha e quebra /api/media/proxy, /api/ads/click, etc.
+  if (pathname.startsWith("/admin") || pathname.startsWith("/t/") || pathname.startsWith("/api/")) return next();
 
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
   const hostHeader = request.headers.get("host")?.trim();
