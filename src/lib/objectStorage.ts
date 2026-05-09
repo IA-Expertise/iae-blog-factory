@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 const SAFE_FILENAME = /^[a-zA-Z0-9._-]+\.(png|jpg|jpeg|webp)$/i;
 
@@ -51,6 +51,39 @@ function objectKeyForPath(path: string): string | null {
 function publicUrlForKey(key: string): string {
   const base = trimEnv(import.meta.env.S3_PUBLIC_BASE_URL)!.replace(/\/$/, "");
   return `${base}/${key}`;
+}
+
+/** Extrai a chave do objeto a partir da URL pública (mesma base configurada em S3_PUBLIC_BASE_URL). */
+export function publicUrlToStorageKey(publicUrl: string): string | null {
+  const base = trimEnv(import.meta.env.S3_PUBLIC_BASE_URL)?.replace(/\/$/, "");
+  if (!base || !publicUrl.startsWith(base)) return null;
+  const rest = publicUrl.slice(base.length).replace(/^\/+/, "");
+  if (!rest) return null;
+  try {
+    return decodeURIComponent(rest);
+  } catch {
+    return null;
+  }
+}
+
+/** Remove objeto do bucket quando a URL foi gerada por este projeto (R2/S3). */
+export async function deletePublicImageByUrl(publicUrl: string): Promise<void> {
+  if (!isObjectStorageConfigured()) return;
+  const key = publicUrlToStorageKey(publicUrl);
+  if (!key) {
+    console.warn("[objectStorage] URL não corresponde a S3_PUBLIC_BASE_URL; skip delete:", publicUrl);
+    return;
+  }
+  const bucket = trimEnv(import.meta.env.S3_BUCKET);
+  if (!bucket) return;
+
+  const client = buildClient();
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key
+    })
+  );
 }
 
 /**

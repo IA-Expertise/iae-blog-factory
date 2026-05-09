@@ -1,13 +1,20 @@
 ---
+import type { AdPosicao } from "@prisma/client";
 import AdminLayout from "../../layouts/AdminLayout.astro";
 import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { resizeMonetizationBanner } from "../../lib/bannerResize";
 import {
   addAffiliateProduct,
+  createInternalAd,
   deleteAffiliateProduct,
+  deleteInternalAd,
   getTenantByHostname,
+  listInternalAdsForTenant,
+  listInternalAdsStatsByTenant,
   listSites,
   updateTenantMonetization
 } from "../../lib/cms";
+import { isObjectStorageConfigured, uploadPublicImageAsset } from "../../lib/objectStorage";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
   return Astro.redirect("/admin/login");
@@ -17,6 +24,80 @@ if (Astro.request.method === "POST") {
   const formData = await Astro.request.formData();
   const action = String(formData.get("action") ?? "");
   const hostname = String(formData.get("hostname") ?? "");
+
+  if (action === "create-internal-ad") {
+    const q = `/admin/monetization?hostname=${encodeURIComponent(hostname)}`;
+    try {
+      const posRaw = String(formData.get("posicao") ?? "");
+      if (posRaw !== "topo" && posRaw !== "corpo" && posRaw !== "lateral") {
+        throw new Error("Escolha a posição do banner (topo, corpo ou lateral).");
+      }
+      const posicao = posRaw as AdPosicao;
+
+      const file = formData.get("banner");
+      if (!(file instanceof File) || file.size === 0) {
+        throw new Error("Selecione uma imagem (PNG, JPG ou WEBP).");
+      }
+      if (file.size > 12 * 1024 * 1024) {
+        throw new Error("Imagem muito grande (máx. 12 MB).");
+      }
+      if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+        throw new Error("Formato inválido. Use PNG, JPG ou WEBP.");
+      }
+      if (!isObjectStorageConfigured()) {
+        throw new Error("Armazenamento (R2/S3) não configurado no ambiente.");
+      }
+
+      const rawBuf = Buffer.from(await file.arrayBuffer());
+      const { buffer: resized, contentType } = await resizeMonetizationBanner(rawBuf, posicao);
+
+      const safeHost = hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
+      const objectPath = `monetizacao/${safeHost}/${posicao}/${Date.now()}.webp`;
+      const imagemUrl = await uploadPublicImageAsset({
+        buffer: resized,
+        objectPath,
+        contentType
+      });
+      if (!imagemUrl) throw new Error("Falha ao enviar o banner para o storage.");
+
+      const ctaUrl = String(formData.get("ctaUrl") ?? "").trim();
+      if (!ctaUrl || !/^https?:\/\//i.test(ctaUrl)) {
+        throw new Error("Informe uma URL de destino válida (http/https).");
+      }
+
+      const di = String(formData.get("dataInicio") ?? "");
+      const df = String(formData.get("dataFim") ?? "");
+      const dataInicio = new Date(di);
+      const dataFim = new Date(df);
+      if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) {
+        throw new Error("Datas de início e fim inválidas.");
+      }
+      if (dataFim.getTime() < dataInicio.getTime()) {
+        throw new Error("A data fim deve ser posterior à data início.");
+      }
+
+      await createInternalAd({
+        tenantHostname: hostname,
+        posicao,
+        imagemUrl,
+        ctaUrl,
+        dataInicio,
+        dataFim
+      });
+      return Astro.redirect(`${q}&ok=1`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao criar anúncio.";
+      return Astro.redirect(`${q}&adErr=${encodeURIComponent(msg.slice(0, 400))}`);
+    }
+  }
+
+  if (action === "delete-internal-ad") {
+    const id = Number.parseInt(String(formData.get("adId") ?? ""), 10);
+    if (Number.isFinite(id)) {
+      await deleteInternalAd(hostname, id);
+    }
+    return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
+  }
 
   if (action === "save-monetization") {
     await updateTenantMonetization({
@@ -52,12 +133,56 @@ const sites = await listSites();
 const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
 const tenant = selected ? await getTenantByHostname(selected) : null;
 const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
+const adErr = new URL(Astro.request.url).searchParams.get("adErr");
+const internalAdsStats = await listInternalAdsStatsByTenant();
+const internalAds = tenant ? await listInternalAdsForTenant(tenant.hostname) : [];
+
+function fmtDT(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+const defaultInicio = fmtDT(new Date());
+const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 ---
 
 <AdminLayout title="Monetização | IAE Blog Factory">
   {saved && <p class="mb-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Dados salvos.</p>}
+  {adErr && (
+    <p class="mb-4 rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900">
+      {adErr}
+    </p>
+  )}
 
   <section class="rounded-2xl bg-white p-5 shadow-sm">
+    <h2 class="text-lg font-semibold">Relatório — anúncios proprietários</h2>
+    <p class="mt-1 text-sm text-slate-600">Totais de cliques e impressões por tenant (todos os banners internos).</p>
+    {internalAdsStats.length === 0 ? (
+      <p class="mt-3 text-sm text-slate-500">Nenhum anúncio cadastrado ainda.</p>
+    ) : (
+      <div class="mt-4 overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-600">
+              <th class="py-2 pr-4 font-medium">Tenant</th>
+              <th class="py-2 pr-4 font-medium">Cliques</th>
+              <th class="py-2 font-medium">Impressões</th>
+            </tr>
+          </thead>
+          <tbody>
+            {internalAdsStats.map((row) => (
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-4">{row.tenantHostname}</td>
+                <td class="py-2 pr-4">{row.cliques}</td>
+                <td class="py-2">{row.impressoes}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>
+
+  <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
     <form method="GET" class="flex flex-wrap items-end gap-3">
       <label class="text-sm">
         <span class="mb-1 block font-medium">Tenant</span>
@@ -75,6 +200,137 @@ const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
 
   {tenant && (
     <>
+      <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+        <h2 class="text-xl font-semibold">Banners proprietários (R2)</h2>
+        <p class="mt-1 text-sm text-slate-600">
+          Escolha o espaço no layout, envie a arte e defina o período. Imagens são redimensionadas automaticamente (728×90 topo/corpo,
+          300×250 lateral) e enviadas para o mesmo bucket já usado pelo blog.
+        </p>
+
+        <div class="mt-6 grid gap-6 lg:grid-cols-2">
+          <div>
+            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Mapa do layout</p>
+            <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div class="rounded border border-dashed border-slate-300 bg-white py-3 text-center text-xs text-slate-500">
+                Faixa topo (728×90)
+              </div>
+              <div class="flex gap-2">
+                <div class="min-h-[120px] flex-1 rounded border border-dashed border-slate-300 bg-white p-2 text-xs text-slate-500">
+                  Conteúdo do artigo
+                </div>
+                <div class="w-28 shrink-0 rounded border border-dashed border-slate-300 bg-white py-8 text-center text-[10px] leading-tight text-slate-500">
+                  Lateral
+                  <br />
+                  300×250
+                </div>
+              </div>
+              <div class="rounded border border-dashed border-slate-300 bg-white py-3 text-center text-xs text-slate-500">
+                Corpo / entre conteúdos (728×90)
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <form method="POST" enctype="multipart/form-data" class="grid gap-3">
+              <input type="hidden" name="action" value="create-internal-ad" />
+              <input type="hidden" name="hostname" value={tenant.hostname} />
+
+              <fieldset class="grid gap-2">
+                <legend class="text-sm font-medium">Posição do slot</legend>
+                <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                  <input type="radio" name="posicao" value="topo" class="mt-1" checked />
+                  <span>
+                    <span class="font-medium">Topo</span>
+                    <span class="block text-xs text-slate-600">728 × 90 px</span>
+                  </span>
+                </label>
+                <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                  <input type="radio" name="posicao" value="corpo" class="mt-1" />
+                  <span>
+                    <span class="font-medium">Corpo</span>
+                    <span class="block text-xs text-slate-600">728 × 90 px</span>
+                  </span>
+                </label>
+                <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                  <input type="radio" name="posicao" value="lateral" class="mt-1" />
+                  <span>
+                    <span class="font-medium">Lateral</span>
+                    <span class="block text-xs text-slate-600">300 × 250 px</span>
+                  </span>
+                </label>
+              </fieldset>
+
+              <label class="text-sm">
+                <span class="mb-1 block font-medium">Imagem do banner</span>
+                <input
+                  type="file"
+                  name="banner"
+                  accept="image/png,image/jpeg,image/webp"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm file:mr-3"
+                  required
+                />
+              </label>
+              <label class="text-sm">
+                <span class="mb-1 block font-medium">URL de destino (CTA)</span>
+                <input
+                  type="url"
+                  name="ctaUrl"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  placeholder="https://"
+                  required
+                />
+              </label>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="text-sm">
+                  <span class="mb-1 block font-medium">Início</span>
+                  <input type="datetime-local" name="dataInicio" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={defaultInicio} required />
+                </label>
+                <label class="text-sm">
+                  <span class="mb-1 block font-medium">Fim</span>
+                  <input type="datetime-local" name="dataFim" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={defaultFim} required />
+                </label>
+              </div>
+              <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white" type="submit">
+                Publicar banner
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <h3 class="text-base font-semibold">Banners deste tenant</h3>
+          {internalAds.length === 0 ? (
+            <p class="mt-2 text-sm text-slate-500">Nenhum banner interno ainda.</p>
+          ) : (
+            <ul class="mt-3 space-y-3">
+              {internalAds.map((ad) => (
+                <li class="flex flex-wrap items-start gap-4 rounded-lg border border-slate-200 p-3">
+                  <img src={ad.imagemUrl} alt="" class="h-16 max-w-[200px] rounded border border-slate-100 object-cover" loading="lazy" />
+                  <div class="min-w-0 flex-1 text-sm">
+                    <p class="font-medium capitalize">{ad.posicao}</p>
+                    <p class="truncate text-xs text-slate-600">{ad.ctaUrl}</p>
+                    <p class="mt-1 text-xs text-slate-500">
+                      {ad.dataInicio.toLocaleString("pt-BR")} — {ad.dataFim.toLocaleString("pt-BR")}
+                    </p>
+                    <p class="text-xs text-slate-500">
+                      Cliques: {ad.cliques} · Impressões: {ad.impressoes}
+                    </p>
+                  </div>
+                  <form method="POST">
+                    <input type="hidden" name="action" value="delete-internal-ad" />
+                    <input type="hidden" name="hostname" value={tenant.hostname} />
+                    <input type="hidden" name="adId" value={String(ad.id)} />
+                    <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm text-white" type="submit">
+                      Excluir
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
         <h2 class="text-xl font-semibold">Google AdSense + Amazon</h2>
         <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">

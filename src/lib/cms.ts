@@ -1,5 +1,7 @@
+import type { AdPosicao } from "@prisma/client";
 import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage } from "./contentGenerator";
 import { prisma } from "./db";
+import { deletePublicImageByUrl } from "./objectStorage";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
 import { isReservedTenantHostname, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
@@ -1229,6 +1231,95 @@ export async function updateTenantMonetization(input: {
       affiliateTrackingId: input.affiliateTrackingId.trim()
     }
   });
+}
+
+export type InternalAdRow = {
+  id: number;
+  tenantHostname: string;
+  posicao: AdPosicao;
+  imagemUrl: string;
+  ctaUrl: string;
+  dataInicio: Date;
+  dataFim: Date;
+  cliques: number;
+  impressoes: number;
+};
+
+export async function listInternalAdsForTenant(hostname: string): Promise<InternalAdRow[]> {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const rows = await prisma.ad.findMany({
+    where: { tenantHostname: host },
+    orderBy: { id: "desc" }
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    tenantHostname: r.tenantHostname,
+    posicao: r.posicao,
+    imagemUrl: r.imagemUrl,
+    ctaUrl: r.ctaUrl,
+    dataInicio: r.dataInicio,
+    dataFim: r.dataFim,
+    cliques: r.cliques,
+    impressoes: r.impressoes
+  }));
+}
+
+export async function listInternalAdsStatsByTenant(): Promise<
+  { tenantHostname: string; cliques: number; impressoes: number }[]
+> {
+  await ensureSeedData();
+  const groups = await prisma.ad.groupBy({
+    by: ["tenantHostname"],
+    _sum: { cliques: true, impressoes: true }
+  });
+  return groups.map((g) => ({
+    tenantHostname: g.tenantHostname,
+    cliques: g._sum.cliques ?? 0,
+    impressoes: g._sum.impressoes ?? 0
+  }));
+}
+
+export async function createInternalAd(input: {
+  tenantHostname: string;
+  posicao: AdPosicao;
+  imagemUrl: string;
+  ctaUrl: string;
+  dataInicio: Date;
+  dataFim: Date;
+}) {
+  await ensureSeedData();
+  const host = normalizeHostname(input.tenantHostname);
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: host } });
+  if (!tenant) throw new Error("Tenant não encontrado.");
+
+  await prisma.ad.create({
+    data: {
+      tenantHostname: host,
+      posicao: input.posicao,
+      imagemUrl: input.imagemUrl,
+      ctaUrl: input.ctaUrl.trim(),
+      dataInicio: input.dataInicio,
+      dataFim: input.dataFim
+    }
+  });
+}
+
+export async function deleteInternalAd(hostname: string, adId: number) {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const ad = await prisma.ad.findFirst({
+    where: { id: adId, tenantHostname: host }
+  });
+  if (!ad) return;
+
+  try {
+    await deletePublicImageByUrl(ad.imagemUrl);
+  } catch (err) {
+    console.error("deleteInternalAd: falha ao remover objeto no storage", err);
+  }
+
+  await prisma.ad.delete({ where: { id: adId } });
 }
 
 export async function updateTenantEditorialBrief(
