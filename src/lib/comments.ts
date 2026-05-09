@@ -28,11 +28,34 @@ const BANNED_TERMS = [
   "adulto"
 ];
 
-const DEFAULT_COMMENTS_ENABLED_HOSTS = new Set(["historei.00", "historei.com.br", "techpolis.com.br"]);
+function commentsEnabledHostsRawFromEnv(): string {
+  // Em produção (Node), preferir `process.env`: o valor do build Vite (`import.meta.env`) fica
+  // “congelado” no bundle; no Railway dá para mudar a env sem rebuild.
+  if (typeof process !== "undefined" && process.env?.COMMENTS_ENABLED_HOSTS !== undefined) {
+    return process.env.COMMENTS_ENABLED_HOSTS.trim();
+  }
+  return import.meta.env.COMMENTS_ENABLED_HOSTS?.trim() ?? "";
+}
 
+/** Hostname + variantes com/sem `www.` para bater com a allowlist e com o que está no banco. */
+function hostnameAllowlistVariants(hostname: string): string[] {
+  const h = hostname.trim().toLowerCase();
+  if (!h) return [];
+  const noWww = h.startsWith("www.") ? h.slice(4) : h;
+  const withWww = h.startsWith("www.") ? h : `www.${h}`;
+  return [...new Set([h, noWww, withWww])];
+}
+
+/**
+ * Comentários públicos por tenant.
+ * - Se `COMMENTS_ENABLED_HOSTS` estiver definida (Railway): só esses hostnames (lista separada por vírgula).
+ *   Aceita tanto `exemplo.com` quanto `www.exemplo.com` se um dos dois estiver na lista.
+ * - Caso contrário: habilitado para **todos** os tenants (comportamento multi-tenant padrão).
+ */
 export function commentsEnabledForHostname(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase();
-  const fromEnvRaw = import.meta.env.COMMENTS_ENABLED_HOSTS?.trim() ?? "";
+  if (!normalized) return false;
+  const fromEnvRaw = commentsEnabledHostsRawFromEnv();
   if (fromEnvRaw) {
     const fromEnv = new Set(
       fromEnvRaw
@@ -40,9 +63,9 @@ export function commentsEnabledForHostname(hostname: string): boolean {
         .map((h) => h.trim().toLowerCase())
         .filter(Boolean)
     );
-    return fromEnv.has(normalized);
+    return hostnameAllowlistVariants(normalized).some((v) => fromEnv.has(v));
   }
-  return DEFAULT_COMMENTS_ENABLED_HOSTS.has(normalized);
+  return true;
 }
 
 function normalizeText(input: string): string {
