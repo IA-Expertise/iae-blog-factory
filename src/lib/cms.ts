@@ -1322,6 +1322,41 @@ export async function deleteInternalAd(hostname: string, adId: number) {
   await prisma.ad.delete({ where: { id: adId } });
 }
 
+export type PickedInternalAd = {
+  id: number;
+  imagemUrl: string;
+  ctaUrl: string;
+};
+
+/** Escolhe um anúncio ativo (período válido), incrementa impressões (SSR) e devolve dados para exibição. */
+export async function pickAndRecordInternalAdImpression(
+  hostname: string,
+  posicao: AdPosicao
+): Promise<PickedInternalAd | null> {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const now = new Date();
+  const candidates = await prisma.ad.findMany({
+    where: {
+      tenantHostname: host,
+      posicao,
+      dataInicio: { lte: now },
+      dataFim: { gte: now }
+    }
+  });
+  if (candidates.length === 0) return null;
+  const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
+  await prisma.ad.update({
+    where: { id: pick.id },
+    data: { impressoes: { increment: 1 } }
+  });
+  return {
+    id: pick.id,
+    imagemUrl: pick.imagemUrl,
+    ctaUrl: pick.ctaUrl
+  };
+}
+
 export async function updateTenantEditorialBrief(
   hostname: string,
   input: {

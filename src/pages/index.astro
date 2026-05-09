@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import AdUnit from "../components/AdUnit.astro";
 import AffiliateWidget from "../components/AffiliateWidget.astro";
+import PublicAdSlot from "../components/PublicAdSlot.astro";
 import { resolvePublicAssetUrl } from "../lib/mediaUrl";
 import { resolvePublicOrigin } from "../lib/publicOrigin";
 import { buildTenantHomePath } from "../lib/tenantUrls";
@@ -97,7 +97,15 @@ if (Astro.url.pathname === "/") {
     </main>
 
     <aside class="space-y-4 lg:col-span-4">
-      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
+      <PublicAdSlot
+        hostname={siteData.hostname}
+        posicao="lateral"
+        layout="card"
+        adsProvider={siteData.ads.provider}
+        adsClient={siteData.ads.client}
+        adsSlot={siteData.ads.sidebarSlot}
+        adsEnabled={siteData.ads.enabled}
+      />
       <AffiliateWidget
         network={siteData.affiliate.network}
         trackingId={siteData.affiliate.trackingId}

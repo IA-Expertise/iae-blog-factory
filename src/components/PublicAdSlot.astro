@@ -1,0 +1,111 @@
+---
+import type { AdPosicao } from "@prisma/client";
+import AdUnit from "./AdUnit.astro";
+import { pickAndRecordInternalAdImpression } from "../lib/cms";
+
+interface Props {
+  hostname: string;
+  posicao: AdPosicao;
+  layout?: "card" | "banner";
+  adsProvider: string;
+  adsClient: string;
+  adsSlot: string;
+  adsEnabled: boolean;
+  /** Faixa full-bleed com borda inferior (home/post tenant — slot topo). */
+  wrapFullBleedTop?: boolean;
+}
+
+const {
+  hostname,
+  posicao,
+  layout = "card",
+  adsProvider,
+  adsClient,
+  adsSlot,
+  adsEnabled,
+  wrapFullBleedTop = false
+} = Astro.props;
+
+const internal = await pickAndRecordInternalAdImpression(hostname, posicao);
+const showAdsense = !internal && adsEnabled;
+const isBanner = layout === "banner";
+const hasBlock = Boolean(internal || showAdsense);
+---
+
+{
+  wrapFullBleedTop && hasBlock && (
+    <div class="border-b pb-3" style="border-color: color-mix(in srgb, var(--color-text) 12%, transparent);">
+      <div class="mx-auto min-w-0 max-w-7xl px-4 sm:px-6 lg:px-8">
+        {internal ? (
+          <aside
+            class="min-w-0 border bg-[var(--color-surface)] shadow-sm w-full max-w-full rounded-none border-x-0 px-0 py-3 sm:rounded-2xl sm:border sm:px-4"
+            style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);"
+          >
+            <p class="mb-2 px-1 text-xs uppercase tracking-wide sm:px-0" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Publicidade</p>
+            <div class="overflow-hidden rounded-none sm:rounded-xl" style="background: color-mix(in srgb, var(--color-surface) 88%, white);">
+              <a
+                href={`/api/ads/click?id=${internal.id}`}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                class="block"
+              >
+                <img
+                  src={internal.imagemUrl}
+                  alt=""
+                  class="h-auto w-full max-h-[90px] object-cover object-center"
+                  width="728"
+                  height="90"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </a>
+            </div>
+          </aside>
+        ) : (
+          <AdUnit provider={adsProvider} client={adsClient} slot={adsSlot} layout="banner" />
+        )}
+      </div>
+    </div>
+  )
+}
+
+{
+  !wrapFullBleedTop && internal && (
+    <aside
+      class:list={[
+        "min-w-0 border bg-[var(--color-surface)] shadow-sm",
+        isBanner
+          ? "w-full max-w-full rounded-none border-x-0 px-0 py-3 sm:rounded-2xl sm:border sm:px-4"
+          : "w-full max-w-full rounded-2xl p-4"
+      ]}
+      style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);"
+    >
+      <p class="mb-2 text-xs uppercase tracking-wide px-1 sm:px-0" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Publicidade</p>
+      <div
+        class:list={["overflow-hidden", isBanner ? "min-h-[90px] rounded-none sm:rounded-xl" : "rounded-xl"]}
+        style="background: color-mix(in srgb, var(--color-surface) 88%, white);"
+      >
+        <a
+          href={`/api/ads/click?id=${internal.id}`}
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          class:list={["block", isBanner ? "" : "mx-auto max-w-[300px]"]}
+        >
+          <img
+            src={internal.imagemUrl}
+            alt=""
+            class:list={[
+              isBanner ? "h-auto max-h-[90px] w-full object-cover object-center" : "h-auto w-full max-w-[300px] object-cover"
+            ]}
+            width={isBanner ? 728 : 300}
+            height={isBanner ? 90 : 250}
+            loading="lazy"
+            decoding="async"
+          />
+        </a>
+      </div>
+    </aside>
+  )
+}
+
+{!wrapFullBleedTop && showAdsense && <AdUnit provider={adsProvider} client={adsClient} slot={adsSlot} layout={layout} />}

@@ -1,7 +1,7 @@
 ---
 import Layout from "../../../layouts/Layout.astro";
-import AdUnit from "../../../components/AdUnit.astro";
 import AffiliateWidget from "../../../components/AffiliateWidget.astro";
+import PublicAdSlot from "../../../components/PublicAdSlot.astro";
 import TenantPublicHeader from "../../../components/TenantPublicHeader.astro";
 import { getSiteDataByHostname } from "../../../lib/cms";
 import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
@@ -44,15 +44,16 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
   ogType="website"
   tenantPublicLayout={true}
 >
-  {
-    siteData.ads.enabled && (
-      <div class="border-b pb-3" style="border-color: color-mix(in srgb, var(--color-text) 12%, transparent);">
-        <div class="mx-auto min-w-0 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} layout="banner" />
-        </div>
-      </div>
-    )
-  }
+  <PublicAdSlot
+    wrapFullBleedTop
+    hostname={siteData.hostname}
+    posicao="topo"
+    layout="banner"
+    adsProvider={siteData.ads.provider}
+    adsClient={siteData.ads.client}
+    adsSlot={siteData.ads.topSlot}
+    adsEnabled={siteData.ads.enabled}
+  />
 
   <div class="mx-auto min-w-0 max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
     <TenantPublicHeader siteData={siteData} active="home" />
@@ -117,11 +118,15 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
           )
         }
 
-        {
-          siteData.ads.enabled && (
-            <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.inContentSlot} layout="banner" />
-          )
-        }
+        <PublicAdSlot
+          hostname={siteData.hostname}
+          posicao="corpo"
+          layout="banner"
+          adsProvider={siteData.ads.provider}
+          adsClient={siteData.ads.client}
+          adsSlot={siteData.ads.inContentSlot}
+          adsEnabled={siteData.ads.enabled}
+        />
 
         <section aria-labelledby="mais-lidos">
           <h2 id="mais-lidos" class="mb-4 text-2xl font-bold">Mais lidos</h2>
@@ -152,8 +157,16 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
         </section>
 
         {
-          showMidFeedAd && siteData.ads.enabled && (
-            <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.footerSlot} layout="banner" />
+          showMidFeedAd && (
+            <PublicAdSlot
+              hostname={siteData.hostname}
+              posicao="corpo"
+              layout="banner"
+              adsProvider={siteData.ads.provider}
+              adsClient={siteData.ads.client}
+              adsSlot={siteData.ads.footerSlot}
+              adsEnabled={siteData.ads.enabled}
+            />
           )
         }
 
@@ -187,7 +200,15 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
       </main>
 
       <aside class="min-w-0 space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
-        {siteData.ads.enabled && <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />}
+        <PublicAdSlot
+          hostname={siteData.hostname}
+          posicao="lateral"
+          layout="card"
+          adsProvider={siteData.ads.provider}
+          adsClient={siteData.ads.client}
+          adsSlot={siteData.ads.sidebarSlot}
+          adsEnabled={siteData.ads.enabled}
+        />
       </aside>
     </div>
 

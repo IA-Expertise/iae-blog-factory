@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import AdUnit from "../../components/AdUnit.astro";
 import AffiliateWidget from "../../components/AffiliateWidget.astro";
+import PublicAdSlot from "../../components/PublicAdSlot.astro";
 import { getPublishedPostBySlug } from "../../lib/cms";
 import { resolvePublicOrigin } from "../../lib/publicOrigin";
 import { renderPostMarkdown } from "../../lib/renderMarkdown";
@@ -39,9 +39,15 @@ const ogImageUrl = resolvedImageUrl.startsWith(`${publicOrigin}/`)
   ogImage={ogImageUrl}
 >
   <div class="space-y-6">
-    {siteData.ads.enabled && (
-      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.topSlot} />
-    )}
+    <PublicAdSlot
+      hostname={siteData.hostname}
+      posicao="topo"
+      layout="banner"
+      adsProvider={siteData.ads.provider}
+      adsClient={siteData.ads.client}
+      adsSlot={siteData.ads.topSlot}
+      adsEnabled={siteData.ads.enabled}
+    />
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <article class="space-y-4 lg:col-span-8">
@@ -74,21 +80,39 @@ const ogImageUrl = resolvedImageUrl.startsWith(`${publicOrigin}/`)
           />
         )}
 
-        {siteData.ads.enabled && (
-          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.inContentSlot} />
-        )}
+        <PublicAdSlot
+          hostname={siteData.hostname}
+          posicao="corpo"
+          layout="banner"
+          adsProvider={siteData.ads.provider}
+          adsClient={siteData.ads.client}
+          adsSlot={siteData.ads.inContentSlot}
+          adsEnabled={siteData.ads.enabled}
+        />
       </article>
 
       <aside class="space-y-4 lg:col-span-4">
-        {siteData.ads.enabled && (
-          <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.sidebarSlot} />
-        )}
+        <PublicAdSlot
+          hostname={siteData.hostname}
+          posicao="lateral"
+          layout="card"
+          adsProvider={siteData.ads.provider}
+          adsClient={siteData.ads.client}
+          adsSlot={siteData.ads.sidebarSlot}
+          adsEnabled={siteData.ads.enabled}
+        />
       </aside>
     </div>
 
-    {siteData.ads.enabled && (
-      <AdUnit provider={siteData.ads.provider} client={siteData.ads.client} slot={siteData.ads.footerSlot} />
-    )}
+    <PublicAdSlot
+      hostname={siteData.hostname}
+      posicao="corpo"
+      layout="banner"
+      adsProvider={siteData.ads.provider}
+      adsClient={siteData.ads.client}
+      adsSlot={siteData.ads.footerSlot}
+      adsEnabled={siteData.ads.enabled}
+    />
 
     <footer class="rounded-2xl bg-[var(--color-primary)] p-4 text-center text-sm text-white">
       {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}
