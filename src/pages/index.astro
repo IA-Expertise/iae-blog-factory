@@ -97,15 +97,7 @@ if (Astro.url.pathname === "/") {
     </main>
 
     <aside class="space-y-4 lg:col-span-4">
-      <PublicAdSlot
-        hostname={siteData.hostname}
-        posicao="lateral"
-        layout="card"
-        adsProvider={siteData.ads.provider}
-        adsClient={siteData.ads.client}
-        adsSlot={siteData.ads.sidebarSlot}
-        adsEnabled={siteData.ads.enabled}
-      />
+      <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
       <AffiliateWidget
         network={siteData.affiliate.network}
         trackingId={siteData.affiliate.trackingId}

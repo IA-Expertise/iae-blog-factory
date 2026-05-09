@@ -44,16 +44,7 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
   ogType="website"
   tenantPublicLayout={true}
 >
-  <PublicAdSlot
-    wrapFullBleedTop
-    hostname={siteData.hostname}
-    posicao="topo"
-    layout="banner"
-    adsProvider={siteData.ads.provider}
-    adsClient={siteData.ads.client}
-    adsSlot={siteData.ads.topSlot}
-    adsEnabled={siteData.ads.enabled}
-  />
+  <PublicAdSlot wrapFullBleedTop hostname={siteData.hostname} posicao="topo" layout="banner" />
 
   <div class="mx-auto min-w-0 max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
     <TenantPublicHeader siteData={siteData} active="home" />
@@ -118,15 +109,7 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
           )
         }
 
-        <PublicAdSlot
-          hostname={siteData.hostname}
-          posicao="corpo"
-          layout="banner"
-          adsProvider={siteData.ads.provider}
-          adsClient={siteData.ads.client}
-          adsSlot={siteData.ads.inContentSlot}
-          adsEnabled={siteData.ads.enabled}
-        />
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
 
         <section aria-labelledby="mais-lidos">
           <h2 id="mais-lidos" class="mb-4 text-2xl font-bold">Mais lidos</h2>
@@ -158,15 +141,7 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
 
         {
           showMidFeedAd && (
-            <PublicAdSlot
-              hostname={siteData.hostname}
-              posicao="corpo"
-              layout="banner"
-              adsProvider={siteData.ads.provider}
-              adsClient={siteData.ads.client}
-              adsSlot={siteData.ads.footerSlot}
-              adsEnabled={siteData.ads.enabled}
-            />
+            <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
           )
         }
 
@@ -200,15 +175,7 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
       </main>
 
       <aside class="min-w-0 space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
-        <PublicAdSlot
-          hostname={siteData.hostname}
-          posicao="lateral"
-          layout="card"
-          adsProvider={siteData.ads.provider}
-          adsClient={siteData.ads.client}
-          adsSlot={siteData.ads.sidebarSlot}
-          adsEnabled={siteData.ads.enabled}
-        />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
       </aside>
     </div>
 

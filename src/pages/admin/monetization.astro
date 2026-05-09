@@ -5,13 +5,18 @@ import { isAdminAuthenticated } from "../../lib/adminAuth";
 import { resizeMonetizationBanner } from "../../lib/bannerResize";
 import {
   addAffiliateProduct,
+  createAdPlaceholder,
   createInternalAd,
+  deleteAdPlaceholder,
   deleteAffiliateProduct,
   deleteInternalAd,
   getTenantByHostname,
+  listAdPlaceholdersForTenant,
   listInternalAdsForTenant,
   listInternalAdsStatsByTenant,
   listSites,
+  updateAdPlaceholder,
+  updateInternalAd,
   updateTenantMonetization
 } from "../../lib/cms";
 import { isObjectStorageConfigured, uploadPublicImageAsset } from "../../lib/objectStorage";
@@ -99,15 +104,138 @@ if (Astro.request.method === "POST") {
     return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
   }
 
+  if (action === "update-internal-ad") {
+    const q = `/admin/monetization?hostname=${encodeURIComponent(hostname)}`;
+    try {
+      const adId = Number.parseInt(String(formData.get("adId") ?? ""), 10);
+      if (!Number.isFinite(adId)) throw new Error("ID do anúncio inválido.");
+      const posRaw = String(formData.get("posicao") ?? "");
+      if (posRaw !== "topo" && posRaw !== "corpo" && posRaw !== "lateral") throw new Error("Posição inválida.");
+      const posicao = posRaw as AdPosicao;
+      const ctaUrl = String(formData.get("ctaUrl") ?? "").trim();
+      if (!ctaUrl || !/^https?:\/\//i.test(ctaUrl)) throw new Error("URL de destino inválida.");
+      const di = String(formData.get("dataInicio") ?? "");
+      const df = String(formData.get("dataFim") ?? "");
+      const dataInicio = new Date(di);
+      const dataFim = new Date(df);
+      if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) throw new Error("Datas inválidas.");
+      if (dataFim.getTime() < dataInicio.getTime()) throw new Error("A data fim deve ser posterior à início.");
+
+      let imagemUrl: string | undefined;
+      const file = formData.get("banner");
+      if (file instanceof File && file.size > 0) {
+        if (file.size > 12 * 1024 * 1024) throw new Error("Imagem muito grande (máx. 12 MB).");
+        if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) throw new Error("Formato de imagem inválido.");
+        if (!isObjectStorageConfigured()) throw new Error("Storage não configurado.");
+        const rawBuf = Buffer.from(await file.arrayBuffer());
+        const { buffer: resized, contentType } = await resizeMonetizationBanner(rawBuf, posicao);
+        const safeHost = hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
+        const objectPath = `monetizacao/${safeHost}/${posicao}/${Date.now()}.webp`;
+        const up = await uploadPublicImageAsset({ buffer: resized, objectPath, contentType });
+        if (!up) throw new Error("Falha no upload da nova imagem.");
+        imagemUrl = up;
+      }
+
+      await updateInternalAd(hostname, adId, {
+        posicao,
+        ctaUrl,
+        dataInicio,
+        dataFim,
+        ...(imagemUrl !== undefined && { imagemUrl })
+      });
+      return Astro.redirect(`${q}&ok=1`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao atualizar.";
+      return Astro.redirect(`${q}&adErr=${encodeURIComponent(msg.slice(0, 400))}`);
+    }
+  }
+
+  if (action === "create-placeholder") {
+    const q = `/admin/monetization?hostname=${encodeURIComponent(hostname)}`;
+    try {
+      const posRaw = String(formData.get("posicao") ?? "");
+      if (posRaw !== "topo" && posRaw !== "corpo" && posRaw !== "lateral") throw new Error("Posição inválida.");
+      const posicao = posRaw as AdPosicao;
+      const titulo = String(formData.get("titulo") ?? "").trim();
+      if (!titulo) throw new Error("Informe o título do modelo (ex.: Meus produtos e serviços).");
+      const ctaRaw = String(formData.get("ctaUrl") ?? "").trim();
+      const ctaUrl = ctaRaw && /^https?:\/\//i.test(ctaRaw) ? ctaRaw : null;
+      const sortOrder = Number.parseInt(String(formData.get("sortOrder") ?? "0"), 10) || 0;
+      const file = formData.get("banner");
+      if (!(file instanceof File) || file.size === 0) throw new Error("Selecione a imagem do placeholder.");
+      if (!isObjectStorageConfigured()) throw new Error("Storage não configurado.");
+      const rawBuf = Buffer.from(await file.arrayBuffer());
+      const { buffer: resized, contentType } = await resizeMonetizationBanner(rawBuf, posicao);
+      const safeHost = hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
+      const objectPath = `monetizacao/${safeHost}/placeholder/${posicao}/${Date.now()}.webp`;
+      const imagemUrl = await uploadPublicImageAsset({ buffer: resized, objectPath, contentType });
+      if (!imagemUrl) throw new Error("Falha no upload.");
+      await createAdPlaceholder({
+        tenantHostname: hostname,
+        posicao,
+        titulo,
+        imagemUrl,
+        ctaUrl,
+        sortOrder
+      });
+      return Astro.redirect(`${q}&ok=1`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao criar placeholder.";
+      return Astro.redirect(`${q}&adErr=${encodeURIComponent(msg.slice(0, 400))}`);
+    }
+  }
+
+  if (action === "update-placeholder") {
+    const q = `/admin/monetization?hostname=${encodeURIComponent(hostname)}`;
+    try {
+      const phId = Number.parseInt(String(formData.get("placeholderId") ?? ""), 10);
+      if (!Number.isFinite(phId)) throw new Error("ID inválido.");
+      const posRaw = String(formData.get("posicao") ?? "");
+      if (posRaw !== "topo" && posRaw !== "corpo" && posRaw !== "lateral") throw new Error("Posição inválida.");
+      const posicao = posRaw as AdPosicao;
+      const titulo = String(formData.get("titulo") ?? "").trim();
+      if (!titulo) throw new Error("Título obrigatório.");
+      const ctaRaw = String(formData.get("ctaUrl") ?? "").trim();
+      const ctaUrl = ctaRaw === "" ? null : ctaRaw;
+      if (ctaUrl && !/^https?:\/\//i.test(ctaUrl)) throw new Error("URL opcional deve ser http(s).");
+      const sortOrder = Number.parseInt(String(formData.get("sortOrder") ?? "0"), 10) || 0;
+
+      let imagemUrl: string | undefined;
+      const file = formData.get("banner");
+      if (file instanceof File && file.size > 0) {
+        if (!isObjectStorageConfigured()) throw new Error("Storage não configurado.");
+        const rawBuf = Buffer.from(await file.arrayBuffer());
+        const { buffer: resized, contentType } = await resizeMonetizationBanner(rawBuf, posicao);
+        const safeHost = hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "-");
+        const objectPath = `monetizacao/${safeHost}/placeholder/${posicao}/${Date.now()}.webp`;
+        const up = await uploadPublicImageAsset({ buffer: resized, objectPath, contentType });
+        if (!up) throw new Error("Falha no upload.");
+        imagemUrl = up;
+      }
+
+      await updateAdPlaceholder(hostname, phId, {
+        posicao,
+        titulo,
+        ctaUrl,
+        sortOrder,
+        ...(imagemUrl !== undefined && { imagemUrl })
+      });
+      return Astro.redirect(`${q}&ok=1`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Erro ao atualizar placeholder.";
+      return Astro.redirect(`${q}&adErr=${encodeURIComponent(msg.slice(0, 400))}`);
+    }
+  }
+
+  if (action === "delete-placeholder") {
+    const id = Number.parseInt(String(formData.get("placeholderId") ?? ""), 10);
+    if (Number.isFinite(id)) await deleteAdPlaceholder(hostname, id);
+    return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
+  }
+
   if (action === "save-monetization") {
     await updateTenantMonetization({
       hostname,
-      adsEnabled: String(formData.get("adsEnabled") ?? "") === "on",
-      adClient: String(formData.get("adClient") ?? ""),
-      adTopSlot: String(formData.get("adTopSlot") ?? ""),
-      adSidebarSlot: String(formData.get("adSidebarSlot") ?? ""),
-      adInContentSlot: String(formData.get("adInContentSlot") ?? ""),
-      adFooterSlot: String(formData.get("adFooterSlot") ?? ""),
       amazonEnabled: String(formData.get("amazonEnabled") ?? "") === "on",
       affiliateTrackingId: String(formData.get("affiliateTrackingId") ?? "")
     });
@@ -136,6 +264,7 @@ const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
 const adErr = new URL(Astro.request.url).searchParams.get("adErr");
 const internalAdsStats = await listInternalAdsStatsByTenant();
 const internalAds = tenant ? await listInternalAdsForTenant(tenant.hostname) : [];
+const placeholders = tenant ? await listAdPlaceholdersForTenant(tenant.hostname) : [];
 
 function fmtDT(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -302,28 +431,72 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
           {internalAds.length === 0 ? (
             <p class="mt-2 text-sm text-slate-500">Nenhum banner interno ainda.</p>
           ) : (
-            <ul class="mt-3 space-y-3">
+            <ul class="mt-3 space-y-4">
               {internalAds.map((ad) => (
-                <li class="flex flex-wrap items-start gap-4 rounded-lg border border-slate-200 p-3">
-                  <img src={ad.imagemUrl} alt="" class="h-16 max-w-[200px] rounded border border-slate-100 object-cover" loading="lazy" />
-                  <div class="min-w-0 flex-1 text-sm">
-                    <p class="font-medium capitalize">{ad.posicao}</p>
-                    <p class="truncate text-xs text-slate-600">{ad.ctaUrl}</p>
-                    <p class="mt-1 text-xs text-slate-500">
-                      {ad.dataInicio.toLocaleString("pt-BR")} — {ad.dataFim.toLocaleString("pt-BR")}
-                    </p>
-                    <p class="text-xs text-slate-500">
-                      Cliques: {ad.cliques} · Impressões: {ad.impressoes}
-                    </p>
+                <li class="rounded-lg border border-slate-200 p-3">
+                  <div class="flex flex-wrap items-start gap-4">
+                    <img src={ad.imagemUrl} alt="" class="h-16 max-w-[200px] rounded border border-slate-100 object-cover" loading="lazy" />
+                    <div class="min-w-0 flex-1 text-sm">
+                      <p class="font-medium capitalize">{ad.posicao}</p>
+                      <p class="truncate text-xs text-slate-600">{ad.ctaUrl}</p>
+                      <p class="mt-1 text-xs text-slate-500">
+                        {ad.dataInicio.toLocaleString("pt-BR")} — {ad.dataFim.toLocaleString("pt-BR")}
+                      </p>
+                      <p class="text-xs text-slate-500">
+                        Cliques: {ad.cliques} · Impressões: {ad.impressoes}
+                      </p>
+                    </div>
+                    <form method="POST" class="shrink-0">
+                      <input type="hidden" name="action" value="delete-internal-ad" />
+                      <input type="hidden" name="hostname" value={tenant.hostname} />
+                      <input type="hidden" name="adId" value={String(ad.id)} />
+                      <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm text-white" type="submit">
+                        Excluir
+                      </button>
+                    </form>
                   </div>
-                  <form method="POST">
-                    <input type="hidden" name="action" value="delete-internal-ad" />
-                    <input type="hidden" name="hostname" value={tenant.hostname} />
-                    <input type="hidden" name="adId" value={String(ad.id)} />
-                    <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm text-white" type="submit">
-                      Excluir
-                    </button>
-                  </form>
+                  <details class="mt-3 border-t border-slate-100 pt-3">
+                    <summary class="cursor-pointer text-sm font-medium text-indigo-600">Editar anúncio</summary>
+                    <form method="POST" enctype="multipart/form-data" class="mt-3 grid gap-2 sm:grid-cols-2">
+                      <input type="hidden" name="action" value="update-internal-ad" />
+                      <input type="hidden" name="hostname" value={tenant.hostname} />
+                      <input type="hidden" name="adId" value={String(ad.id)} />
+                      <fieldset class="sm:col-span-2 grid gap-2">
+                        <legend class="text-xs font-medium text-slate-600">Posição</legend>
+                        <label class="flex items-center gap-2 text-sm">
+                          <input type="radio" name="posicao" value="topo" checked={ad.posicao === "topo"} />
+                          Topo
+                        </label>
+                        <label class="flex items-center gap-2 text-sm">
+                          <input type="radio" name="posicao" value="corpo" checked={ad.posicao === "corpo"} />
+                          Corpo
+                        </label>
+                        <label class="flex items-center gap-2 text-sm">
+                          <input type="radio" name="posicao" value="lateral" checked={ad.posicao === "lateral"} />
+                          Lateral
+                        </label>
+                      </fieldset>
+                      <label class="text-sm sm:col-span-2">
+                        <span class="mb-1 block">Nova imagem (opcional)</span>
+                        <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" class="w-full text-sm" />
+                      </label>
+                      <label class="text-sm sm:col-span-2">
+                        <span class="mb-1 block">URL de destino</span>
+                        <input type="url" name="ctaUrl" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={ad.ctaUrl} required />
+                      </label>
+                      <label class="text-sm">
+                        <span class="mb-1 block">Início</span>
+                        <input type="datetime-local" name="dataInicio" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={fmtDT(ad.dataInicio)} required />
+                      </label>
+                      <label class="text-sm">
+                        <span class="mb-1 block">Fim</span>
+                        <input type="datetime-local" name="dataFim" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={fmtDT(ad.dataFim)} required />
+                      </label>
+                      <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white sm:col-span-2" type="submit">
+                        Salvar alterações
+                      </button>
+                    </form>
+                  </details>
                 </li>
               ))}
             </ul>
@@ -332,45 +505,130 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
       </section>
 
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
-        <h2 class="text-xl font-semibold">Google AdSense + Amazon</h2>
+        <h2 class="text-xl font-semibold">Placeholders (quando não há anúncio pago)</h2>
+        <p class="mt-1 text-sm text-slate-600">
+          Cadastre um ou mais <strong>modelos</strong> por posição (ex.: “Meus produtos e serviços”). O site escolhe um aleatoriamente quando o slot está vazio.
+          Mesmos tamanhos dos banners (728×90 ou 300×250). Link (CTA) é opcional.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data" class="mt-4 grid gap-3 border-b border-slate-200 pb-6 md:grid-cols-2">
+          <input type="hidden" name="action" value="create-placeholder" />
+          <input type="hidden" name="hostname" value={tenant.hostname} />
+          <label class="text-sm md:col-span-2">
+            <span class="mb-1 block font-medium">Título do modelo</span>
+            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="titulo" placeholder="Ex.: Meus produtos e serviços" required />
+          </label>
+          <fieldset class="md:col-span-2 grid gap-2">
+            <legend class="text-sm font-medium">Posição</legend>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="radio" name="posicao" value="topo" class="mt-0.5" checked />
+              Topo (728×90)
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="radio" name="posicao" value="corpo" class="mt-0.5" />
+              Corpo (728×90)
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="radio" name="posicao" value="lateral" class="mt-0.5" />
+              Lateral (300×250)
+            </label>
+          </fieldset>
+          <label class="text-sm md:col-span-2">
+            <span class="mb-1 block font-medium">Imagem</span>
+            <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" class="w-full text-sm" required />
+          </label>
+          <label class="text-sm md:col-span-2">
+            <span class="mb-1 block">Link opcional (CTA)</span>
+            <input type="url" name="ctaUrl" class="w-full rounded-lg border border-slate-300 px-3 py-2" placeholder="https:// (opcional)" />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block">Ordem (menor = primeiro na lista admin)</span>
+            <input type="number" name="sortOrder" class="w-full rounded-lg border border-slate-300 px-3 py-2" value="0" />
+          </label>
+          <div class="md:col-span-2">
+            <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white" type="submit">
+              Adicionar placeholder
+            </button>
+          </div>
+        </form>
+
+        <h3 class="mt-4 text-base font-semibold">Modelos cadastrados</h3>
+        {placeholders.length === 0 ? (
+          <p class="mt-2 text-sm text-slate-500">Nenhum placeholder ainda.</p>
+        ) : (
+          <ul class="mt-3 space-y-4">
+            {placeholders.map((ph) => (
+              <li class="rounded-lg border border-slate-200 p-3">
+                <div class="flex flex-wrap items-start gap-3">
+                  <img src={ph.imagemUrl} alt="" class="h-16 max-w-[200px] rounded object-cover" loading="lazy" />
+                  <div class="min-w-0 flex-1 text-sm">
+                    <p class="font-medium">{ph.titulo}</p>
+                    <p class="text-xs capitalize text-slate-600">{ph.posicao}</p>
+                    {ph.ctaUrl && <p class="truncate text-xs text-slate-500">{ph.ctaUrl}</p>}
+                    <p class="text-xs text-slate-400">Ordem: {ph.sortOrder}</p>
+                  </div>
+                  <form method="POST">
+                    <input type="hidden" name="action" value="delete-placeholder" />
+                    <input type="hidden" name="hostname" value={tenant.hostname} />
+                    <input type="hidden" name="placeholderId" value={String(ph.id)} />
+                    <button class="rounded-lg bg-rose-700 px-3 py-1.5 text-sm text-white" type="submit">
+                      Excluir
+                    </button>
+                  </form>
+                </div>
+                <details class="mt-3 border-t border-slate-100 pt-3">
+                  <summary class="cursor-pointer text-sm font-medium text-indigo-600">Editar placeholder</summary>
+                  <form method="POST" enctype="multipart/form-data" class="mt-3 grid gap-2 sm:grid-cols-2">
+                    <input type="hidden" name="action" value="update-placeholder" />
+                    <input type="hidden" name="hostname" value={tenant.hostname} />
+                    <input type="hidden" name="placeholderId" value={String(ph.id)} />
+                    <label class="text-sm sm:col-span-2">
+                      <span class="mb-1 block">Título</span>
+                      <input name="titulo" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={ph.titulo} required />
+                    </label>
+                    <fieldset class="sm:col-span-2 grid gap-2">
+                      <legend class="text-xs text-slate-600">Posição</legend>
+                      <label class="flex items-center gap-2 text-sm">
+                        <input type="radio" name="posicao" value="topo" checked={ph.posicao === "topo"} />
+                        Topo
+                      </label>
+                      <label class="flex items-center gap-2 text-sm">
+                        <input type="radio" name="posicao" value="corpo" checked={ph.posicao === "corpo"} />
+                        Corpo
+                      </label>
+                      <label class="flex items-center gap-2 text-sm">
+                        <input type="radio" name="posicao" value="lateral" checked={ph.posicao === "lateral"} />
+                        Lateral
+                      </label>
+                    </fieldset>
+                    <label class="text-sm sm:col-span-2">
+                      <span class="mb-1 block">Nova imagem (opcional)</span>
+                      <input type="file" name="banner" accept="image/png,image/jpeg,image/webp" class="w-full text-sm" />
+                    </label>
+                    <label class="text-sm sm:col-span-2">
+                      <span class="mb-1 block">Link (opcional)</span>
+                      <input type="url" name="ctaUrl" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={ph.ctaUrl ?? ""} />
+                    </label>
+                    <label class="text-sm">
+                      <span class="mb-1 block">Ordem</span>
+                      <input type="number" name="sortOrder" class="w-full rounded-lg border border-slate-300 px-3 py-2" value={ph.sortOrder} />
+                    </label>
+                    <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white sm:col-span-2" type="submit">
+                      Salvar placeholder
+                    </button>
+                  </form>
+                </details>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+        <h2 class="text-xl font-semibold">Amazon Afiliados</h2>
         <form method="POST" class="mt-4 grid gap-3 md:grid-cols-2">
           <input type="hidden" name="action" value="save-monetization" />
           <input type="hidden" name="hostname" value={tenant.hostname} />
-
-          <label class="text-sm md:col-span-2">
-            <input type="checkbox" name="adsEnabled" checked={tenant.ads.enabled} />
-            <span class="ml-2">Habilitar Google AdSense</span>
-          </label>
-          <label class="text-sm md:col-span-2">
-            <span class="mb-1 block">AdSense client (Publisher ID)</span>
-            <input
-              class="w-full rounded-lg border border-slate-300 px-3 py-2"
-              name="adClient"
-              placeholder="ca-pub-1234567890123456"
-              value={tenant.ads.client}
-            />
-          </label>
-          <p class="text-xs leading-relaxed text-slate-600 md:col-span-2">
-            O script global do AdSense é inserido automaticamente nas páginas públicas quando o cliente está no formato
-            <code class="rounded bg-slate-100 px-1">ca-pub-</code> seguido só de números. Em cada posição use o
-            <strong>ID numérico</strong> da unidade de anúncios (Anúncios → Por unidade de anúncios no painel do Google).
-          </p>
-          <label class="text-sm">
-            <span class="mb-1 block">Slot topo</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adTopSlot" value={tenant.ads.topSlot} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Slot sidebar</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adSidebarSlot" value={tenant.ads.sidebarSlot} />
-          </label>
-          <label class="text-sm">
-            <span class="mb-1 block">Slot in-content</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adInContentSlot" value={tenant.ads.inContentSlot} />
-          </label>
-          <label class="text-sm md:col-span-2">
-            <span class="mb-1 block">Slot rodapé</span>
-            <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="adFooterSlot" value={tenant.ads.footerSlot} />
-          </label>
 
           <label class="text-sm md:col-span-2">
             <input type="checkbox" name="amazonEnabled" checked={tenant.affiliate.enabled} />

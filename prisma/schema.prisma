@@ -59,6 +59,7 @@ model Tenant {
   generationJobs     GenerationJob[]
   articlePitches     ArticlePitch[]
   ads                Ad[]
+  adPlaceholders     AdPlaceholder[]
 }
 
 /// Anúncios proprietários (monetização interna), filtrados pelo hostname do tenant.
@@ -84,6 +85,23 @@ enum AdPosicao {
   topo
   corpo
   lateral
+}
+
+/// Placeholders quando não há anúncio pago no slot (vários modelos por posição, ex.: “Meus produtos”).
+model AdPlaceholder {
+  id             Int        @id @default(autoincrement())
+  tenantHostname String
+  tenant         Tenant     @relation(fields: [tenantHostname], references: [hostname], onDelete: Cascade)
+  posicao        AdPosicao
+  titulo         String
+  imagemUrl      String
+  ctaUrl         String?
+  sortOrder      Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([tenantHostname, posicao])
+  @@map("AdPlaceholders")
 }
 
 model ArticlePitch {

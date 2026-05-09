@@ -32,15 +32,7 @@ const coverSrc = resolvePublicAssetUrl(row.image);
       Pré-visualização de template (admin). Este post pode estar em rascunho.
     </div>
 
-    <PublicAdSlot
-      hostname={siteData.hostname}
-      posicao="topo"
-      layout="banner"
-      adsProvider={siteData.ads.provider}
-      adsClient={siteData.ads.client}
-      adsSlot={siteData.ads.topSlot}
-      adsEnabled={siteData.ads.enabled}
-    />
+    <PublicAdSlot hostname={siteData.hostname} posicao="topo" layout="banner" />
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <article class="space-y-4 lg:col-span-8">
@@ -73,15 +65,7 @@ const coverSrc = resolvePublicAssetUrl(row.image);
       </article>
 
       <aside class="space-y-4 lg:col-span-4">
-        <PublicAdSlot
-          hostname={siteData.hostname}
-          posicao="lateral"
-          layout="card"
-          adsProvider={siteData.ads.provider}
-          adsClient={siteData.ads.client}
-          adsSlot={siteData.ads.sidebarSlot}
-          adsEnabled={siteData.ads.enabled}
-        />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
       </aside>
     </div>
   </div>

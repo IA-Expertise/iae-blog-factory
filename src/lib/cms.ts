@@ -5,21 +5,6 @@ import { deletePublicImageByUrl } from "./objectStorage";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
 import { isReservedTenantHostname, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
-const ADSENSE_CLIENT_RE = /^ca-pub-\d{10,22}$/i;
-const HISTOREI_HOSTNAME = "historei.com.br";
-const HISTOREI_ADSENSE_CLIENT = "ca-pub-1480753881347441";
-
-/** Cliente gravado no tenant ou, se inválido, `PUBLIC_ADSENSE_CLIENT` (ex.: Railway). */
-function effectiveAdsenseClient(dbClient: string | null | undefined, hostname?: string): string {
-  // Garantia de snippet AdSense para o Historei conforme configuração do projeto.
-  if ((hostname ?? "").trim().toLowerCase() === HISTOREI_HOSTNAME) return HISTOREI_ADSENSE_CLIENT;
-  const fromDb = dbClient?.trim() ?? "";
-  if (ADSENSE_CLIENT_RE.test(fromDb)) return fromDb;
-  const fromEnv = import.meta.env.PUBLIC_ADSENSE_CLIENT?.trim() ?? "";
-  if (ADSENSE_CLIENT_RE.test(fromEnv)) return fromEnv;
-  return fromDb;
-}
-
 export type PostStatus = "DRAFT" | "IN_REVIEW" | "APPROVED" | "PUBLISHED";
 
 export type ThemeConfig = {
@@ -34,7 +19,8 @@ export type ThemeConfig = {
 };
 
 export type AdConfig = {
-  provider: "adsense";
+  /** Legado; o site público usa só monetização interna + placeholders. */
+  provider: "none" | "adsense";
   enabled: boolean;
   client: string;
   topSlot: string;
@@ -202,13 +188,13 @@ const DEFAULT_SITES: SiteData[] = [
       bodyFont: "'Lora', serif"
     },
     ads: {
-      provider: "adsense",
-      enabled: true,
-      client: "ca-pub-vinil-123456",
-      topSlot: "vinil-top-001",
-      sidebarSlot: "vinil-sidebar-001",
-      inContentSlot: "vinil-incontent-001",
-      footerSlot: "vinil-footer-001"
+      provider: "none",
+      enabled: false,
+      client: "",
+      topSlot: "",
+      sidebarSlot: "",
+      inContentSlot: "",
+      footerSlot: ""
     },
     affiliate: {
       enabled: true,
@@ -276,13 +262,13 @@ const DEFAULT_SITES: SiteData[] = [
       bodyFont: "'Roboto', sans-serif"
     },
     ads: {
-      provider: "adsense",
-      enabled: true,
-      client: "ca-pub-govtech-654321",
-      topSlot: "govtech-top-001",
-      sidebarSlot: "govtech-sidebar-001",
-      inContentSlot: "govtech-incontent-001",
-      footerSlot: "govtech-footer-001"
+      provider: "none",
+      enabled: false,
+      client: "",
+      topSlot: "",
+      sidebarSlot: "",
+      inContentSlot: "",
+      footerSlot: ""
     },
     affiliate: {
       enabled: true,
@@ -493,13 +479,13 @@ function mapTenantToSiteData(
       bodyFont: tenant.themeBodyFont
     },
     ads: {
-      provider: "adsense",
-      enabled: tenant.adsEnabled,
-      client: effectiveAdsenseClient(tenant.adClient, tenant.hostname),
-      topSlot: tenant.adTopSlot,
-      sidebarSlot: tenant.adSidebarSlot,
-      inContentSlot: tenant.adInContentSlot,
-      footerSlot: tenant.adFooterSlot
+      provider: "none",
+      enabled: false,
+      client: "",
+      topSlot: "",
+      sidebarSlot: "",
+      inContentSlot: "",
+      footerSlot: ""
     },
     affiliate: {
       enabled: tenant.amazonEnabled,
@@ -706,13 +692,13 @@ export async function createTenant(input: { hostname: string; brandName: string;
         themeText: templateTenant?.themeText || base.theme.text,
         themeHeadingFont: templateTenant?.themeHeadingFont || base.theme.headingFont,
         themeBodyFont: templateTenant?.themeBodyFont || base.theme.bodyFont,
-        adProvider: "adsense",
-        adsEnabled: true,
-        adClient: "ca-pub-tenant-000000",
-        adTopSlot: "tenant-top-001",
-        adSidebarSlot: "tenant-sidebar-001",
-        adInContentSlot: "tenant-incontent-001",
-        adFooterSlot: "tenant-footer-001",
+        adProvider: "internal",
+        adsEnabled: false,
+        adClient: "",
+        adTopSlot: "",
+        adSidebarSlot: "",
+        adInContentSlot: "",
+        adFooterSlot: "",
         amazonEnabled: true,
         affiliateNetwork: "Amazon",
         affiliateTrackingId: "tenant-20",
@@ -1206,27 +1192,11 @@ export async function deleteAffiliateProduct(hostname: string, productId: string
   });
 }
 
-export async function updateTenantMonetization(input: {
-  hostname: string;
-  adsEnabled: boolean;
-  adClient: string;
-  adTopSlot: string;
-  adSidebarSlot: string;
-  adInContentSlot: string;
-  adFooterSlot: string;
-  amazonEnabled: boolean;
-  affiliateTrackingId: string;
-}) {
+export async function updateTenantMonetization(input: { hostname: string; amazonEnabled: boolean; affiliateTrackingId: string }) {
   await ensureSeedData();
   await prisma.tenant.update({
     where: { hostname: normalizeHostname(input.hostname) },
     data: {
-      adsEnabled: input.adsEnabled,
-      adClient: input.adClient.trim(),
-      adTopSlot: input.adTopSlot.trim(),
-      adSidebarSlot: input.adSidebarSlot.trim(),
-      adInContentSlot: input.adInContentSlot.trim(),
-      adFooterSlot: input.adFooterSlot.trim(),
       amazonEnabled: input.amazonEnabled,
       affiliateTrackingId: input.affiliateTrackingId.trim()
     }
@@ -1355,6 +1325,162 @@ export async function pickAndRecordInternalAdImpression(
     imagemUrl: pick.imagemUrl,
     ctaUrl: pick.ctaUrl
   };
+}
+
+export type AdPlaceholderRow = {
+  id: number;
+  tenantHostname: string;
+  posicao: AdPosicao;
+  titulo: string;
+  imagemUrl: string;
+  ctaUrl: string | null;
+  sortOrder: number;
+};
+
+export async function listAdPlaceholdersForTenant(hostname: string): Promise<AdPlaceholderRow[]> {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const rows = await prisma.adPlaceholder.findMany({
+    where: { tenantHostname: host },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }]
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    tenantHostname: r.tenantHostname,
+    posicao: r.posicao,
+    titulo: r.titulo,
+    imagemUrl: r.imagemUrl,
+    ctaUrl: r.ctaUrl,
+    sortOrder: r.sortOrder
+  }));
+}
+
+export async function pickRandomPlaceholder(hostname: string, posicao: AdPosicao): Promise<AdPlaceholderRow | null> {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const rows = await prisma.adPlaceholder.findMany({
+    where: { tenantHostname: host, posicao }
+  });
+  if (rows.length === 0) return null;
+  const r = rows[Math.floor(Math.random() * rows.length)]!;
+  return {
+    id: r.id,
+    tenantHostname: r.tenantHostname,
+    posicao: r.posicao,
+    titulo: r.titulo,
+    imagemUrl: r.imagemUrl,
+    ctaUrl: r.ctaUrl,
+    sortOrder: r.sortOrder
+  };
+}
+
+export async function createAdPlaceholder(input: {
+  tenantHostname: string;
+  posicao: AdPosicao;
+  titulo: string;
+  imagemUrl: string;
+  ctaUrl: string | null;
+  sortOrder: number;
+}) {
+  await ensureSeedData();
+  const host = normalizeHostname(input.tenantHostname);
+  const tenant = await prisma.tenant.findUnique({ where: { hostname: host } });
+  if (!tenant) throw new Error("Tenant não encontrado.");
+  await prisma.adPlaceholder.create({
+    data: {
+      tenantHostname: host,
+      posicao: input.posicao,
+      titulo: input.titulo.trim(),
+      imagemUrl: input.imagemUrl,
+      ctaUrl: input.ctaUrl?.trim() || null,
+      sortOrder: input.sortOrder
+    }
+  });
+}
+
+export async function updateAdPlaceholder(
+  hostname: string,
+  placeholderId: number,
+  input: {
+    posicao?: AdPosicao;
+    titulo?: string;
+    ctaUrl?: string | null;
+    sortOrder?: number;
+    imagemUrl?: string;
+  }
+) {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const row = await prisma.adPlaceholder.findFirst({
+    where: { id: placeholderId, tenantHostname: host }
+  });
+  if (!row) throw new Error("Placeholder não encontrado.");
+  if (input.imagemUrl !== undefined && input.imagemUrl !== row.imagemUrl) {
+    try {
+      await deletePublicImageByUrl(row.imagemUrl);
+    } catch {
+      /* ignore */
+    }
+  }
+  await prisma.adPlaceholder.update({
+    where: { id: placeholderId },
+    data: {
+      ...(input.posicao !== undefined && { posicao: input.posicao }),
+      ...(input.titulo !== undefined && { titulo: input.titulo.trim() }),
+      ...(input.ctaUrl !== undefined && { ctaUrl: input.ctaUrl?.trim() || null }),
+      ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
+      ...(input.imagemUrl !== undefined && { imagemUrl: input.imagemUrl })
+    }
+  });
+}
+
+export async function deleteAdPlaceholder(hostname: string, placeholderId: number) {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const row = await prisma.adPlaceholder.findFirst({
+    where: { id: placeholderId, tenantHostname: host }
+  });
+  if (!row) return;
+  try {
+    await deletePublicImageByUrl(row.imagemUrl);
+  } catch {
+    /* ignore */
+  }
+  await prisma.adPlaceholder.delete({ where: { id: placeholderId } });
+}
+
+export async function updateInternalAd(
+  hostname: string,
+  adId: number,
+  input: {
+    posicao?: AdPosicao;
+    ctaUrl?: string;
+    dataInicio?: Date;
+    dataFim?: Date;
+    imagemUrl?: string;
+  }
+) {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const existing = await prisma.ad.findFirst({ where: { id: adId, tenantHostname: host } });
+  if (!existing) throw new Error("Anúncio não encontrado.");
+  if (input.imagemUrl !== undefined && input.imagemUrl !== existing.imagemUrl) {
+    try {
+      await deletePublicImageByUrl(existing.imagemUrl);
+    } catch {
+      /* ignore */
+    }
+  }
+  await prisma.ad.update({
+    where: { id: adId },
+    data: {
+      ...(input.posicao !== undefined && { posicao: input.posicao }),
+      ...(input.ctaUrl !== undefined && { ctaUrl: input.ctaUrl.trim() }),
+      ...(input.dataInicio !== undefined && { dataInicio: input.dataInicio }),
+      ...(input.dataFim !== undefined && { dataFim: input.dataFim }),
+      ...(input.imagemUrl !== undefined && { imagemUrl: input.imagemUrl })
+    }
+  });
 }
 
 export async function updateTenantEditorialBrief(

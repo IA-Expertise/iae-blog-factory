@@ -64,15 +64,7 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
   <div class="mx-auto min-w-0 max-w-7xl space-y-6 px-4 pb-10 pt-4 sm:px-6 lg:px-8">
     <TenantPublicHeader siteData={siteData} active="other" />
 
-    <PublicAdSlot
-      hostname={siteData.hostname}
-      posicao="topo"
-      layout="banner"
-      adsProvider={siteData.ads.provider}
-      adsClient={siteData.ads.client}
-      adsSlot={siteData.ads.topSlot}
-      adsEnabled={siteData.ads.enabled}
-    />
+    <PublicAdSlot hostname={siteData.hostname} posicao="topo" layout="banner" />
 
     <div id="conteudo" class="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-12">
       <article class="min-w-0 space-y-4 lg:col-span-8">
@@ -238,39 +230,15 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
           />
         )}
 
-        <PublicAdSlot
-          hostname={siteData.hostname}
-          posicao="corpo"
-          layout="banner"
-          adsProvider={siteData.ads.provider}
-          adsClient={siteData.ads.client}
-          adsSlot={siteData.ads.inContentSlot}
-          adsEnabled={siteData.ads.enabled}
-        />
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
       </article>
 
       <aside class="min-w-0 space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
-        <PublicAdSlot
-          hostname={siteData.hostname}
-          posicao="lateral"
-          layout="card"
-          adsProvider={siteData.ads.provider}
-          adsClient={siteData.ads.client}
-          adsSlot={siteData.ads.sidebarSlot}
-          adsEnabled={siteData.ads.enabled}
-        />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
       </aside>
     </div>
 
-    <PublicAdSlot
-      hostname={siteData.hostname}
-      posicao="corpo"
-      layout="banner"
-      adsProvider={siteData.ads.provider}
-      adsClient={siteData.ads.client}
-      adsSlot={siteData.ads.footerSlot}
-      adsEnabled={siteData.ads.enabled}
-    />
+    <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
 
     <footer class="rounded-2xl bg-[var(--color-primary)] p-4 text-center text-sm text-white">
       {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}

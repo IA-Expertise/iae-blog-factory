@@ -28,11 +28,6 @@ const {
   tenantPublicLayout = false
 } = Astro.props;
 
-const adsClient = siteData.ads.client?.trim() ?? "";
-const adsenseScript =
-  siteData.ads.enabled &&
-  siteData.ads.provider === "adsense" &&
-  /^ca-pub-\d{10,22}$/i.test(adsClient);
 const ga4Id = import.meta.env.PUBLIC_GA4_ID?.trim() ?? "";
 const ga4Enabled = tenantPublicLayout && /^G-[A-Z0-9]+$/i.test(ga4Id);
 const facebookAppId = import.meta.env.PUBLIC_FACEBOOK_APP_ID?.trim() ?? "";
@@ -76,15 +71,6 @@ gtag("config", ${JSON.stringify(ga4Id)}, {
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     {ogImage && <meta name="twitter:image" content={ogImage} />}
-    {
-      adsenseScript && (
-        <script
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsClient)}`}
-          crossorigin="anonymous"
-        />
-      )
-    }
     {
       ga4Enabled && (
         <>
