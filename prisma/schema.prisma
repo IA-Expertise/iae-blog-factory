@@ -58,6 +58,32 @@ model Tenant {
   affiliateProducts  AffiliateProduct[]
   generationJobs     GenerationJob[]
   articlePitches     ArticlePitch[]
+  ads                Ad[]
+}
+
+/// Anúncios proprietários (monetização interna), filtrados pelo hostname do tenant.
+model Ad {
+  id               Int        @id @default(autoincrement())
+  /// Hostname do blog (igual a `Tenant.hostname`).
+  tenantHostname   String
+  tenant           Tenant     @relation(fields: [tenantHostname], references: [hostname], onDelete: Cascade)
+  posicao          AdPosicao
+  imagemUrl        String
+  ctaUrl           String
+  dataInicio       DateTime
+  dataFim          DateTime
+  cliques          Int        @default(0)
+  impressoes       Int        @default(0)
+
+  @@index([tenantHostname, posicao])
+  @@index([dataInicio, dataFim])
+  @@map("Ads")
+}
+
+enum AdPosicao {
+  topo
+  corpo
+  lateral
 }
 
 model ArticlePitch {
