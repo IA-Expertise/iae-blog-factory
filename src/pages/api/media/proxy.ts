@@ -42,16 +42,38 @@ export const GET: APIRoute = async ({ url }) => {
       return new Response("upstream fetch failed", { status: 502 });
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.toLowerCase().startsWith("image/")) {
+    const rawCt = response.headers.get("content-type") ?? "";
+    const contentType = rawCt.toLowerCase().split(";")[0]?.trim() ?? "";
+    const pathLower = parsed.pathname.toLowerCase();
+    const hasImageExtension = /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(pathLower);
+
+    const okImageType =
+      contentType.startsWith("image/") ||
+      (hasImageExtension &&
+        (contentType === "application/octet-stream" ||
+          contentType === "binary/octet-stream" ||
+          contentType === ""));
+
+    if (!okImageType) {
       return new Response("unsupported content-type", { status: 415 });
     }
 
     const body = await response.arrayBuffer();
+    const outType =
+      contentType.startsWith("image/") && contentType !== ""
+        ? rawCt.split(";")[0]?.trim() || "image/jpeg"
+        : hasImageExtension && pathLower.endsWith(".webp")
+          ? "image/webp"
+          : hasImageExtension && /\.jpe?g$/i.test(pathLower)
+            ? "image/jpeg"
+            : hasImageExtension && pathLower.endsWith(".png")
+              ? "image/png"
+              : "application/octet-stream";
+
     return new Response(body, {
       status: 200,
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": outType,
         "Cache-Control": "public, max-age=86400"
       }
     });
