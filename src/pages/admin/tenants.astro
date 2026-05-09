@@ -89,6 +89,7 @@ if (Astro.request.method === "POST") {
         logoUrl,
         headerArtUrl,
         rssFeedUrl: String(formData.get("rssFeedUrl") ?? ""),
+        showRssHomePromo: formData.get("showRssHomePromo") === "on",
         themePreset: String(formData.get("themePreset") ?? "classic"),
         projectDescription: String(formData.get("projectDescription") ?? ""),
         editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
@@ -212,6 +213,21 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
         <label class="text-sm">
           <span class="mb-1 block">RSS feed principal</span>
           <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="rssFeedUrl" value={tenant.rssFeedUrl ?? ""} />
+          <span class="mt-1 block text-xs text-slate-500">
+            Usado pelo gerador de pautas. A URL pode ficar preenchida mesmo sem exibir o bloco na home.
+          </span>
+        </label>
+        <label class="flex items-start gap-2 text-sm md:col-span-2">
+          <input
+            class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300"
+            type="checkbox"
+            name="showRssHomePromo"
+            checked={tenant.showRssHomePromo}
+          />
+          <span>
+            <span class="mb-0.5 block font-medium">Mostrar caixa “Feed RSS” na página inicial pública</span>
+            <span class="text-xs text-slate-500">Desmarque para ocultar o convite ao feed na capa (ex.: Louveira News), mantendo o RSS só para o CMS.</span>
+          </span>
         </label>
 
         <label class="text-sm">

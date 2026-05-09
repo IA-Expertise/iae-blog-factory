@@ -90,7 +90,7 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
         }
 
         {
-          siteData.rssFeedUrl && (
+          siteData.rssFeedUrl && siteData.showRssHomePromo && (
             <section class="rounded-2xl border bg-[var(--color-surface)] p-4 shadow-sm" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
               <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Feed RSS</p>
               <p class="mt-1 text-sm" style="color: color-mix(in srgb, var(--color-text) 78%, transparent);">

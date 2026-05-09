@@ -39,6 +39,8 @@ model Tenant {
   /// Arte da testeira (ex.: 1920×320), URL pública após upload.
   headerArtUrl        String?
   rssFeedUrl          String?
+  /// Exibir caixa “Feed RSS” na home pública (`/t/...`). A URL continua disponível para o gerador quando preenchida.
+  showRssHomePromo    Boolean            @default(true)
   themePreset         String             @default("classic")
   projectDescription  String?
   editorialStyleNotes String?

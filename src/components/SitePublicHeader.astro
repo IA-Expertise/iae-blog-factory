@@ -38,7 +38,7 @@ const initial = siteData.brandName.trim().slice(0, 1).toUpperCase() || "?";
   <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-semibold" style="color: color-mix(in srgb, var(--color-text) 70%, transparent);">
     <a href={homeHref} class="transition hover:text-[var(--color-accent)]">Início</a>
     {
-      siteData.rssFeedUrl && (
+      siteData.rssFeedUrl && siteData.showRssHomePromo && (
         <a
           href={siteData.rssFeedUrl}
           target="_blank"

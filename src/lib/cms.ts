@@ -82,6 +82,8 @@ export type SiteData = {
   logoUrl?: string | null;
   headerArtUrl?: string | null;
   rssFeedUrl?: string | null;
+  /** Caixa RSS na home pública; não afeta uso da URL no gerador. */
+  showRssHomePromo: boolean;
   themePreset?: string;
   social: {
     instagram?: string | null;
@@ -236,6 +238,7 @@ const DEFAULT_SITES: SiteData[] = [
     logoUrl: null,
     headerArtUrl: null,
     rssFeedUrl: null,
+    showRssHomePromo: true,
     themePreset: "classic",
     social: { instagram: null, facebook: null, youtube: null },
     contact: { footerText: null, menuText: null }
@@ -304,6 +307,7 @@ const DEFAULT_SITES: SiteData[] = [
     logoUrl: null,
     headerArtUrl: null,
     rssFeedUrl: null,
+    showRssHomePromo: true,
     themePreset: "classic",
     social: { instagram: null, facebook: null, youtube: null },
     contact: { footerText: null, menuText: null }
@@ -408,6 +412,7 @@ async function ensureSeedData() {
         logoUrl: site.logoUrl ?? null,
         headerArtUrl: site.headerArtUrl ?? null,
         rssFeedUrl: site.rssFeedUrl ?? null,
+        showRssHomePromo: site.showRssHomePromo,
         themePreset: site.themePreset ?? "classic",
         projectDescription: site.editorial.projectDescription ?? null,
         editorialStyleNotes: site.editorial.editorialStyleNotes ?? null,
@@ -510,6 +515,7 @@ function mapTenantToSiteData(
     logoUrl: tenant.logoUrl ?? null,
     headerArtUrl: tenant.headerArtUrl ?? null,
     rssFeedUrl: tenant.rssFeedUrl ?? null,
+    showRssHomePromo: tenant.showRssHomePromo,
     themePreset: tenant.themePreset ?? "classic",
     social: {
       instagram: tenant.socialInstagram ?? null,
@@ -737,6 +743,7 @@ export async function updateTenantSettings(input: {
   logoUrl: string;
   headerArtUrl: string;
   rssFeedUrl: string;
+  showRssHomePromo: boolean;
   themePreset: string;
   projectDescription: string;
   editorialStyleNotes: string;
@@ -770,6 +777,7 @@ export async function updateTenantSettings(input: {
       logoUrl: input.logoUrl.trim() || null,
       headerArtUrl: input.headerArtUrl.trim() || null,
       rssFeedUrl: input.rssFeedUrl.trim() || null,
+      showRssHomePromo: input.showRssHomePromo,
       themePreset: presetKey,
       themePrimary: preset.primary,
       themeSecondary: preset.secondary,
@@ -885,6 +893,7 @@ export async function updateTenant(input: SiteData) {
       logoUrl: input.logoUrl ?? null,
       headerArtUrl: input.headerArtUrl ?? null,
       rssFeedUrl: input.rssFeedUrl ?? null,
+      showRssHomePromo: input.showRssHomePromo,
       themePreset: input.themePreset ?? "classic",
       projectDescription: input.editorial.projectDescription ?? null,
       editorialStyleNotes: input.editorial.editorialStyleNotes ?? null,
