@@ -3,10 +3,17 @@ import { runScheduledPublishing } from "../../../lib/cms";
 
 export const prerender = false;
 
+function cronSecretFromEnv(): string {
+  if (typeof process !== "undefined" && process.env?.CRON_SECRET !== undefined) {
+    return process.env.CRON_SECRET;
+  }
+  return import.meta.env.CRON_SECRET ?? "";
+}
+
 export const GET: APIRoute = async ({ request }) => {
-  const secret = import.meta.env.CRON_SECRET;
+  const secret = cronSecretFromEnv().trim();
   if (secret) {
-    const key = new URL(request.url).searchParams.get("key");
+    const key = new URL(request.url).searchParams.get("key")?.trim() ?? "";
     if (key !== secret) {
       return new Response("Unauthorized", { status: 401 });
     }
