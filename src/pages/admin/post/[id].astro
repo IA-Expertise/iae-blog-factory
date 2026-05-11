@@ -29,7 +29,8 @@ if (Astro.request.method === "POST") {
   const action = String(formData.get("action") ?? "");
 
   if (action === "regenerate_image") {
-    const newUrl = await regeneratePostCover(id);
+    const coverHint = String(formData.get("coverRegeneratePrompt") ?? "").trim();
+    const newUrl = await regeneratePostCover(id, coverHint || null);
     return Astro.redirect(`/admin/post/${id}?img=${newUrl ? "1" : "0"}`);
   }
 
@@ -142,6 +143,18 @@ const statusLabel: Record<PostStatus, string> = {
     <label class="text-sm">
       <span class="mb-1 block font-medium">Conteudo (markdown)</span>
       <textarea class="min-h-[280px] w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm" name="content">{row.content ?? ""}</textarea>
+    </label>
+    <label class="text-sm md:col-span-2">
+      <span class="mb-1 block font-medium">Dica para regenerar a capa (opcional)</span>
+      <input
+        class="w-full rounded-lg border border-slate-300 px-3 py-2"
+        type="text"
+        name="coverRegeneratePrompt"
+        maxlength="400"
+        placeholder="Ex.: luz natural, mais cores quentes, ambiente urbano ao entardecer, sem pessoas em primeiro plano…"
+        autocomplete="off"
+      />
+      <span class="mt-1 block text-xs text-slate-500">Só vale ao clicar em Regenerar imagem; não altera o texto do artigo.</span>
     </label>
     <button
       class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500"

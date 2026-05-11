@@ -11,6 +11,8 @@ type GenerateInput = {
   themePreset?: string;
   /** Trecho curto de briefing/estilo editorial (opcional). */
   styleHint?: string;
+  /** Instrução curta do editor só nesta geração (ex.: regenerar capa). */
+  imageDirection?: string;
 };
 
 function truncateForPrompt(text: string, maxLen: number): string {
@@ -29,6 +31,9 @@ function buildEditorialImagePrompt(input: GenerateInput): string {
   const hint = input.styleHint?.trim()
     ? `Notas de estilo (referencia, nao texto na imagem): ${truncateForPrompt(input.styleHint, 220)}.`
     : "";
+  const direction = input.imageDirection?.trim()
+    ? `Pedido extra do editor para ESTA capa (apenas inspiracao visual, sem texto na imagem): ${truncateForPrompt(input.imageDirection, 240)}.`
+    : "";
   const variationId = Date.now();
 
   return `Crie UMA imagem de capa horizontal para blog (formato largo), SEM texto, SEM logotipo, SEM letras ou numeros na imagem.
@@ -39,6 +44,7 @@ Titulo do artigo (use apenas como inspiracao visual, nao escreva na imagem): ${h
 Tom/atmosfera desejada: ${tone}.
 ${preset}
 ${hint}
+${direction}
 
 Diretrizes:
 - A cena, paleta e elementos visuais devem refletir claramente o NICHO acima (ex.: historia → epoca/cenario coerente; gestao publica → cidade/servicos/cidadania; bem-estar → luz suave e humanizada; tecnologia → ambiente moderno sem ficar generico demais).
@@ -195,9 +201,12 @@ export async function regenerateCoverImage(params: {
   tone: string;
   themePreset?: string | null;
   editorialStyleNotes?: string | null;
+  /** Texto curto do editor para orientar esta regeneração (opcional). */
+  imageDirection?: string | null;
 }): Promise<string | null> {
   const apiKey = import.meta.env.OPENAI_API_KEY;
   if (!apiKey) return null;
+  const dir = params.imageDirection?.trim() ?? "";
   return generateImageWithOpenAI(
     {
       tenantName: params.tenantName,
@@ -205,7 +214,8 @@ export async function regenerateCoverImage(params: {
       keyword: params.headline,
       tone: params.tone,
       themePreset: params.themePreset ?? undefined,
-      styleHint: params.editorialStyleNotes ?? undefined
+      styleHint: params.editorialStyleNotes ?? undefined,
+      ...(dir ? { imageDirection: dir } : {})
     },
     apiKey
   );

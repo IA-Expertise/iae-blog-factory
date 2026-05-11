@@ -1039,7 +1039,7 @@ export async function updatePostFields(
   });
 }
 
-export async function regeneratePostCover(postId: string): Promise<string | null> {
+export async function regeneratePostCover(postId: string, imageDirection?: string | null): Promise<string | null> {
   await ensureSeedData();
   const post = await prisma.post.findUnique({
     where: { id: postId },
@@ -1047,13 +1047,15 @@ export async function regeneratePostCover(postId: string): Promise<string | null
   });
   if (!post) return null;
 
+  const direction = imageDirection?.trim() ?? "";
   const image = await regenerateCoverImage({
     tenantName: post.tenant.brandName,
     niche: post.tenant.niche,
     headline: post.title,
     tone: post.tenant.defaultArticleTone ?? "profissional",
     themePreset: post.tenant.themePreset,
-    editorialStyleNotes: post.tenant.editorialStyleNotes
+    editorialStyleNotes: post.tenant.editorialStyleNotes,
+    ...(direction ? { imageDirection: direction.slice(0, 400) } : {})
   });
   if (!image) return null;
 
