@@ -332,8 +332,8 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
         <h2 class="text-xl font-semibold">Banners proprietários (R2)</h2>
         <p class="mt-1 text-sm text-slate-600">
-          Escolha o espaço no layout, envie a arte e defina o período. Imagens são redimensionadas automaticamente (728×90 topo/corpo,
-          300×250 lateral) e enviadas para o mesmo bucket já usado pelo blog.
+          Escolha o espaço no layout, envie a arte e defina o período. Imagens são redimensionadas automaticamente (728×110 topo/corpo,
+          300×250 lateral) e enviadas para o mesmo bucket já usado pelo blog. O site exibe <strong>dois</strong> banners de corpo e <strong>três</strong> na lateral (empilhados); com vários anúncios ativos na mesma posição, eles alternam por slot.
         </p>
 
         <div class="mt-6 grid gap-6 lg:grid-cols-2">
@@ -341,20 +341,28 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
             <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Mapa do layout</p>
             <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div class="rounded border border-dashed border-slate-300 bg-white py-3 text-center text-xs text-slate-500">
-                Faixa topo (728×90)
+                Faixa topo (728×110)
               </div>
               <div class="flex gap-2">
-                <div class="min-h-[120px] flex-1 rounded border border-dashed border-slate-300 bg-white p-2 text-xs text-slate-500">
-                  Conteúdo do artigo
+                <div class="min-h-[120px] flex-1 space-y-1 rounded border border-dashed border-slate-300 bg-white p-2 text-xs text-slate-500">
+                  <p>Conteúdo do artigo</p>
+                  <div class="rounded border border-slate-200 bg-slate-50 py-1.5 text-center text-[10px]">Corpo 728×110</div>
+                  <div class="rounded border border-slate-200 bg-slate-50 py-1.5 text-center text-[10px]">Corpo 728×110</div>
                 </div>
-                <div class="w-28 shrink-0 rounded border border-dashed border-slate-300 bg-white py-8 text-center text-[10px] leading-tight text-slate-500">
-                  Lateral
-                  <br />
-                  300×250
+                <div class="flex w-28 shrink-0 flex-col gap-1">
+                  <div class="flex-1 rounded border border-dashed border-slate-300 bg-white py-2 text-center text-[9px] leading-tight text-slate-500">
+                    Lateral 1<br />300×250
+                  </div>
+                  <div class="flex-1 rounded border border-dashed border-slate-300 bg-white py-2 text-center text-[9px] leading-tight text-slate-500">
+                    Lateral 2
+                  </div>
+                  <div class="flex-1 rounded border border-dashed border-slate-300 bg-white py-2 text-center text-[9px] leading-tight text-slate-500">
+                    Lateral 3
+                  </div>
                 </div>
               </div>
-              <div class="rounded border border-dashed border-slate-300 bg-white py-3 text-center text-xs text-slate-500">
-                Corpo / entre conteúdos (728×90)
+              <div class="rounded border border-dashed border-slate-300 bg-white py-2 text-center text-xs text-slate-500">
+                Corpo extra (728×110) — também após blocos longos na home
               </div>
             </div>
           </div>
@@ -370,21 +378,21 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
                   <input type="radio" name="posicao" value="topo" class="mt-1" checked />
                   <span>
                     <span class="font-medium">Topo</span>
-                    <span class="block text-xs text-slate-600">728 × 90 px</span>
+                    <span class="block text-xs text-slate-600">728 × 110 px</span>
                   </span>
                 </label>
                 <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
                   <input type="radio" name="posicao" value="corpo" class="mt-1" />
                   <span>
                     <span class="font-medium">Corpo</span>
-                    <span class="block text-xs text-slate-600">728 × 90 px</span>
+                    <span class="block text-xs text-slate-600">728 × 110 px (2 slots no layout)</span>
                   </span>
                 </label>
                 <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
                   <input type="radio" name="posicao" value="lateral" class="mt-1" />
                   <span>
                     <span class="font-medium">Lateral</span>
-                    <span class="block text-xs text-slate-600">300 × 250 px</span>
+                    <span class="block text-xs text-slate-600">300 × 250 px (3 slots empilhados)</span>
                   </span>
                 </label>
               </fieldset>
@@ -507,8 +515,8 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
       <section class="mt-6 rounded-2xl bg-white p-5 shadow-sm">
         <h2 class="text-xl font-semibold">Placeholders (quando não há anúncio pago)</h2>
         <p class="mt-1 text-sm text-slate-600">
-          Cadastre um ou mais <strong>modelos</strong> por posição (ex.: “Meus produtos e serviços”). O site escolhe um aleatoriamente quando o slot está vazio.
-          Mesmos tamanhos dos banners (728×90 ou 300×250). Link (CTA) é opcional.
+          Cadastre um ou mais <strong>modelos</strong> por posição (ex.: “Meus produtos e serviços”). Quando o slot está vazio, o site escolhe um modelo conforme o índice do slot (entre os da mesma posição).
+          Mesmos tamanhos dos banners (728×110 ou 300×250). Link (CTA) é opcional.
         </p>
 
         <form method="POST" enctype="multipart/form-data" class="mt-4 grid gap-3 border-b border-slate-200 pb-6 md:grid-cols-2">
@@ -522,11 +530,11 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
             <legend class="text-sm font-medium">Posição</legend>
             <label class="flex items-center gap-2 text-sm">
               <input type="radio" name="posicao" value="topo" class="mt-0.5" checked />
-              Topo (728×90)
+              Topo (728×110)
             </label>
             <label class="flex items-center gap-2 text-sm">
               <input type="radio" name="posicao" value="corpo" class="mt-0.5" />
-              Corpo (728×90)
+              Corpo (728×110)
             </label>
             <label class="flex items-center gap-2 text-sm">
               <input type="radio" name="posicao" value="lateral" class="mt-0.5" />

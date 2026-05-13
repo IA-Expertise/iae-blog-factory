@@ -109,7 +109,8 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
           )
         }
 
-        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
 
         <section aria-labelledby="mais-lidos">
           <h2 id="mais-lidos" class="mb-4 text-2xl font-bold">Mais lidos</h2>
@@ -138,12 +139,6 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
               ))}
           </div>
         </section>
-
-        {
-          showMidFeedAd && (
-            <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
-          )
-        }
 
         {
           tailChunk.length > 0 && (
@@ -175,7 +170,9 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
       </main>
 
       <aside class="min-w-0 space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
-        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={0} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={1} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={2} />
       </aside>
     </div>
 

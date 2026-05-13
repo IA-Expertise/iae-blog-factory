@@ -8,16 +8,20 @@ interface Props {
   posicao: AdPosicao;
   layout?: "card" | "banner";
   wrapFullBleedTop?: boolean;
+  /** Índice do slot na mesma posição (0,1,2…): alterna entre vários anúncios/placeholders ativos. */
+  slotVariant?: number;
 }
 
-const { hostname, posicao, layout = "card", wrapFullBleedTop = false } = Astro.props;
+const { hostname, posicao, layout = "card", wrapFullBleedTop = false, slotVariant = 0 } = Astro.props;
 
-const internal = await pickAndRecordInternalAdImpression(hostname, posicao);
-const placeholder = internal ? null : await pickRandomPlaceholder(hostname, posicao);
+const internal = await pickAndRecordInternalAdImpression(hostname, posicao, slotVariant);
+const placeholder = internal ? null : await pickRandomPlaceholder(hostname, posicao, slotVariant);
 const isBanner = layout === "banner";
 const hasBlock = Boolean(internal || placeholder);
 
 const imgSrc = (url: string) => proxiedBannerImageSrc(url);
+const bannerW = 728;
+const bannerH = 110;
 ---
 
 {
@@ -34,9 +38,9 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
               <img
                 src={imgSrc(internal.imagemUrl)}
                 alt=""
-                class="h-auto w-full max-h-[90px] object-cover object-center"
-                width="728"
-                height="90"
+                class="h-auto w-full max-h-[110px] object-cover object-center"
+                width={bannerW}
+                height={bannerH}
                 loading="lazy"
                 decoding="async"
               />
@@ -64,9 +68,9 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
                 <img
                   src={imgSrc(placeholder.imagemUrl)}
                   alt={placeholder.titulo}
-                  class="h-auto w-full max-h-[90px] object-cover object-center"
-                  width="728"
-                  height="90"
+                  class="h-auto w-full max-h-[110px] object-cover object-center"
+                  width={bannerW}
+                  height={bannerH}
                   loading="lazy"
                   decoding="async"
                 />
@@ -75,9 +79,9 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
               <img
                 src={imgSrc(placeholder.imagemUrl)}
                 alt={placeholder.titulo}
-                class="h-auto w-full max-h-[90px] object-cover object-center"
-                width="728"
-                height="90"
+                class="h-auto w-full max-h-[110px] object-cover object-center"
+                width={bannerW}
+                height={bannerH}
                 loading="lazy"
                 decoding="async"
               />
@@ -102,7 +106,7 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
     >
       <p class="mb-2 text-xs uppercase tracking-wide px-1 sm:px-0" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Publicidade</p>
       <div
-        class:list={["overflow-hidden", isBanner ? "min-h-[90px] rounded-none sm:rounded-xl" : "rounded-xl"]}
+        class:list={["overflow-hidden", isBanner ? "min-h-[110px] rounded-none sm:rounded-xl" : "rounded-xl"]}
         style="background: color-mix(in srgb, var(--color-surface) 88%, white);"
       >
         <a
@@ -115,10 +119,10 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
             src={imgSrc(internal.imagemUrl)}
             alt=""
             class:list={[
-              isBanner ? "h-auto max-h-[90px] w-full object-cover object-center" : "h-auto w-full max-w-[300px] object-cover"
+              isBanner ? "h-auto max-h-[110px] w-full object-cover object-center" : "h-auto w-full max-w-[300px] object-cover"
             ]}
-            width={isBanner ? 728 : 300}
-            height={isBanner ? 90 : 250}
+            width={isBanner ? bannerW : 300}
+            height={isBanner ? bannerH : 250}
             loading="lazy"
             decoding="async"
           />
@@ -142,7 +146,7 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
       <p class="mb-1 text-xs uppercase tracking-wide px-1 sm:px-0" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">Espaço patrocinado</p>
       <p class="mb-2 text-xs font-medium px-1 sm:px-0" style="color: color-mix(in srgb, var(--color-text) 70%, transparent);">{placeholder.titulo}</p>
       <div
-        class:list={["overflow-hidden", isBanner ? "min-h-[90px] rounded-none sm:rounded-xl" : "rounded-xl"]}
+        class:list={["overflow-hidden", isBanner ? "min-h-[110px] rounded-none sm:rounded-xl" : "rounded-xl"]}
         style="background: color-mix(in srgb, var(--color-surface) 88%, white);"
       >
         {placeholder.ctaUrl ? (
@@ -156,10 +160,10 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
               src={imgSrc(placeholder.imagemUrl)}
               alt={placeholder.titulo}
               class:list={[
-                isBanner ? "h-auto max-h-[90px] w-full object-cover object-center" : "h-auto w-full max-w-[300px] object-cover"
+                isBanner ? "h-auto max-h-[110px] w-full object-cover object-center" : "h-auto w-full max-w-[300px] object-cover"
               ]}
-              width={isBanner ? 728 : 300}
-              height={isBanner ? 90 : 250}
+              width={isBanner ? bannerW : 300}
+              height={isBanner ? bannerH : 250}
               loading="lazy"
               decoding="async"
             />
@@ -169,10 +173,10 @@ const imgSrc = (url: string) => proxiedBannerImageSrc(url);
             src={imgSrc(placeholder.imagemUrl)}
             alt={placeholder.titulo}
             class:list={[
-              isBanner ? "h-auto max-h-[90px] w-full object-cover object-center" : "mx-auto block h-auto max-w-[300px] object-cover"
+              isBanner ? "h-auto max-h-[110px] w-full object-cover object-center" : "mx-auto block h-auto max-w-[300px] object-cover"
             ]}
-            width={isBanner ? 728 : 300}
-            height={isBanner ? 90 : 250}
+            width={isBanner ? bannerW : 300}
+            height={isBanner ? bannerH : 250}
             loading="lazy"
             decoding="async"
           />

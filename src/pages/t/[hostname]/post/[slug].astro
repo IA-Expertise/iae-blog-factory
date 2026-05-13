@@ -230,15 +230,17 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
           />
         )}
 
-        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
       </article>
 
       <aside class="min-w-0 space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
-        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={0} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={1} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={2} />
       </aside>
     </div>
 
-    <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
+    <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
 
     <footer class="rounded-2xl bg-[var(--color-primary)] p-4 text-center text-sm text-white">
       {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}

@@ -55,6 +55,7 @@ const coverSrc = resolvePublicAssetUrl(row.image);
             <p class="text-base leading-relaxed text-slate-600">{row.excerpt}</p>
           )}
         </div>
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
         {siteData.affiliate.enabled && (
           <AffiliateWidget
             network={siteData.affiliate.network}
@@ -62,10 +63,13 @@ const coverSrc = resolvePublicAssetUrl(row.image);
             products={siteData.affiliate.products}
           />
         )}
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
       </article>
 
       <aside class="space-y-4 lg:col-span-4">
-        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={0} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={1} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={2} />
       </aside>
     </div>
   </div>

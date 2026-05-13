@@ -72,15 +72,17 @@ const ogImageUrl = resolvedImageUrl.startsWith(`${publicOrigin}/`)
           />
         )}
 
-        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
       </article>
 
       <aside class="space-y-4 lg:col-span-4">
-        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={0} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={1} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={2} />
       </aside>
     </div>
 
-    <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" />
+    <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
 
     <footer class="rounded-2xl bg-[var(--color-primary)] p-4 text-center text-sm text-white">
       {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}

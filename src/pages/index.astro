@@ -77,6 +77,9 @@ if (Astro.url.pathname === "/") {
         </article>
       )}
 
+      <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
+      <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
+
       <section>
         <h3 class="mb-4 text-2xl font-bold">Mais lidos</h3>
         <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -97,7 +100,9 @@ if (Astro.url.pathname === "/") {
     </main>
 
     <aside class="space-y-4 lg:col-span-4">
-      <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" />
+      <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={0} />
+      <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={1} />
+      <PublicAdSlot hostname={siteData.hostname} posicao="lateral" layout="card" slotVariant={2} />
       <AffiliateWidget
         network={siteData.affiliate.network}
         trackingId={siteData.affiliate.trackingId}

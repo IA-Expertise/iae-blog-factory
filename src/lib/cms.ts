@@ -1312,7 +1312,8 @@ export type PickedInternalAd = {
 /** Escolhe um anúncio ativo (período válido), incrementa impressões (SSR) e devolve dados para exibição. */
 export async function pickAndRecordInternalAdImpression(
   hostname: string,
-  posicao: AdPosicao
+  posicao: AdPosicao,
+  slotVariant = 0
 ): Promise<PickedInternalAd | null> {
   await ensureSeedData();
   const host = normalizeHostname(hostname);
@@ -1323,10 +1324,12 @@ export async function pickAndRecordInternalAdImpression(
       posicao,
       dataInicio: { lte: now },
       dataFim: { gte: now }
-    }
+    },
+    orderBy: { id: "asc" }
   });
   if (candidates.length === 0) return null;
-  const pick = candidates[Math.floor(Math.random() * candidates.length)]!;
+  const idx = Math.abs(Math.trunc(slotVariant)) % candidates.length;
+  const pick = candidates[idx]!;
   await prisma.ad.update({
     where: { id: pick.id },
     data: { impressoes: { increment: 1 } }
@@ -1366,14 +1369,20 @@ export async function listAdPlaceholdersForTenant(hostname: string): Promise<AdP
   }));
 }
 
-export async function pickRandomPlaceholder(hostname: string, posicao: AdPosicao): Promise<AdPlaceholderRow | null> {
+export async function pickRandomPlaceholder(
+  hostname: string,
+  posicao: AdPosicao,
+  slotVariant = 0
+): Promise<AdPlaceholderRow | null> {
   await ensureSeedData();
   const host = normalizeHostname(hostname);
   const rows = await prisma.adPlaceholder.findMany({
-    where: { tenantHostname: host, posicao }
+    where: { tenantHostname: host, posicao },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }]
   });
   if (rows.length === 0) return null;
-  const r = rows[Math.floor(Math.random() * rows.length)]!;
+  const idx = Math.abs(Math.trunc(slotVariant)) % rows.length;
+  const r = rows[idx]!;
   return {
     id: r.id,
     tenantHostname: r.tenantHostname,
