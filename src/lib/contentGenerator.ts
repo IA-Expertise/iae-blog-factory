@@ -300,6 +300,8 @@ type RssJsonItem = {
   url?: string;
   content_text?: string;
   content_html?: string;
+  /** JSON Feed 1.1 (ex.: rss.app) */
+  summary?: string;
   date_published?: string;
 };
 
@@ -462,10 +464,17 @@ export async function generateMonthlyPitchesFromRss(input: {
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
 
-      const rawSummary = normalizeSummary(item.content_text ?? item.content_html ?? "");
+      let rawSummary = normalizeSummary(
+        item.content_text ?? item.content_html ?? item.summary ?? ""
+      );
+      const dateLabel = item.date_published ? `Data: ${new Date(item.date_published).toLocaleDateString("pt-BR")}. ` : "";
+      if (rawSummary.length < 50) {
+        rawSummary = normalizeSummary(
+          `O feed nao trouxe texto do corpo; use o titulo e a materia oficial na fonte. Titulo: ${title}. URL: ${url}`
+        );
+      }
       if (rawSummary.length < 50) continue;
 
-      const dateLabel = item.date_published ? `Data: ${new Date(item.date_published).toLocaleDateString("pt-BR")}. ` : "";
       ideas.push({
         title,
         summary: `${dateLabel}${rawSummary} Fonte: ${url}`,
