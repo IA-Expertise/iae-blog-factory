@@ -79,6 +79,12 @@ if (Astro.request.method === "POST") {
         }
       }
 
+      if (!ideas.length) {
+        throw new Error(
+          "Nenhuma pauta foi gerada. Confirme OPENAI_API_KEY e, se usar RSS, um URL de feed valido (JSON Feed, RSS/XML ou CSV rss.app) com itens."
+        );
+      }
+
       await replaceSuggestedPitches(
         hostname,
         m,

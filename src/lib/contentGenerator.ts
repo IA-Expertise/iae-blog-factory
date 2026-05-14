@@ -331,7 +331,7 @@ ${input.brief || "(sem briefing extra)"}
 Estilo e propostas:
 ${input.styleNotes || "(sem notas de estilo)"}
 
-Gere exatamente ${input.count} PAUTAS (ideias de artigos) para o mes, com titulo chamativo e um resumo de 2-3 frases do que o artigo vai cobrir.
+Gere exatamente ${input.count} PAUTAS (ideias de artigos) para o mes, com titulo chamativo e um resumo de pelo menos 120 caracteres em 2-3 frases (sem ser generico demais) sobre o que o artigo vai cobrir.
 Retorne SOMENTE JSON no formato:
 { "pitches": [ { "title": "...", "summary": "...", "category": "string curta" } ] }`;
 
@@ -357,7 +357,17 @@ Retorne SOMENTE JSON no formato:
   if (!jsonText) return null;
   const parsed = JSON.parse(jsonText) as { pitches?: MonthlyPitchIdea[] };
   if (!parsed.pitches?.length) return null;
-  return parsed.pitches.slice(0, input.count);
+  return parsed.pitches
+    .filter((p) => (p.title ?? "").trim())
+    .map((p) => {
+      const title = (p.title ?? "").trim();
+      return {
+        title,
+        category: (p.category ?? "Editorial").trim() || "Editorial",
+        summary: ensureMinPitchSummary(title, "", (p.summary ?? "").trim(), 100)
+      };
+    })
+    .slice(0, input.count);
 }
 
 function fallbackMonthlyPitches(input: MonthlyPitchInput): MonthlyPitchIdea[] {
@@ -408,7 +418,11 @@ function fallbackMonthlyPitches(input: MonthlyPitchInput): MonthlyPitchIdea[] {
 
 export async function generateMonthlyPitches(input: MonthlyPitchInput): Promise<MonthlyPitchIdea[]> {
   const ai = await generateMonthlyPitchesWithOpenAI(input);
-  return ai?.length ? ai : fallbackMonthlyPitches(input);
+  const raw = ai?.length ? ai : fallbackMonthlyPitches(input);
+  return raw.map((p) => ({
+    ...p,
+    summary: ensureMinPitchSummary(p.title, "", p.summary, 80)
+  }));
 }
 
 function stripHtml(input: string): string {
@@ -425,10 +439,247 @@ function normalizeSummary(input: string): string {
   return `${clean.slice(0, 257).trimEnd()}...`;
 }
 
+/** Busca a página da notícia quando o JSON Feed não traz corpo (comportamento próximo ao “abrir o link”). */
+async function fetchPagePlainExcerpt(urlStr: string, maxChars: number): Promise<string> {
+  let u: URL;
+  try {
+    u = new URL(urlStr);
+  } catch {
+    return "";
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+  const h = u.hostname.toLowerCase();
+  if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".local")) return "";
+
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 10_000);
+  try {
+    const res = await fetch(urlStr, {
+      signal: ac.signal,
+      redirect: "follow",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; IAE-Blog-Factory/1.1; editorial-preview) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.5"
+      }
+    });
+    if (!res.ok) return "";
+    const buf = await res.arrayBuffer();
+    const cap = Math.min(buf.byteLength, 380_000);
+    const html = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true }).decode(new Uint8Array(buf, 0, cap));
+    const noNoise = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ");
+    const text = stripHtml(noNoise).replace(/\s+/g, " ").trim();
+    if (!text) return "";
+    return text.slice(0, maxChars);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Garante resumo utilizável para pauta / geração (evita “só título” ou validações por tamanho). */
+function ensureMinPitchSummary(title: string, url: string, base: string, minLen: number): string {
+  const t = title.trim();
+  const u = url.trim();
+  let s = base.trim();
+  if (s.length >= minLen) return s;
+  const pad = u
+    ? `Pauta baseada na noticia: "${t}". Leia o conteudo na fonte ${u} e desenvolva o artigo com contexto local, dados quando existirem e tom editorial do blog.`
+    : `Desenvolva o artigo "${t}" em secoes claras, com exemplos praticos, dados quando fizer sentido e CTA final alinhado ao briefing do blog.`;
+  s = `${s} ${pad}`.replace(/\s+/g, " ").trim();
+  return s.length >= minLen ? s : pad;
+}
+
 function looksGenericTitle(title: string): boolean {
   const t = title.trim().toLowerCase();
   if (!t) return true;
   return t === "em breve" || t.includes(" archives");
+}
+
+/** Item ja normalizado (JSON, RSS 2.0, Atom ou CSV rss.app). */
+type FeedItemNormalized = {
+  title: string;
+  url: string;
+  bodyHint: string;
+  publishedRaw: string | null;
+};
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number.parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(Number.parseInt(h, 16)));
+}
+
+function extractRssTag(block: string, tag: string): string {
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const cdata = new RegExp(
+    `<${escaped}(?:\\s[^>]*)?>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*</${escaped}>`,
+    "i"
+  );
+  const m1 = block.match(cdata);
+  if (m1) return decodeXmlEntities(m1[1].trim());
+
+  const plain = new RegExp(`<${escaped}(?:\\s[^>]*)?>\\s*([\\s\\S]*?)\\s*</${escaped}>`, "i");
+  const m2 = block.match(plain);
+  if (!m2) return "";
+  let inner = m2[1];
+  inner = inner.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1");
+  return decodeXmlEntities(stripHtml(inner).trim());
+}
+
+function parseJsonFeedItems(text: string): FeedItemNormalized[] {
+  const parsed = JSON.parse(text) as { items?: RssJsonItem[] };
+  return (parsed.items ?? [])
+    .map((item) => ({
+      title: (item.title ?? "").trim(),
+      url: (item.url ?? "").trim(),
+      bodyHint: [item.content_text, item.content_html, item.summary].filter(Boolean).join("\n"),
+      publishedRaw: item.date_published?.trim() || null
+    }))
+    .filter((x) => x.title && x.url);
+}
+
+function parseRss2Items(xml: string): FeedItemNormalized[] {
+  const out: FeedItemNormalized[] = [];
+  const cleaned = xml.replace(/^\uFEFF/, "").trim();
+  const re = /<item\b[^>]*>([\s\S]*?)<\/item>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cleaned)) !== null) {
+    const block = m[1];
+    const title = extractRssTag(block, "title");
+    const url = extractRssTag(block, "link").trim();
+    const pubDate = extractRssTag(block, "pubDate");
+    const description = extractRssTag(block, "description");
+    const encoded = extractRssTag(block, "content:encoded");
+    const bodyHint = [description, encoded].filter(Boolean).join("\n\n");
+    if (!title || !url) continue;
+    out.push({ title, url, bodyHint, publishedRaw: pubDate || null });
+  }
+  return out;
+}
+
+function parseAtomEntries(xml: string): FeedItemNormalized[] {
+  const out: FeedItemNormalized[] = [];
+  const cleaned = xml.replace(/^\uFEFF/, "");
+  const re = /<entry\b[^>]*>([\s\S]*?)<\/entry>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cleaned)) !== null) {
+    const block = m[1];
+    const title = extractRssTag(block, "title");
+    const linkRel =
+      block.match(/<link[^>]+rel=["']alternate["'][^>]+href=["']([^"']+)["']/i) ??
+      block.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']alternate["']/i);
+    const linkAny = block.match(/<link[^>]+href=["']([^"']+)["']/i);
+    const url = (linkRel?.[1] ?? linkAny?.[1] ?? "").trim();
+    const summary = extractRssTag(block, "summary");
+    const content = extractRssTag(block, "content");
+    const published = extractRssTag(block, "published") || extractRssTag(block, "updated");
+    const bodyHint = [summary, content].filter(Boolean).join("\n\n");
+    if (!title || !url) continue;
+    out.push({ title, url, bodyHint, publishedRaw: published || null });
+  }
+  return out;
+}
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let i = 0;
+  let field = "";
+  let inQuotes = false;
+  while (i < line.length) {
+    const c = line[i]!;
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') {
+          field += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      field += c;
+      i++;
+    } else {
+      if (c === '"') {
+        inQuotes = true;
+        i++;
+        continue;
+      }
+      if (c === ",") {
+        fields.push(field.trim());
+        field = "";
+        i++;
+        continue;
+      }
+      field += c;
+      i++;
+    }
+  }
+  fields.push(field.trim());
+  return fields.map((f) => f.replace(/^"|"$/g, ""));
+}
+
+function parseRssAppLikeCsv(text: string): FeedItemNormalized[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const headers = parseCsvLine(lines[0]!);
+  const col = (name: string) => headers.findIndex((h) => h.toLowerCase() === name.toLowerCase());
+  const iTitle = col("Title");
+  const iLink = col("Link");
+  const iDate = col("Date");
+  const iPlain = col("Plain Description");
+  const iDesc = col("Description");
+  const iBody = iPlain >= 0 ? iPlain : iDesc;
+  if (iTitle < 0 || iLink < 0) return [];
+  const out: FeedItemNormalized[] = [];
+  for (let r = 1; r < lines.length; r++) {
+    const row = parseCsvLine(lines[r]!);
+    const title = (row[iTitle] ?? "").trim();
+    const url = (row[iLink] ?? "").trim();
+    const bodyHint = iBody >= 0 ? (row[iBody] ?? "").trim() : "";
+    const date = iDate >= 0 ? (row[iDate] ?? "").trim() : "";
+    if (!title || !url) continue;
+    out.push({ title, url, bodyHint, publishedRaw: date || null });
+  }
+  return out;
+}
+
+function detectAndParseFeedBody(text: string): FeedItemNormalized[] {
+  const t = text.replace(/^\uFEFF/, "").trim();
+  if (!t) return [];
+  if (t.startsWith("{")) {
+    try {
+      return parseJsonFeedItems(t);
+    } catch {
+      return [];
+    }
+  }
+  if (t.startsWith("<")) {
+    if (/<rss[\s>]/i.test(t) || /<rdf:RDF/i.test(t)) return parseRss2Items(t);
+    if (/<feed[\s>]/i.test(t)) return parseAtomEntries(t);
+    return [];
+  }
+  if (/^"ID"\s*,/i.test(t) || (t.includes('"Title"') && t.includes('"Link"'))) return parseRssAppLikeCsv(t);
+  return [];
+}
+
+function formatFeedDateLabel(raw: string | null): string {
+  if (!raw?.trim()) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  return `Data: ${d.toLocaleDateString("pt-BR")}. `;
 }
 
 export async function generateMonthlyPitchesFromRss(input: {
@@ -446,35 +697,39 @@ export async function generateMonthlyPitchesFromRss(input: {
     if (!response.ok) return [];
 
     const text = await response.text();
-    if (!text.trim().startsWith("{")) return [];
-    const parsed = JSON.parse(text) as { items?: RssJsonItem[] };
-    const items = parsed.items ?? [];
+    const items = detectAndParseFeedBody(text);
     if (!items.length) return [];
 
     const seen = new Set<string>();
     const ideas: MonthlyPitchIdea[] = [];
+    let pageFetchBudget = 8;
 
     for (const item of items) {
       if (ideas.length >= input.count) break;
-      const title = (item.title ?? "").trim();
-      const url = (item.url ?? "").trim();
+      const title = item.title.trim();
+      const url = item.url.trim();
       if (!title || looksGenericTitle(title) || !url) continue;
 
       const dedupeKey = `${title.toLowerCase()}|${url.toLowerCase()}`;
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
 
-      let rawSummary = normalizeSummary(
-        item.content_text ?? item.content_html ?? item.summary ?? ""
-      );
-      const dateLabel = item.date_published ? `Data: ${new Date(item.date_published).toLocaleDateString("pt-BR")}. ` : "";
+      let rawSummary = normalizeSummary(item.bodyHint);
+      if (rawSummary.length < 100 && pageFetchBudget > 0) {
+        pageFetchBudget -= 1;
+        const fromPage = await fetchPagePlainExcerpt(url, 950);
+        if (fromPage) {
+          rawSummary = normalizeSummary([rawSummary, fromPage].filter(Boolean).join(" "));
+        }
+      }
       if (rawSummary.length < 50) {
         rawSummary = normalizeSummary(
           `O feed nao trouxe texto do corpo; use o titulo e a materia oficial na fonte. Titulo: ${title}. URL: ${url}`
         );
       }
-      if (rawSummary.length < 50) continue;
+      rawSummary = ensureMinPitchSummary(title, url, rawSummary, 80);
 
+      const dateLabel = formatFeedDateLabel(item.publishedRaw);
       ideas.push({
         title,
         summary: `${dateLabel}${rawSummary} Fonte: ${url}`,
