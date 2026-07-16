@@ -1313,6 +1313,8 @@ export type PickedInternalAd = {
  * Escolhe anúncio ativo sem repetir o mesmo criativo em outro slot da mesma página.
  * `rotationSeed` (por pageview) gira a ordem; `slotVariant` pega o N-ésimo sem wrap —
  * se houver menos ads que slots, o excedente deve cair em placeholder.
+ *
+ * Topo: respeita Tenant.topoAdMode — `rotate_all` (padrão) ou `exclusive` (+ topoExclusiveAdId).
  */
 export async function pickAndRecordInternalAdImpression(
   hostname: string,
@@ -1334,14 +1336,31 @@ export async function pickAndRecordInternalAdImpression(
   });
   if (candidates.length === 0) return null;
 
-  const slot = Math.max(0, Math.trunc(slotVariant));
-  if (slot >= candidates.length) return null;
+  let pick = candidates[0]!;
 
-  const offset = Math.abs(Math.trunc(rotationSeed)) % candidates.length;
-  const pick = candidates[(offset + slot) % candidates.length]!;
+  if (posicao === "topo") {
+    const tenant = await prisma.tenant.findUnique({
+      where: { hostname: host },
+      select: { topoAdMode: true, topoExclusiveAdId: true }
+    });
+    const mode = (tenant?.topoAdMode ?? "rotate_all").trim().toLowerCase();
+    if (mode === "exclusive") {
+      const exclusiveId = tenant?.topoExclusiveAdId ?? null;
+      const exclusive = exclusiveId != null ? candidates.find((c) => c.id === exclusiveId) : null;
+      if (!exclusive) return null;
+      pick = exclusive;
+    } else {
+      // rotate_all: um criativo por pageview entre todos os topo ativos (home + matérias).
+      const offset = Math.abs(Math.trunc(rotationSeed)) % candidates.length;
+      pick = candidates[offset]!;
+    }
+  } else {
+    const slot = Math.max(0, Math.trunc(slotVariant));
+    if (slot >= candidates.length) return null;
+    const offset = Math.abs(Math.trunc(rotationSeed)) % candidates.length;
+    pick = candidates[(offset + slot) % candidates.length]!;
+  }
 
-  // Com N ads e slots 0..N-1, (offset+slot)%N é bijetivo — cada slot um criativo distinto.
-  // Garantia explícita: não reatribuir o mesmo id se slot >= N (já retornou null acima).
   await prisma.ad.update({
     where: { id: pick.id },
     data: { impressoes: { increment: 1 } }
@@ -1351,6 +1370,53 @@ export async function pickAndRecordInternalAdImpression(
     imagemUrl: pick.imagemUrl,
     ctaUrl: pick.ctaUrl
   };
+}
+
+export type TopoAdMode = "rotate_all" | "exclusive";
+
+export type TenantTopoAdConfig = {
+  topoAdMode: TopoAdMode;
+  topoExclusiveAdId: number | null;
+};
+
+export async function getTenantTopoAdConfig(hostname: string): Promise<TenantTopoAdConfig> {
+  await ensureSeedData();
+  const tenant = await prisma.tenant.findUnique({
+    where: { hostname: normalizeHostname(hostname) },
+    select: { topoAdMode: true, topoExclusiveAdId: true }
+  });
+  const mode = (tenant?.topoAdMode ?? "rotate_all").trim().toLowerCase();
+  return {
+    topoAdMode: mode === "exclusive" ? "exclusive" : "rotate_all",
+    topoExclusiveAdId: tenant?.topoExclusiveAdId ?? null
+  };
+}
+
+export async function updateTenantTopoAdConfig(input: {
+  hostname: string;
+  topoAdMode: TopoAdMode;
+  topoExclusiveAdId: number | null;
+}) {
+  await ensureSeedData();
+  const host = normalizeHostname(input.hostname);
+  const mode = input.topoAdMode === "exclusive" ? "exclusive" : "rotate_all";
+  let exclusiveId = input.topoExclusiveAdId;
+  if (mode === "exclusive" && exclusiveId != null) {
+    const ad = await prisma.ad.findFirst({
+      where: { id: exclusiveId, tenantHostname: host, posicao: "topo" },
+      select: { id: true }
+    });
+    if (!ad) exclusiveId = null;
+  }
+  if (mode !== "exclusive") exclusiveId = null;
+
+  await prisma.tenant.update({
+    where: { hostname: host },
+    data: {
+      topoAdMode: mode,
+      topoExclusiveAdId: exclusiveId
+    }
+  });
 }
 
 export type AdPlaceholderRow = {

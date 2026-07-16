@@ -11,13 +11,15 @@ import {
   deleteAffiliateProduct,
   deleteInternalAd,
   getTenantByHostname,
+  getTenantTopoAdConfig,
   listAdPlaceholdersForTenant,
   listInternalAdsForTenant,
   listInternalAdsStatsByTenant,
   listSites,
   updateAdPlaceholder,
   updateInternalAd,
-  updateTenantMonetization
+  updateTenantMonetization,
+  updateTenantTopoAdConfig
 } from "../../lib/cms";
 import { isObjectStorageConfigured, uploadPublicImageAsset } from "../../lib/objectStorage";
 
@@ -233,6 +235,19 @@ if (Astro.request.method === "POST") {
     return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
   }
 
+  if (action === "save-topo-mode") {
+    const modeRaw = String(formData.get("topoAdMode") ?? "rotate_all");
+    const topoAdMode = modeRaw === "exclusive" ? "exclusive" : "rotate_all";
+    const exclusiveRaw = String(formData.get("topoExclusiveAdId") ?? "").trim();
+    const exclusiveParsed = Number.parseInt(exclusiveRaw, 10);
+    await updateTenantTopoAdConfig({
+      hostname,
+      topoAdMode,
+      topoExclusiveAdId: Number.isFinite(exclusiveParsed) ? exclusiveParsed : null
+    });
+    return Astro.redirect(`/admin/monetization?hostname=${encodeURIComponent(hostname)}&ok=1`);
+  }
+
   if (action === "save-monetization") {
     await updateTenantMonetization({
       hostname,
@@ -265,6 +280,20 @@ const adErr = new URL(Astro.request.url).searchParams.get("adErr");
 const internalAdsStats = await listInternalAdsStatsByTenant();
 const internalAds = tenant ? await listInternalAdsForTenant(tenant.hostname) : [];
 const placeholders = tenant ? await listAdPlaceholdersForTenant(tenant.hostname) : [];
+const topoConfig = tenant ? await getTenantTopoAdConfig(tenant.hostname) : null;
+const nowForTopo = new Date();
+const topoAdsActive = internalAds.filter(
+  (ad) => ad.posicao === "topo" && ad.dataInicio <= nowForTopo && ad.dataFim >= nowForTopo
+);
+const topoAdsAll = internalAds.filter((ad) => ad.posicao === "topo");
+const topoExclusiveOptions = topoAdsAll.map((ad) => {
+  const ativo = ad.dataInicio <= nowForTopo && ad.dataFim >= nowForTopo;
+  const urlShort = ad.ctaUrl.length > 48 ? `${ad.ctaUrl.slice(0, 48)}…` : ad.ctaUrl;
+  return {
+    id: ad.id,
+    label: `#${ad.id} ${ativo ? "(ativo)" : "(fora do período)"} · ${urlShort}`
+  };
+});
 
 function fmtDT(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -338,6 +367,51 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
           Com vários anúncios ativos na mesma posição, cada slot mostra um criativo diferente (rotação a cada visita). Se houver menos
           anúncios do que slots, os espaços restantes usam placeholders (“Anuncie aqui”) — o mesmo banner pago <strong>não</strong> se repete.
         </p>
+
+        <form method="POST" class="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+          <input type="hidden" name="action" value="save-topo-mode" />
+          <input type="hidden" name="hostname" value={tenant.hostname} />
+          <h3 class="text-sm font-semibold text-indigo-950">Faixa topo — política de inventário</h3>
+          <p class="mt-1 text-xs text-indigo-900/80">
+            Vale na home e em todas as matérias. <strong>Alternar todos</strong> mostra um anunciante diferente a cada visita
+            (pageview), distribuindo impressões. <strong>Exclusivo</strong> fixa um único banner (venda premium).
+          </p>
+          <div class="mt-3 flex flex-wrap items-end gap-4">
+            <label class="text-sm">
+              <span class="mb-1 block font-medium text-indigo-950">Modo</span>
+              <select class="rounded-lg border border-indigo-200 bg-white px-3 py-2" name="topoAdMode" id="topoAdMode">
+                <option value="rotate_all" selected={topoConfig?.topoAdMode !== "exclusive"}>
+                  Alternar todos (pageview)
+                </option>
+                <option value="exclusive" selected={topoConfig?.topoAdMode === "exclusive"}>
+                  Exclusivo
+                </option>
+              </select>
+            </label>
+            <label class="min-w-[220px] flex-1 text-sm">
+              <span class="mb-1 block font-medium text-indigo-950">Anunciante exclusivo</span>
+              <select class="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2" name="topoExclusiveAdId">
+                <option value="">— Selecione um Ad topo —</option>
+                {topoExclusiveOptions.map((opt) => (
+                  <option value={opt.id} selected={topoConfig?.topoExclusiveAdId === opt.id}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button class="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600" type="submit">
+              Salvar modo do topo
+            </button>
+          </div>
+          {topoConfig?.topoAdMode === "rotate_all" && (
+            <p class="mt-2 text-xs text-indigo-800">
+              Agora: {topoAdsActive.length} anúncio(s) topo ativo(s) entram no rodízio por visita.
+            </p>
+          )}
+          {topoAdsAll.length === 0 && (
+            <p class="mt-2 text-xs text-amber-800">Cadastre pelo menos um banner na posição Topo para usar este seletor.</p>
+          )}
+        </form>
 
         <div class="mt-6 grid gap-6 lg:grid-cols-2">
           <div>

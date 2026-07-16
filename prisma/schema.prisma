@@ -53,6 +53,10 @@ model Tenant {
   menuContactText     String?
   autoPublishWeekdays String?
   autoPublishHourUtc  Int?
+  /// Faixa topo: `rotate_all` (todos os Ads topo ativos, 1 por pageview) ou `exclusive` (um anunciante fixo).
+  topoAdMode          String             @default("rotate_all")
+  /// Quando topoAdMode = exclusive, id do Ad (posição topo) a exibir.
+  topoExclusiveAdId   Int?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   posts              Post[]
