@@ -618,10 +618,10 @@ export async function createTenant(input: { hostname: string; brandName: string;
   await ensureSeedData();
   const hostname = normalizeHostname(input.hostname);
   if (!hostname) throw new Error("Hostname invalido.");
-  // Convenção do projeto: blogs em operação usam domínio .com.br.
-  // Nomes genéricos continuam permitidos para desenvolvimento (tenant-dev, viajante.60, *.local, etc.).
-  if (isLikelyRegistrableDomain(hostname) && !hostname.endsWith(".com.br")) {
-    throw new Error("Para produção, use um domínio .com.br. Para desenvolvimento, use nome genérico/local.");
+  // Produção: domínio público (.com, .com.br). Dev: nome genérico (tenant-dev, *.local, etc.).
+  const isAllowedProdTld = hostname.endsWith(".com.br") || hostname.endsWith(".com");
+  if (isLikelyRegistrableDomain(hostname) && !isAllowedProdTld) {
+    throw new Error("Para produção, use um domínio .com ou .com.br. Para desenvolvimento, use nome genérico/local.");
   }
   if (isReservedTenantHostname(hostname)) {
     throw new Error("Hostname reservado. Escolha outro identificador.");
