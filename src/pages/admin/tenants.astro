@@ -91,6 +91,7 @@ if (Astro.request.method === "POST") {
         rssFeedUrl: String(formData.get("rssFeedUrl") ?? ""),
         showRssHomePromo: formData.get("showRssHomePromo") === "on",
         themePreset: String(formData.get("themePreset") ?? "classic"),
+        coverImageStyle: String(formData.get("coverImageStyle") ?? "photo"),
         projectDescription: String(formData.get("projectDescription") ?? ""),
         editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
         targetAudience: String(formData.get("targetAudience") ?? ""),
@@ -239,6 +240,17 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
             <option value="premium" selected={tenant.themePreset === "premium"}>Tech Review</option>
             <option value="education" selected={tenant.themePreset === "education"}>Educação 5.0</option>
           </select>
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block">Estilo das capas (IA)</span>
+          <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="coverImageStyle">
+            <option value="photo" selected={(tenant.coverImageStyle ?? "photo") === "photo"}>Foto / realista</option>
+            <option value="watercolor" selected={tenant.coverImageStyle === "watercolor"}>Aquarela</option>
+            <option value="flat" selected={tenant.coverImageStyle === "flat"}>Ilustração flat</option>
+          </select>
+          <span class="mt-1 block text-xs text-slate-500">
+            Padrão das capas geradas automaticamente. Para foto real de um local, troque a URL da capa no post na mão.
+          </span>
         </label>
         <label class="text-sm">
           <span class="mb-1 block">Tom padrão da IA</span>

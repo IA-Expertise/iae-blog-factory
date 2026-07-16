@@ -42,6 +42,8 @@ model Tenant {
   /// Exibir caixa “Feed RSS” na home pública (`/t/...`). A URL continua disponível para o gerador quando preenchida.
   showRssHomePromo    Boolean            @default(true)
   themePreset         String             @default("classic")
+  /// Estilo de capa gerada por IA: photo | watercolor | flat.
+  coverImageStyle     String             @default("photo")
   projectDescription  String?
   editorialStyleNotes String?
   targetAudience      String?

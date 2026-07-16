@@ -2,6 +2,33 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isObjectStorageConfigured, uploadGeneratedCoverImage } from "./objectStorage";
 
+/** Estilos de capa gerada por IA (campo Tenant.coverImageStyle). */
+export const COVER_IMAGE_STYLES = ["photo", "watercolor", "flat"] as const;
+export type CoverImageStyle = (typeof COVER_IMAGE_STYLES)[number];
+
+export function normalizeCoverImageStyle(value: string | null | undefined): CoverImageStyle {
+  const v = (value ?? "").trim().toLowerCase();
+  if (v === "watercolor" || v === "aquarela") return "watercolor";
+  if (v === "flat" || v === "vector" || v === "ilustracao") return "flat";
+  return "photo";
+}
+
+function coverStyleDirective(style: CoverImageStyle): string {
+  switch (style) {
+    case "watercolor":
+      return `- ESTILO OBRIGATORIO: ilustracao em aquarela digital (watercolor), pigmentos suaves, bordas levemente irregulares, textura de papel, sem parecer foto.
+- Paleta harmoniosa e editorial; evite hiper-realismo, CGI e stock fotografico.
+- Alta qualidade de ilustracao, sem marcas d'agua.`;
+    case "flat":
+      return `- ESTILO OBRIGATORIO: ilustracao flat / vetorial limpa, formas geometricas simples, poucas sombras, cores chapadas e modernas.
+- Evite fotorrealismo, texturas de foto e detalhes hiper-realistas.
+- Alta qualidade de ilustracao, sem marcas d'agua.`;
+    default:
+      return `- ESTILO: ilustracao fotorrealista ou semi-fotorrealista, alta qualidade, sem marcas d'agua.
+- Evite caricatura infantil ou aquarela quando o estilo for fotografico.`;
+  }
+}
+
 type GenerateInput = {
   tenantName: string;
   niche: string;
@@ -9,6 +36,8 @@ type GenerateInput = {
   tone: string;
   /** Preset visual do tenant (classic, urban, etc.) para variar mood. */
   themePreset?: string;
+  /** Estilo de capa do tenant (photo | watercolor | flat). */
+  coverImageStyle?: string | null;
   /** Trecho curto de briefing/estilo editorial (opcional). */
   styleHint?: string;
   /** Instrução curta do editor só nesta geração (ex.: regenerar capa). */
@@ -27,6 +56,7 @@ function buildEditorialImagePrompt(input: GenerateInput): string {
   const niche = truncateForPrompt(input.niche || "conteudo editorial", 120);
   const headline = truncateForPrompt(input.keyword || "artigo", 160);
   const tone = truncateForPrompt(input.tone || "profissional", 60);
+  const coverStyle = normalizeCoverImageStyle(input.coverImageStyle);
   const preset = input.themePreset?.trim() ? `Preset visual do site: ${input.themePreset.trim()}.` : "";
   const hint = input.styleHint?.trim()
     ? `Notas de estilo (referencia, nao texto na imagem): ${truncateForPrompt(input.styleHint, 220)}.`
@@ -42,6 +72,7 @@ Marca/blog: "${brand}".
 Nicho editorial: ${niche}.
 Titulo do artigo (use apenas como inspiracao visual, nao escreva na imagem): ${headline}.
 Tom/atmosfera desejada: ${tone}.
+Estilo de capa do tenant: ${coverStyle}.
 ${preset}
 ${hint}
 ${direction}
@@ -50,7 +81,7 @@ Diretrizes:
 - A cena, paleta e elementos visuais devem refletir claramente o NICHO acima (ex.: historia → epoca/cenario coerente; gestao publica → cidade/servicos/cidadania; bem-estar → luz suave e humanizada; tecnologia → ambiente moderno sem ficar generico demais).
 - Evite o visual "corporativo generico de stock" quando o nicho nao for corporativo.
 - Composicao limpa com espaco negativo para titulo em overlay no site.
-- Ilustracao fotorrealista ou semi-fotorrealista, alta qualidade, sem marcas d'agua.
+${coverStyleDirective(coverStyle)}
 - Variacao desta geracao (para nao repetir capas identicas): ${variationId}.`;
 }
 
@@ -200,6 +231,7 @@ export async function regenerateCoverImage(params: {
   headline: string;
   tone: string;
   themePreset?: string | null;
+  coverImageStyle?: string | null;
   editorialStyleNotes?: string | null;
   /** Texto curto do editor para orientar esta regeneração (opcional). */
   imageDirection?: string | null;
@@ -214,6 +246,7 @@ export async function regenerateCoverImage(params: {
       keyword: params.headline,
       tone: params.tone,
       themePreset: params.themePreset ?? undefined,
+      coverImageStyle: params.coverImageStyle ?? undefined,
       styleHint: params.editorialStyleNotes ?? undefined,
       ...(dir ? { imageDirection: dir } : {})
     },
@@ -752,6 +785,7 @@ type FromPitchInput = {
   pitchTitle: string;
   pitchSummary: string;
   themePreset?: string | null;
+  coverImageStyle?: string | null;
 };
 
 async function generateFromPitchOpenAI(input: FromPitchInput): Promise<GeneratedArticle | null> {
@@ -807,6 +841,7 @@ Retorne SOMENTE JSON:
     keyword: input.pitchTitle,
     tone: input.tone,
     themePreset: input.themePreset ?? undefined,
+    coverImageStyle: input.coverImageStyle ?? undefined,
     styleHint: [input.styleNotes, input.brief].filter(Boolean).join(" ").trim() || undefined
   };
   let generatedImageUrl: string | null = null;

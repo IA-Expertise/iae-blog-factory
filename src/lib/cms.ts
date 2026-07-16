@@ -1,5 +1,10 @@
 import type { AdPosicao } from "@prisma/client";
-import { generateArticleFromPitch, generateMonthlyPitches, regenerateCoverImage } from "./contentGenerator";
+import {
+  generateArticleFromPitch,
+  generateMonthlyPitches,
+  normalizeCoverImageStyle,
+  regenerateCoverImage
+} from "./contentGenerator";
 import { prisma } from "./db";
 import { deletePublicImageByUrl } from "./objectStorage";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
@@ -85,6 +90,8 @@ export type SiteData = {
   /** Caixa RSS na home pública; não afeta uso da URL no gerador. */
   showRssHomePromo: boolean;
   themePreset?: string;
+  /** Estilo de capa IA: photo | watercolor | flat. */
+  coverImageStyle?: string;
   social: {
     instagram?: string | null;
     facebook?: string | null;
@@ -240,6 +247,7 @@ const DEFAULT_SITES: SiteData[] = [
     rssFeedUrl: null,
     showRssHomePromo: true,
     themePreset: "classic",
+    coverImageStyle: "photo",
     social: { instagram: null, facebook: null, youtube: null },
     contact: { footerText: null, menuText: null }
   },
@@ -309,6 +317,7 @@ const DEFAULT_SITES: SiteData[] = [
     rssFeedUrl: null,
     showRssHomePromo: true,
     themePreset: "classic",
+    coverImageStyle: "photo",
     social: { instagram: null, facebook: null, youtube: null },
     contact: { footerText: null, menuText: null }
   }
@@ -414,6 +423,7 @@ async function ensureSeedData() {
         rssFeedUrl: site.rssFeedUrl ?? null,
         showRssHomePromo: site.showRssHomePromo,
         themePreset: site.themePreset ?? "classic",
+        coverImageStyle: normalizeCoverImageStyle(site.coverImageStyle),
         projectDescription: site.editorial.projectDescription ?? null,
         editorialStyleNotes: site.editorial.editorialStyleNotes ?? null,
         targetAudience: site.editorial.targetAudience ?? null,
@@ -517,6 +527,7 @@ function mapTenantToSiteData(
     rssFeedUrl: tenant.rssFeedUrl ?? null,
     showRssHomePromo: tenant.showRssHomePromo,
     themePreset: tenant.themePreset ?? "classic",
+    coverImageStyle: normalizeCoverImageStyle(tenant.coverImageStyle),
     social: {
       instagram: tenant.socialInstagram ?? null,
       facebook: tenant.socialFacebook ?? null,
@@ -745,6 +756,7 @@ export async function updateTenantSettings(input: {
   rssFeedUrl: string;
   showRssHomePromo: boolean;
   themePreset: string;
+  coverImageStyle: string;
   projectDescription: string;
   editorialStyleNotes: string;
   targetAudience: string;
@@ -761,6 +773,7 @@ export async function updateTenantSettings(input: {
   const host = normalizeHostname(input.hostname);
   const presetKey = input.themePreset in THEME_PRESETS ? input.themePreset : "classic";
   const preset = THEME_PRESETS[presetKey];
+  const coverImageStyle = normalizeCoverImageStyle(input.coverImageStyle);
 
   const hourRaw = input.autoPublishHourUtc.trim();
   let autoHour: number | null = null;
@@ -779,6 +792,7 @@ export async function updateTenantSettings(input: {
       rssFeedUrl: input.rssFeedUrl.trim() || null,
       showRssHomePromo: input.showRssHomePromo,
       themePreset: presetKey,
+      coverImageStyle,
       themePrimary: preset.primary,
       themeSecondary: preset.secondary,
       themeAccent: preset.accent,
@@ -813,6 +827,7 @@ export async function copyTenantVisualSettings(sourceHostname: string, targetHos
     select: {
       heroImage: true,
       themePreset: true,
+      coverImageStyle: true,
       themePrimary: true,
       themeSecondary: true,
       themeAccent: true,
@@ -837,6 +852,7 @@ export async function copyTenantVisualSettings(sourceHostname: string, targetHos
     data: {
       heroImage: source.heroImage,
       themePreset: source.themePreset,
+      coverImageStyle: normalizeCoverImageStyle(source.coverImageStyle),
       themePrimary: source.themePrimary,
       themeSecondary: source.themeSecondary,
       themeAccent: source.themeAccent,
@@ -895,6 +911,7 @@ export async function updateTenant(input: SiteData) {
       rssFeedUrl: input.rssFeedUrl ?? null,
       showRssHomePromo: input.showRssHomePromo,
       themePreset: input.themePreset ?? "classic",
+      coverImageStyle: normalizeCoverImageStyle(input.coverImageStyle),
       projectDescription: input.editorial.projectDescription ?? null,
       editorialStyleNotes: input.editorial.editorialStyleNotes ?? null,
       targetAudience: input.editorial.targetAudience ?? null,
@@ -1054,6 +1071,7 @@ export async function regeneratePostCover(postId: string, imageDirection?: strin
     headline: post.title,
     tone: post.tenant.defaultArticleTone ?? "profissional",
     themePreset: post.tenant.themePreset,
+    coverImageStyle: post.tenant.coverImageStyle,
     editorialStyleNotes: post.tenant.editorialStyleNotes,
     ...(direction ? { imageDirection: direction.slice(0, 400) } : {})
   });
@@ -1722,7 +1740,8 @@ export async function writeArticlesFromApprovedPitches(hostname: string, monthKe
       styleNotes: tenant.editorialStyleNotes ?? "",
       pitchTitle: pitch.title,
       pitchSummary: pitch.summary,
-      themePreset: tenant.themePreset
+      themePreset: tenant.themePreset,
+      coverImageStyle: tenant.coverImageStyle
     });
 
     const slot = useAuto ? slots[i] : undefined;
