@@ -3,6 +3,7 @@ import Layout from "../../../layouts/Layout.astro";
 import AffiliateWidget from "../../../components/AffiliateWidget.astro";
 import PublicAdSlot from "../../../components/PublicAdSlot.astro";
 import TenantPublicHeader from "../../../components/TenantPublicHeader.astro";
+import { chunkHomeGridRows, HOME_GRID_POST_LIMIT } from "../../../lib/adLayout";
 import { getSiteDataByHostname } from "../../../lib/cms";
 import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
 import { resolvePublicOrigin } from "../../../lib/publicOrigin";
@@ -13,6 +14,7 @@ export const prerender = false;
 const hostname = Astro.params.hostname ?? "";
 const siteData = await getSiteDataByHostname(hostname);
 const [heroPost, ...secondaryPosts] = siteData.posts;
+const [row1, row2, row3] = chunkHomeGridRows(secondaryPosts.slice(0, HOME_GRID_POST_LIMIT));
 const homeHref = buildTenantHomePath(siteData.hostname);
 const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const canonicalUrl = new URL(homeHref, `${publicOrigin}/`).toString();
@@ -27,11 +29,6 @@ const requestedHostname = normalizeTenantHostname(hostname);
 if (requestedHostname !== siteData.hostname) {
   return Astro.redirect(homeHref);
 }
-
-const MID_AD_AFTER = 6;
-const showMidFeedAd = secondaryPosts.length >= MID_AD_AFTER;
-const firstChunk = showMidFeedAd ? secondaryPosts.slice(0, MID_AD_AFTER) : secondaryPosts;
-const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
 ---
 
 <Layout
@@ -110,61 +107,72 @@ const tailChunk = showMidFeedAd ? secondaryPosts.slice(MID_AD_AFTER) : [];
         }
 
         <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
-        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
-
-        <section aria-labelledby="mais-lidos">
-          <h2 id="mais-lidos" class="mb-4 text-2xl font-bold">Mais lidos</h2>
-          <div class="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {
-              firstChunk.map((post) => (
-                <article class="group min-w-0 overflow-hidden rounded-2xl border bg-[var(--color-surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
-                  <img
-                    src={resolvePublicAssetUrl(post.image)}
-                    alt={post.title}
-                    class="h-44 w-full max-w-full object-cover"
-                    width="800"
-                    height="450"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 320px"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <div class="p-4">
-                    <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.category}</p>
-                    <h3 class="mt-1 line-clamp-2 text-lg font-semibold">
-                      <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="hover:underline">{post.title}</a>
-                    </h3>
-                    <p class="mt-2 text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.publishedAt}</p>
-                  </div>
-                </article>
-              ))}
-          </div>
-        </section>
 
         {
-          tailChunk.length > 0 && (
-            <div class="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {tailChunk.map((post) => (
-                <article class="group min-w-0 overflow-hidden rounded-2xl border bg-[var(--color-surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
-                  <img
-                    src={resolvePublicAssetUrl(post.image)}
-                    alt={post.title}
-                    class="h-44 w-full max-w-full object-cover"
-                    width="800"
-                    height="450"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 320px"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <div class="p-4">
-                    <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.category}</p>
-                    <h3 class="mt-1 line-clamp-2 text-lg font-semibold">
-                      <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="hover:underline">{post.title}</a>
-                    </h3>
-                    <p class="mt-2 text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.publishedAt}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
+          row1.length > 0 && (
+            <section aria-labelledby="grade-1">
+              <h2 id="grade-1" class="mb-4 text-2xl font-bold">Mais recentes</h2>
+              <div class="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {row1.map((post) => (
+                  <article class="group min-w-0 overflow-hidden rounded-2xl border bg-[var(--color-surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+                    <img src={resolvePublicAssetUrl(post.image)} alt={post.title} class="h-44 w-full max-w-full object-cover" width="800" height="450" sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 320px" loading="lazy" decoding="async" />
+                    <div class="p-4">
+                      <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.category}</p>
+                      <h3 class="mt-1 line-clamp-2 text-lg font-semibold">
+                        <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="hover:underline">{post.title}</a>
+                      </h3>
+                      <p class="mt-2 text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.publishedAt}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )
+        }
+
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
+
+        {
+          row2.length > 0 && (
+            <section aria-label="Mais artigos">
+              <div class="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {row2.map((post) => (
+                  <article class="group min-w-0 overflow-hidden rounded-2xl border bg-[var(--color-surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+                    <img src={resolvePublicAssetUrl(post.image)} alt={post.title} class="h-44 w-full max-w-full object-cover" width="800" height="450" sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 320px" loading="lazy" decoding="async" />
+                    <div class="p-4">
+                      <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.category}</p>
+                      <h3 class="mt-1 line-clamp-2 text-lg font-semibold">
+                        <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="hover:underline">{post.title}</a>
+                      </h3>
+                      <p class="mt-2 text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.publishedAt}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )
+        }
+
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={2} />
+
+        {
+          row3.length > 0 && (
+            <section aria-label="Outros artigos">
+              <div class="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {row3.map((post) => (
+                  <article class="group min-w-0 overflow-hidden rounded-2xl border bg-[var(--color-surface)] shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style="border-color: color-mix(in srgb, var(--color-text) 16%, transparent);">
+                    <img src={resolvePublicAssetUrl(post.image)} alt={post.title} class="h-44 w-full max-w-full object-cover" width="800" height="450" sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 320px" loading="lazy" decoding="async" />
+                    <div class="p-4">
+                      <p class="text-xs uppercase tracking-wide" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.category}</p>
+                      <h3 class="mt-1 line-clamp-2 text-lg font-semibold">
+                        <a href={buildTenantPostPath(siteData.hostname, post.slug ?? "")} class="hover:underline">{post.title}</a>
+                      </h3>
+                      <p class="mt-2 text-sm" style="color: color-mix(in srgb, var(--color-text) 55%, transparent);">{post.publishedAt}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
           )
         }
       </main>

@@ -333,21 +333,28 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
         <h2 class="text-xl font-semibold">Banners proprietários (R2)</h2>
         <p class="mt-1 text-sm text-slate-600">
           Escolha o espaço no layout, envie a arte e defina o período. Imagens são redimensionadas automaticamente (728×110 topo/corpo,
-          300×250 lateral) e enviadas para o mesmo bucket já usado pelo blog. O site exibe <strong>dois</strong> banners de corpo e <strong>três</strong> na lateral (empilhados); com vários anúncios ativos na mesma posição, eles alternam por slot.
+          300×250 lateral) e enviadas para o mesmo bucket já usado pelo blog. A home exibe <strong>três</strong> banners de corpo
+          (entre as linhas de matérias) e <strong>três</strong> laterais; no post há também um banner <strong>no meio do artigo</strong>.
+          Com vários anúncios ativos na mesma posição, cada slot mostra um criativo diferente (rotação a cada visita). Se houver menos
+          anúncios do que slots, os espaços restantes usam placeholders (“Anuncie aqui”) — o mesmo banner pago <strong>não</strong> se repete.
         </p>
 
         <div class="mt-6 grid gap-6 lg:grid-cols-2">
           <div>
-            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Mapa do layout</p>
+            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">Mapa do layout (home)</p>
             <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div class="rounded border border-dashed border-slate-300 bg-white py-3 text-center text-xs text-slate-500">
                 Faixa topo (728×110)
               </div>
               <div class="flex gap-2">
-                <div class="min-h-[120px] flex-1 space-y-1 rounded border border-dashed border-slate-300 bg-white p-2 text-xs text-slate-500">
-                  <p>Conteúdo do artigo</p>
-                  <div class="rounded border border-slate-200 bg-slate-50 py-1.5 text-center text-[10px]">Corpo 728×110</div>
-                  <div class="rounded border border-slate-200 bg-slate-50 py-1.5 text-center text-[10px]">Corpo 728×110</div>
+                <div class="min-h-[160px] flex-1 space-y-1 rounded border border-dashed border-slate-300 bg-white p-2 text-xs text-slate-500">
+                  <p>Matéria principal</p>
+                  <div class="rounded border border-slate-200 bg-slate-50 py-1 text-center text-[10px]">Corpo 1 · 728×110</div>
+                  <p class="text-[10px]">3 matérias</p>
+                  <div class="rounded border border-slate-200 bg-slate-50 py-1 text-center text-[10px]">Corpo 2 · 728×110</div>
+                  <p class="text-[10px]">3 matérias</p>
+                  <div class="rounded border border-slate-200 bg-slate-50 py-1 text-center text-[10px]">Corpo 3 · 728×110</div>
+                  <p class="text-[10px]">3 matérias</p>
                 </div>
                 <div class="flex w-28 shrink-0 flex-col gap-1">
                   <div class="flex-1 rounded border border-dashed border-slate-300 bg-white py-2 text-center text-[9px] leading-tight text-slate-500">
@@ -361,9 +368,7 @@ const defaultFim = fmtDT(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
                   </div>
                 </div>
               </div>
-              <div class="rounded border border-dashed border-slate-300 bg-white py-2 text-center text-xs text-slate-500">
-                Corpo extra (728×110) — também após blocos longos na home
-              </div>
+              <p class="pt-1 text-[10px] text-slate-500">No post: topo + corpo no meio do texto + corpo após o artigo + corpo abaixo + 3 laterais.</p>
             </div>
           </div>
 

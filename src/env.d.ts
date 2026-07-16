@@ -5,6 +5,8 @@ import type { SiteData } from "./lib/cms";
 declare namespace App {
   interface Locals {
     siteData: SiteData;
+    /** Seeds de rotação de banners por pageview (chave hostname:posicao). */
+    adRotationSeeds?: Record<string, number>;
   }
 }
 

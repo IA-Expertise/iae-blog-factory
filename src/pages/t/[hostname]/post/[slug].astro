@@ -8,6 +8,7 @@ import { commentsEnabledForHostname, listPublishedCommentsForPost } from "../../
 import { resolvePublicOrigin } from "../../../../lib/publicOrigin";
 import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
+import { splitHtmlForMidAd } from "../../../../lib/adLayout";
 import { buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname, normalizeTenantSlug } from "../../../../lib/tenantUrls";
 
 export const prerender = false;
@@ -17,6 +18,7 @@ const slug = Astro.params.slug ?? "";
 const siteData = await getSiteDataByHostname(hostname);
 const post = await getPublishedPostBySlug(siteData.hostname, slug);
 const articleHtml = post?.content ? renderPostMarkdown(post.content) : "";
+const { before: articleHtmlBefore, after: articleHtmlAfter } = splitHtmlForMidAd(articleHtml);
 const coverSrc = post ? resolvePublicAssetUrl(post.image) : "";
 const homeHref = buildTenantHomePath(siteData.hostname);
 const requestedHostname = normalizeTenantHostname(hostname);
@@ -155,11 +157,35 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
         ) : null}
         <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
           {post.content ? (
-            <div
-              class="prose prose-lg max-w-none prose-img:max-w-full prose-headings:font-bold prose-headings:tracking-tight prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:opacity-50 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
-              style="color: color-mix(in srgb, var(--color-text) 92%, transparent); --tw-prose-headings: var(--color-text);"
-              set:html={articleHtml}
-            />
+            <>
+              {articleHtmlBefore && (
+                <div
+                  class="prose prose-lg max-w-none prose-img:max-w-full prose-headings:font-bold prose-headings:tracking-tight prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:opacity-50 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
+                  style="color: color-mix(in srgb, var(--color-text) 92%, transparent); --tw-prose-headings: var(--color-text);"
+                  set:html={articleHtmlBefore}
+                />
+              )}
+              {articleHtmlAfter && (
+                <div class="not-prose my-8">
+                  <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
+                </div>
+              )}
+              {articleHtmlAfter ? (
+                <div
+                  class="prose prose-lg max-w-none prose-img:max-w-full prose-headings:font-bold prose-headings:tracking-tight prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:opacity-50 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
+                  style="color: color-mix(in srgb, var(--color-text) 92%, transparent); --tw-prose-headings: var(--color-text);"
+                  set:html={articleHtmlAfter}
+                />
+              ) : (
+                !articleHtmlBefore && (
+                  <div
+                    class="prose prose-lg max-w-none prose-img:max-w-full prose-headings:font-bold prose-headings:tracking-tight prose-h2:mt-10 prose-h2:text-2xl prose-h3:mt-8 prose-h3:text-xl prose-p:leading-relaxed prose-li:marker:opacity-50 prose-a:font-medium prose-a:text-[var(--color-accent)] prose-a:underline-offset-2 hover:prose-a:underline"
+                    style="color: color-mix(in srgb, var(--color-text) 92%, transparent); --tw-prose-headings: var(--color-text);"
+                    set:html={articleHtml}
+                  />
+                )
+              )}
+            </>
           ) : (
             <p class="text-base leading-relaxed" style="color: color-mix(in srgb, var(--color-text) 78%, transparent);">{post.excerpt}</p>
           )}
@@ -230,7 +256,7 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
           />
         )}
 
-        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={0} />
+        <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
       </article>
 
       <aside class="min-w-0 space-y-4 lg:sticky lg:top-4 lg:col-span-4 lg:self-start">
@@ -240,7 +266,7 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
       </aside>
     </div>
 
-    <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={1} />
+    <PublicAdSlot hostname={siteData.hostname} posicao="corpo" layout="banner" slotVariant={2} />
 
     <footer class="rounded-2xl bg-[var(--color-primary)] p-4 text-center text-sm text-white">
       {siteData.contact.footerText ?? `© ${new Date().getFullYear()} ${siteData.brandName}`}

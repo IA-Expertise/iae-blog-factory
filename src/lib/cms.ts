@@ -1309,11 +1309,16 @@ export type PickedInternalAd = {
   ctaUrl: string;
 };
 
-/** Escolhe um anúncio ativo (período válido), incrementa impressões (SSR) e devolve dados para exibição. */
+/**
+ * Escolhe anúncio ativo sem repetir o mesmo criativo em outro slot da mesma página.
+ * `rotationSeed` (por pageview) gira a ordem; `slotVariant` pega o N-ésimo sem wrap —
+ * se houver menos ads que slots, o excedente deve cair em placeholder.
+ */
 export async function pickAndRecordInternalAdImpression(
   hostname: string,
   posicao: AdPosicao,
-  slotVariant = 0
+  slotVariant = 0,
+  rotationSeed = 0
 ): Promise<PickedInternalAd | null> {
   await ensureSeedData();
   const host = normalizeHostname(hostname);
@@ -1328,8 +1333,15 @@ export async function pickAndRecordInternalAdImpression(
     orderBy: { id: "asc" }
   });
   if (candidates.length === 0) return null;
-  const idx = Math.abs(Math.trunc(slotVariant)) % candidates.length;
-  const pick = candidates[idx]!;
+
+  const slot = Math.max(0, Math.trunc(slotVariant));
+  if (slot >= candidates.length) return null;
+
+  const offset = Math.abs(Math.trunc(rotationSeed)) % candidates.length;
+  const pick = candidates[(offset + slot) % candidates.length]!;
+
+  // Com N ads e slots 0..N-1, (offset+slot)%N é bijetivo — cada slot um criativo distinto.
+  // Garantia explícita: não reatribuir o mesmo id se slot >= N (já retornou null acima).
   await prisma.ad.update({
     where: { id: pick.id },
     data: { impressoes: { increment: 1 } }
@@ -1369,10 +1381,12 @@ export async function listAdPlaceholdersForTenant(hostname: string): Promise<AdP
   }));
 }
 
+/** Placeholder por slot (sem wrap): sobras de inventário pago ou quando não há Ad ativo. */
 export async function pickRandomPlaceholder(
   hostname: string,
   posicao: AdPosicao,
-  slotVariant = 0
+  slotVariant = 0,
+  rotationSeed = 0
 ): Promise<AdPlaceholderRow | null> {
   await ensureSeedData();
   const host = normalizeHostname(hostname);
@@ -1381,8 +1395,13 @@ export async function pickRandomPlaceholder(
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }]
   });
   if (rows.length === 0) return null;
-  const idx = Math.abs(Math.trunc(slotVariant)) % rows.length;
-  const r = rows[idx]!;
+
+  const slot = Math.max(0, Math.trunc(slotVariant));
+  // Quando há ads pagos preenchendo os primeiros slots, PublicAdSlot passa leftoverIndex (0,1,…).
+  if (slot >= rows.length) return null;
+
+  const offset = Math.abs(Math.trunc(rotationSeed)) % rows.length;
+  const r = rows[(offset + slot) % rows.length]!;
   return {
     id: r.id,
     tenantHostname: r.tenantHostname,
@@ -1392,6 +1411,21 @@ export async function pickRandomPlaceholder(
     ctaUrl: r.ctaUrl,
     sortOrder: r.sortOrder
   };
+}
+
+/** Conta ads pagos ativos na posição (para remapear placeholders nos slots excedentes). */
+export async function countActiveInternalAds(hostname: string, posicao: AdPosicao): Promise<number> {
+  await ensureSeedData();
+  const host = normalizeHostname(hostname);
+  const now = new Date();
+  return prisma.ad.count({
+    where: {
+      tenantHostname: host,
+      posicao,
+      dataInicio: { lte: now },
+      dataFim: { gte: now }
+    }
+  });
 }
 
 export async function createAdPlaceholder(input: {

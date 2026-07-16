@@ -1,21 +1,39 @@
 ---
 import type { AdPosicao } from "@prisma/client";
 import { proxiedBannerImageSrc } from "../lib/bannerImage";
-import { pickAndRecordInternalAdImpression, pickRandomPlaceholder } from "../lib/cms";
+import {
+  countActiveInternalAds,
+  pickAndRecordInternalAdImpression,
+  pickRandomPlaceholder
+} from "../lib/cms";
 
 interface Props {
   hostname: string;
   posicao: AdPosicao;
   layout?: "card" | "banner";
   wrapFullBleedTop?: boolean;
-  /** Índice do slot na mesma posição (0,1,2…): alterna entre vários anúncios/placeholders ativos. */
+  /** Índice do slot na mesma posição (0,1,2…): um criativo pago por slot; excesso → placeholder. */
   slotVariant?: number;
 }
 
 const { hostname, posicao, layout = "card", wrapFullBleedTop = false, slotVariant = 0 } = Astro.props;
 
-const internal = await pickAndRecordInternalAdImpression(hostname, posicao, slotVariant);
-const placeholder = internal ? null : await pickRandomPlaceholder(hostname, posicao, slotVariant);
+const seedKey = `${hostname}:${posicao}`;
+Astro.locals.adRotationSeeds ??= {};
+if (Astro.locals.adRotationSeeds[seedKey] === undefined) {
+  Astro.locals.adRotationSeeds[seedKey] = Math.floor(Math.random() * 1_000_000);
+}
+const rotationSeed = Astro.locals.adRotationSeeds[seedKey]!;
+
+const internal = await pickAndRecordInternalAdImpression(hostname, posicao, slotVariant, rotationSeed);
+
+let placeholder = null as Awaited<ReturnType<typeof pickRandomPlaceholder>>;
+if (!internal) {
+  const activePaid = await countActiveInternalAds(hostname, posicao);
+  const leftoverIndex = activePaid > 0 ? Math.max(0, slotVariant - activePaid) : slotVariant;
+  placeholder = await pickRandomPlaceholder(hostname, posicao, leftoverIndex, rotationSeed);
+}
+
 const isBanner = layout === "banner";
 const hasBlock = Boolean(internal || placeholder);
 
