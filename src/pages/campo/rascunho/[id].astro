@@ -1,0 +1,199 @@
+---
+import { isAdminAuthenticated } from "../../../lib/adminAuth";
+import { getPostById, getTenantByHostname, publishPostNow } from "../../../lib/cms";
+import { resolvePublicOrigin } from "../../../lib/publicOrigin";
+import { buildTenantPostPath as buildPath } from "../../../lib/tenantUrls";
+import { renderPostMarkdown } from "../../../lib/renderMarkdown";
+import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
+
+export const prerender = false;
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login?next=/campo");
+}
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/campo");
+
+let flash = "";
+let publishedUrl = "";
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  const action = String(form.get("action") ?? "");
+  if (action === "approve") {
+    await publishPostNow(id);
+    const rowAfter = await getPostById(id);
+    if (rowAfter) {
+      const origin = resolvePublicOrigin(Astro.request.url, Astro.request);
+      const host = rowAfter.tenant.hostname.trim().toLowerCase();
+      const publicDomain =
+        /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(host) &&
+        host !== "localhost" &&
+        !host.endsWith(".local");
+      const base = publicDomain ? `https://${host}` : origin;
+      publishedUrl = new URL(buildPath(rowAfter.tenant.hostname, rowAfter.slug), `${base}/`).toString();
+      flash = "published";
+    }
+  }
+}
+
+const row = await getPostById(id);
+if (!row) return Astro.redirect("/campo");
+
+const siteData = await getTenantByHostname(row.tenant.hostname);
+const articleHtml = row.content ? renderPostMarkdown(row.content) : "";
+const coverSrc = resolvePublicAssetUrl(row.image);
+const isPublished = row.status === "PUBLISHED";
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Rascunho | {row.title}</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --ok: #4ade80;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #0f172a;
+        color: var(--text);
+      }
+      .wrap { max-width: 40rem; margin: 0 auto; padding: 1rem 1rem 6rem; }
+      .banner {
+        background: #422006;
+        color: #fde68a;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+      }
+      .banner.ok { background: #14532d; color: #bbf7d0; }
+      .meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.5rem; }
+      h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 0.75rem; }
+      .cover {
+        width: 100%;
+        max-height: 16rem;
+        object-fit: cover;
+        border-radius: 1rem;
+        margin-bottom: 1rem;
+      }
+      .prose { line-height: 1.65; font-size: 1.05rem; color: #e2e8f0; }
+      .prose :global(h2) { font-size: 1.25rem; margin-top: 1.5rem; }
+      .prose :global(h3) { font-size: 1.1rem; margin-top: 1.25rem; }
+      .prose :global(p) { margin: 0.75rem 0; }
+      .prose :global(a) { color: var(--accent); }
+      .bar {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, 0.96);
+        border-top: 1px solid #334155;
+        padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+      }
+      .bar-inner {
+        max-width: 40rem;
+        margin: 0 auto;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .bar a, .bar button {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+        border: 0;
+        border-radius: 0.75rem;
+        padding: 0.9rem 0.75rem;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+      .btn-ghost { background: #334155; color: #fff; }
+      .btn-ok { background: var(--ok); color: #052e16; }
+      .topnav { display: flex; justify-content: space-between; margin-bottom: 0.75rem; }
+      .topnav a { color: var(--accent); text-decoration: none; font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topnav">
+        <a href="/campo">← Novo envio</a>
+        <a href={`/admin/post/${row.id}`}>Editar no admin</a>
+      </div>
+
+      {
+        flash === "published" || isPublished ? (
+          <div class="banner ok">
+            Matéria publicada.
+            {publishedUrl ? (
+              <>
+                {" "}
+                <a href={publishedUrl} style="color:#bbf7d0;font-weight:600;">Abrir no site</a>
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <div class="banner">Rascunho — revise e aprove para publicar no ar.</div>
+        )
+      }
+
+      <p class="meta">
+        Tenant: <strong style="color:#fff;">{siteData?.brandName ?? row.tenant.brandName}</strong>
+        {" · "}
+        {row.tenant.hostname}
+        {" · "}
+        Status: {row.status}
+      </p>
+      <p class="meta">{row.category}</p>
+      <h1>{row.title}</h1>
+      {coverSrc ? <img class="cover" src={coverSrc} alt={row.title} /> : null}
+      {
+        articleHtml ? (
+          <div class="prose" set:html={articleHtml} />
+        ) : (
+          <p class="prose">{row.excerpt}</p>
+        )
+      }
+    </div>
+
+    {
+      !isPublished ? (
+        <div class="bar">
+          <div class="bar-inner">
+            <a class="btn-ghost" href={`/admin/post/${row.id}`}>
+              Revisar
+            </a>
+            <form method="POST" style="flex:1;display:flex;">
+              <input type="hidden" name="action" value="approve" />
+              <button class="btn-ok" type="submit" style="flex:1;">
+                Aprovar e publicar
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <div class="bar">
+          <div class="bar-inner">
+            <a class="btn-ok" href={publishedUrl || `/t/${encodeURIComponent(row.tenant.hostname)}/post/${encodeURIComponent(row.slug)}`}>
+              Ver no site
+            </a>
+            <a class="btn-ghost" href="/campo">
+              Novo envio
+            </a>
+          </div>
+        </div>
+      )
+    }
+  </body>
+</html>

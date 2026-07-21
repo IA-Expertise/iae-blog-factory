@@ -871,3 +871,122 @@ export async function generateArticleFromPitch(input: FromPitchInput): Promise<G
   const ai = await generateFromPitchOpenAI(input);
   return ai ?? fallbackArticleFromPitch(input);
 }
+
+/** Briefing de campo (áudio transcrito + texto). Sem geração de capa — a foto enviada é a capa. */
+export type FieldBriefInput = {
+  tenantName: string;
+  niche: string;
+  tone: string;
+  brief: string;
+  styleNotes?: string;
+  /** Transcrição do áudio e/ou notas digitadas. */
+  fieldNotes: string;
+};
+
+export type FieldArticleDraft = Omit<GeneratedArticle, "imageUrl">;
+
+async function generateFromFieldBriefOpenAI(input: FieldBriefInput): Promise<FieldArticleDraft | null> {
+  const apiKey = import.meta.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const notes = input.fieldNotes.trim();
+  if (!notes) return null;
+
+  const prompt = `Escreva um artigo completo em portugues (markdown) para o blog ${input.tenantName}.
+Nicho: ${input.niche}
+Tom: ${input.tone}
+
+Briefing do blog:
+${input.brief || "(sem briefing extra)"}
+
+Estilo editorial:
+${input.styleNotes || "(sem notas de estilo)"}
+
+NOTAS DO REPORTER EM CAMPO (fonte principal — preserve fatos, nomes, lugares e numeros; nao invente):
+${notes}
+
+Regras:
+- Use H2 e H3
+- Inclua introducao, desenvolvimento e conclusao com CTA leve
+- Otimize SEO sem keyword stuffing
+- Se as notas forem curtas, desenvolva de forma responsavel sem fabricar fatos
+
+Retorne SOMENTE JSON:
+{ "title": "string chamativo e fiel ao fato", "category": "string curta", "excerpt": "2 frases", "content": "markdown completo" }`;
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.55
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    console.error("OpenAI field brief:", response.status, errText.slice(0, 400));
+    return null;
+  }
+
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const jsonText = data.choices?.[0]?.message?.content;
+  if (!jsonText) return null;
+  return JSON.parse(jsonText) as FieldArticleDraft;
+}
+
+function fallbackArticleFromFieldBrief(input: FieldBriefInput): FieldArticleDraft {
+  const snippet = input.fieldNotes.trim().slice(0, 220);
+  return {
+    title: snippet.slice(0, 80) || "Nota de campo",
+    category: "Campo",
+    excerpt: snippet || "Rascunho gerado a partir de notas de campo.",
+    content: `## Introducao\n\n${input.fieldNotes.trim()}\n\n## Desenvolvimento\n\nConteudo completo sera gerado quando a API de IA estiver configurada.\n\n## Conclusao\n\nRevise este rascunho e publique quando estiver pronto.`
+  };
+}
+
+/** Gera só texto (title/category/excerpt/content). Capa vem da foto enviada no fluxo /campo. */
+export async function generateArticleFromFieldBrief(input: FieldBriefInput): Promise<FieldArticleDraft> {
+  const ai = await generateFromFieldBriefOpenAI(input);
+  return ai ?? fallbackArticleFromFieldBrief(input);
+}
+
+/** Transcreve áudio de campo via OpenAI (Whisper). */
+export async function transcribeFieldAudio(params: {
+  buffer: Buffer;
+  filename: string;
+  contentType: string;
+}): Promise<string | null> {
+  const apiKey = import.meta.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const form = new FormData();
+  const bytes = new Uint8Array(params.buffer);
+  const blob = new Blob([bytes], { type: params.contentType || "application/octet-stream" });
+  form.append("file", blob, params.filename || "audio.webm");
+  form.append("model", "whisper-1");
+  form.append("language", "pt");
+
+  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    console.error("OpenAI whisper:", response.status, errText.slice(0, 400));
+    return null;
+  }
+
+  const data = (await response.json()) as { text?: string };
+  const text = data.text?.trim() ?? "";
+  return text || null;
+}

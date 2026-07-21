@@ -1,8 +1,11 @@
 ---
 import { isAdminAuthenticated, setAdminSession, validateAdminLogin } from "../../lib/adminAuth";
 
+const nextRaw = new URL(Astro.request.url).searchParams.get("next") ?? "";
+const nextPath = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/admin";
+
 if (isAdminAuthenticated(Astro.cookies)) {
-  return Astro.redirect("/admin");
+  return Astro.redirect(nextPath);
 }
 
 let error = "";
@@ -11,10 +14,13 @@ if (Astro.request.method === "POST") {
   const formData = await Astro.request.formData();
   const username = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
+  const nextFromForm = String(formData.get("next") ?? nextPath);
+  const safeNext =
+    nextFromForm.startsWith("/") && !nextFromForm.startsWith("//") ? nextFromForm : "/admin";
 
   if (validateAdminLogin(username, password)) {
     setAdminSession(Astro.cookies);
-    return Astro.redirect("/admin");
+    return Astro.redirect(safeNext);
   }
 
   error = "Usuario ou senha invalidos.";
@@ -40,6 +46,7 @@ if (Astro.request.method === "POST") {
       {error && <p class="mt-4 rounded-lg bg-rose-900/40 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
       <form method="POST" class="mt-6 space-y-4">
+        <input type="hidden" name="next" value={nextPath} />
         <label class="block text-sm">
           <span class="mb-1 block text-slate-300">Usuario</span>
           <input

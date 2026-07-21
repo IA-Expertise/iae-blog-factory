@@ -1,0 +1,301 @@
+---
+import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { listSites } from "../../lib/cms";
+
+export const prerender = false;
+
+if (!isAdminAuthenticated(Astro.cookies)) {
+  return Astro.redirect("/admin/login?next=/campo");
+}
+
+const sites = await listSites();
+const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Campo | IAE Blog Factory</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --danger: #f87171;
+        --ok: #4ade80;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: linear-gradient(165deg, #0f172a 0%, #1e293b 55%, #0f172a 100%);
+        color: var(--text);
+      }
+      .wrap { max-width: 28rem; margin: 0 auto; padding: 1rem 1rem 2.5rem; }
+      h1 { font-size: 1.35rem; margin: 0 0 0.25rem; }
+      .sub { color: var(--muted); font-size: 0.875rem; margin: 0 0 1.25rem; }
+      label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+      .card {
+        background: var(--panel);
+        border: 1px solid #334155;
+        border-radius: 1rem;
+        padding: 1rem;
+        margin-bottom: 0.85rem;
+      }
+      select, textarea, input[type="file"] {
+        width: 100%;
+        border-radius: 0.75rem;
+        border: 1px solid #475569;
+        background: #0f172a;
+        color: var(--text);
+        padding: 0.75rem;
+        font-size: 1rem;
+      }
+      textarea { min-height: 5.5rem; resize: vertical; }
+      .preview {
+        width: 100%;
+        max-height: 12rem;
+        object-fit: cover;
+        border-radius: 0.75rem;
+        margin-top: 0.75rem;
+        display: none;
+      }
+      .preview.show { display: block; }
+      .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      button {
+        border: 0;
+        border-radius: 0.75rem;
+        padding: 0.85rem 1rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .btn-rec { background: #7f1d1d; color: #fff; flex: 1; }
+      .btn-rec.recording { background: #dc2626; animation: pulse 1.2s infinite; }
+      .btn-stop { background: #475569; color: #fff; flex: 1; display: none; }
+      .btn-submit {
+        width: 100%;
+        background: var(--accent);
+        color: #0f172a;
+        margin-top: 0.5rem;
+      }
+      .btn-submit:disabled { opacity: 0.5; cursor: wait; }
+      .status { font-size: 0.85rem; color: var(--muted); min-height: 1.25rem; margin-top: 0.5rem; }
+      .status.err { color: var(--danger); }
+      .status.ok { color: var(--ok); }
+      .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+      .topnav a { color: var(--accent); text-decoration: none; font-size: 0.85rem; }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+      .overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.85);
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        z-index: 50;
+      }
+      .overlay.show { display: flex; }
+      .overlay-box {
+        background: var(--panel);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        max-width: 20rem;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topnav">
+        <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">IAE Campo</span>
+        <a href="/admin">Admin</a>
+      </div>
+      <h1>Criar da rua</h1>
+      <p class="sub">Escolha o blog, envie a foto, grave o áudio e publique o rascunho.</p>
+
+      <form id="campo-form">
+        <div class="card">
+          <label for="hostname">Tenant (blog)</label>
+          <select id="hostname" name="hostname" required>
+            <option value="">Selecione…</option>
+            {
+              sites.map((s) => (
+                <option value={s.hostname} selected={s.hostname === preselect}>
+                  {s.brandName} ({s.hostname})
+                </option>
+              ))
+            }
+          </select>
+        </div>
+
+        <div class="card">
+          <label for="photo">Foto de capa</label>
+          <input id="photo" name="photo" type="file" accept="image/*" capture="environment" required />
+          <img id="photo-preview" class="preview" alt="Prévia da capa" />
+        </div>
+
+        <div class="card">
+          <label>Áudio da notícia</label>
+          <div class="btn-row">
+            <button type="button" class="btn-rec" id="btn-rec">Gravar</button>
+            <button type="button" class="btn-stop" id="btn-stop">Parar</button>
+          </div>
+          <p class="status" id="audio-status">Sem áudio ainda.</p>
+          <audio id="audio-playback" controls style="width:100%;margin-top:0.5rem;display:none;"></audio>
+        </div>
+
+        <div class="card">
+          <label for="textNotes">Texto complementar (opcional)</label>
+          <textarea id="textNotes" name="textNotes" placeholder="Nomes, lugares, detalhes extras…"></textarea>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-submit">Enviar e gerar rascunho</button>
+        <p class="status" id="form-status"></p>
+      </form>
+    </div>
+
+    <div class="overlay" id="overlay" aria-live="polite">
+      <div class="overlay-box">
+        <p style="margin:0 0 0.5rem;font-weight:600;">Gerando matéria…</p>
+        <p style="margin:0;color:var(--muted);font-size:0.875rem;">Transcrição + IA. Pode levar até 1 minuto.</p>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("campo-form");
+      const photoInput = document.getElementById("photo");
+      const photoPreview = document.getElementById("photo-preview");
+      const btnRec = document.getElementById("btn-rec");
+      const btnStop = document.getElementById("btn-stop");
+      const audioStatus = document.getElementById("audio-status");
+      const audioPlayback = document.getElementById("audio-playback");
+      const formStatus = document.getElementById("form-status");
+      const btnSubmit = document.getElementById("btn-submit");
+      const overlay = document.getElementById("overlay");
+
+      let mediaRecorder = null;
+      let audioChunks = [];
+      let audioBlob = null;
+      let audioMime = "audio/webm";
+
+      photoInput?.addEventListener("change", () => {
+        const file = photoInput.files?.[0];
+        if (!file) {
+          photoPreview.classList.remove("show");
+          photoPreview.removeAttribute("src");
+          return;
+        }
+        photoPreview.src = URL.createObjectURL(file);
+        photoPreview.classList.add("show");
+      });
+
+      function pickMime() {
+        const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+        for (const c of candidates) {
+          if (window.MediaRecorder && MediaRecorder.isTypeSupported(c)) return c;
+        }
+        return "";
+      }
+
+      btnRec?.addEventListener("click", async () => {
+        formStatus.textContent = "";
+        formStatus.className = "status";
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioMime = pickMime() || "audio/webm";
+          audioChunks = [];
+          mediaRecorder = new MediaRecorder(stream, audioMime ? { mimeType: audioMime } : undefined);
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+          mediaRecorder.onstop = () => {
+            stream.getTracks().forEach((t) => t.stop());
+            audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || audioMime });
+            audioPlayback.src = URL.createObjectURL(audioBlob);
+            audioPlayback.style.display = "block";
+            audioStatus.textContent = `Áudio pronto (${Math.round(audioBlob.size / 1024)} KB).`;
+            audioStatus.className = "status ok";
+            btnRec.classList.remove("recording");
+            btnStop.style.display = "none";
+            btnRec.style.display = "block";
+          };
+          mediaRecorder.start();
+          btnRec.classList.add("recording");
+          btnRec.style.display = "none";
+          btnStop.style.display = "block";
+          audioStatus.textContent = "Gravando…";
+          audioStatus.className = "status";
+        } catch (err) {
+          audioStatus.textContent = "Não foi possível acessar o microfone (use HTTPS).";
+          audioStatus.className = "status err";
+        }
+      });
+
+      btnStop?.addEventListener("click", () => {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+      });
+
+      form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        formStatus.textContent = "";
+        formStatus.className = "status";
+
+        const hostname = document.getElementById("hostname")?.value?.trim();
+        const photo = photoInput?.files?.[0];
+        const textNotes = document.getElementById("textNotes")?.value ?? "";
+
+        if (!hostname) {
+          formStatus.textContent = "Selecione o tenant.";
+          formStatus.className = "status err";
+          return;
+        }
+        if (!photo) {
+          formStatus.textContent = "Envie uma foto.";
+          formStatus.className = "status err";
+          return;
+        }
+        if (!audioBlob && !textNotes.trim()) {
+          formStatus.textContent = "Grave um áudio ou escreva um texto.";
+          formStatus.className = "status err";
+          return;
+        }
+
+        const fd = new FormData();
+        fd.append("hostname", hostname);
+        fd.append("photo", photo);
+        fd.append("textNotes", textNotes);
+        if (audioBlob) {
+          const ext = (audioBlob.type || "").includes("mp4") ? "mp4" : "webm";
+          fd.append("audio", audioBlob, `campo.${ext}`);
+        }
+
+        btnSubmit.disabled = true;
+        overlay.classList.add("show");
+
+        try {
+          const res = await fetch("/api/campo/ingest", { method: "POST", body: fd });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error || "Falha ao gerar rascunho.");
+          }
+          window.location.href = `/campo/rascunho/${encodeURIComponent(data.postId)}`;
+        } catch (err) {
+          formStatus.textContent = err?.message || "Erro inesperado.";
+          formStatus.className = "status err";
+          btnSubmit.disabled = false;
+          overlay.classList.remove("show");
+        }
+      });
+    </script>
+  </body>
+</html>
