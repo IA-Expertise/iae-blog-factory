@@ -21,8 +21,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // Admin, multi-tenant por path (/t/...) e APIs públicas não usam Host como chave de tenant.
-  if (pathname.startsWith("/admin") || pathname.startsWith("/t/") || pathname.startsWith("/api/")) {
+  // Admin, campo, multi-tenant por path (/t/...) e APIs públicas não usam Host como chave de tenant.
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/campo") ||
+    pathname.startsWith("/t/") ||
+    pathname.startsWith("/api/")
+  ) {
     return next();
   }
 
