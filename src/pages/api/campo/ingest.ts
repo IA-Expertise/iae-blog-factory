@@ -40,10 +40,11 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   const hostname = String(form.get("hostname") ?? "").trim();
   const textNotes = String(form.get("textNotes") ?? "");
+  const coverMode = String(form.get("coverMode") ?? "photo").trim().toLowerCase();
   const photo = await fileToBuffer(form.get("photo"));
   const audio = await fileToBuffer(form.get("audio"));
 
-  if (!photo) {
+  if (coverMode !== "ai" && !photo) {
     return new Response(JSON.stringify({ ok: false, error: "Envie uma foto de capa." }), {
       status: 400,
       headers: { "Content-Type": "application/json" }
@@ -52,8 +53,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   const result = await ingestCampoSubmission({
     hostname,
-    photoBuffer: photo.buffer,
-    photoContentType: photo.contentType,
+    coverMode,
+    photoBuffer: photo?.buffer ?? null,
+    photoContentType: photo?.contentType ?? null,
     audioBuffer: audio?.buffer ?? null,
     audioContentType: audio?.contentType ?? null,
     audioFilename: audio?.filename ?? null,

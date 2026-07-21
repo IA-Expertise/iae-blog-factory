@@ -67,6 +67,20 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
       }
       .preview.show { display: block; }
       .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      .mode-btn {
+        background: #0f172a;
+        color: var(--muted);
+        border: 1px solid #475569 !important;
+        padding: 0.75rem 0.5rem;
+        font-size: 0.9rem;
+      }
+      .mode-btn.active {
+        background: #0c4a6e;
+        color: #e0f2fe;
+        border-color: var(--accent) !important;
+      }
+      .hint { font-size: 0.8rem; color: var(--muted); margin: 0.5rem 0 0; }
       button {
         border: 0;
         border-radius: 0.75rem;
@@ -90,6 +104,7 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
       .status.ok { color: var(--ok); }
       .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
       .topnav a { color: var(--accent); text-decoration: none; font-size: 0.85rem; }
+      #photo-card.hidden { display: none; }
       @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.7; }
@@ -121,9 +136,11 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
         <a href="/admin">Admin</a>
       </div>
       <h1>Criar da rua</h1>
-      <p class="sub">Escolha o blog, envie a foto, grave o áudio e publique o rascunho.</p>
+      <p class="sub">Escolha o blog, capa (foto ou IA), áudio/texto e gere o rascunho.</p>
 
       <form id="campo-form">
+        <input type="hidden" id="coverMode" name="coverMode" value="photo" />
+
         <div class="card">
           <label for="hostname">Tenant (blog)</label>
           <select id="hostname" name="hostname" required>
@@ -139,8 +156,17 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
         </div>
 
         <div class="card">
+          <label>Capa</label>
+          <div class="mode-row">
+            <button type="button" class="mode-btn active" id="mode-photo" data-mode="photo">Foto</button>
+            <button type="button" class="mode-btn" id="mode-ai" data-mode="ai">Capa IA</button>
+          </div>
+          <p class="hint" id="cover-hint">Fotografe ou envie a imagem que será a capa.</p>
+        </div>
+
+        <div class="card" id="photo-card">
           <label for="photo">Foto de capa</label>
-          <input id="photo" name="photo" type="file" accept="image/*" capture="environment" required />
+          <input id="photo" name="photo" type="file" accept="image/*" capture="environment" />
           <img id="photo-preview" class="preview" alt="Prévia da capa" />
         </div>
 
@@ -166,15 +192,20 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
 
     <div class="overlay" id="overlay" aria-live="polite">
       <div class="overlay-box">
-        <p style="margin:0 0 0.5rem;font-weight:600;">Gerando matéria…</p>
-        <p style="margin:0;color:var(--muted);font-size:0.875rem;">Transcrição + IA. Pode levar até 1 minuto.</p>
+        <p style="margin:0 0 0.5rem;font-weight:600;" id="overlay-title">Gerando matéria…</p>
+        <p style="margin:0;color:var(--muted);font-size:0.875rem;" id="overlay-sub">Transcrição + IA. Pode levar até 1–2 minutos.</p>
       </div>
     </div>
 
     <script>
       const form = document.getElementById("campo-form");
+      const coverModeInput = document.getElementById("coverMode");
+      const photoCard = document.getElementById("photo-card");
       const photoInput = document.getElementById("photo");
       const photoPreview = document.getElementById("photo-preview");
+      const coverHint = document.getElementById("cover-hint");
+      const modePhoto = document.getElementById("mode-photo");
+      const modeAi = document.getElementById("mode-ai");
       const btnRec = document.getElementById("btn-rec");
       const btnStop = document.getElementById("btn-stop");
       const audioStatus = document.getElementById("audio-status");
@@ -182,11 +213,30 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
       const formStatus = document.getElementById("form-status");
       const btnSubmit = document.getElementById("btn-submit");
       const overlay = document.getElementById("overlay");
+      const overlayTitle = document.getElementById("overlay-title");
+      const overlaySub = document.getElementById("overlay-sub");
 
       let mediaRecorder = null;
       let audioChunks = [];
       let audioBlob = null;
       let audioMime = "audio/webm";
+      let coverMode = "photo";
+
+      function setCoverMode(mode) {
+        coverMode = mode === "ai" ? "ai" : "photo";
+        coverModeInput.value = coverMode;
+        modePhoto.classList.toggle("active", coverMode === "photo");
+        modeAi.classList.toggle("active", coverMode === "ai");
+        photoCard.classList.toggle("hidden", coverMode === "ai");
+        photoInput.required = coverMode === "photo";
+        coverHint.textContent =
+          coverMode === "ai"
+            ? "A capa será gerada com o estilo do tenant (foto, aquarela ou flat)."
+            : "Fotografe ou envie a imagem que será a capa.";
+      }
+
+      modePhoto?.addEventListener("click", () => setCoverMode("photo"));
+      modeAi?.addEventListener("click", () => setCoverMode("ai"));
 
       photoInput?.addEventListener("change", () => {
         const file = photoInput.files?.[0];
@@ -259,8 +309,8 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
           formStatus.className = "status err";
           return;
         }
-        if (!photo) {
-          formStatus.textContent = "Envie uma foto.";
+        if (coverMode === "photo" && !photo) {
+          formStatus.textContent = "Envie uma foto ou escolha Capa IA.";
           formStatus.className = "status err";
           return;
         }
@@ -272,14 +322,20 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
 
         const fd = new FormData();
         fd.append("hostname", hostname);
-        fd.append("photo", photo);
+        fd.append("coverMode", coverMode);
         fd.append("textNotes", textNotes);
+        if (coverMode === "photo" && photo) fd.append("photo", photo);
         if (audioBlob) {
           const ext = (audioBlob.type || "").includes("mp4") ? "mp4" : "webm";
           fd.append("audio", audioBlob, `campo.${ext}`);
         }
 
         btnSubmit.disabled = true;
+        overlayTitle.textContent = coverMode === "ai" ? "Gerando matéria e capa…" : "Gerando matéria…";
+        overlaySub.textContent =
+          coverMode === "ai"
+            ? "Texto + imagem IA (estilo do tenant). Pode levar 1–2 minutos."
+            : "Transcrição + IA. Pode levar até 1 minuto.";
         overlay.classList.add("show");
 
         try {

@@ -2,10 +2,13 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   generateArticleFromFieldBrief,
+  regenerateCoverImage,
   transcribeFieldAudio
 } from "../contentGenerator";
 import { addPost, getTenantByHostname, logGenerationJob } from "../cms";
 import { isObjectStorageConfigured, uploadPublicImageAsset } from "../objectStorage";
+
+export type CoverMode = "photo" | "ai";
 
 export type CampoIngestResult =
   | { ok: true; postId: string }
@@ -23,6 +26,16 @@ function extFromMime(mime: string, fallback: string): string {
   if (m.includes("mpeg") || m.includes("mp3")) return "mp3";
   if (m.includes("wav")) return "wav";
   return fallback;
+}
+
+function slugSeed(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[^\w\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 60) || "campo";
 }
 
 async function persistCoverPhoto(buffer: Buffer, hostname: string, contentType: string): Promise<string | null> {
@@ -53,22 +66,32 @@ function mergeFieldNotes(transcript: string | null, textNotes: string): string {
   return parts.join("\n\n").trim();
 }
 
+function normalizeCoverMode(raw: string | null | undefined): CoverMode {
+  return (raw ?? "").trim().toLowerCase() === "ai" ? "ai" : "photo";
+}
+
 /**
- * Pipeline aditivo do webapp /campo: foto = capa, áudio/texto = briefing → Post IN_REVIEW.
- * Não altera fluxos admin existentes.
+ * Pipeline aditivo do webapp /campo:
+ * - coverMode=photo → foto enviada é a capa
+ * - coverMode=ai → capa gerada com o estilo do tenant (após a matéria)
+ * Áudio/texto = briefing → Post IN_REVIEW.
  */
 export async function ingestCampoSubmission(input: {
   hostname: string;
-  photoBuffer: Buffer;
-  photoContentType: string;
+  coverMode?: string | null;
+  photoBuffer?: Buffer | null;
+  photoContentType?: string | null;
   audioBuffer?: Buffer | null;
   audioContentType?: string | null;
   audioFilename?: string | null;
   textNotes?: string | null;
 }): Promise<CampoIngestResult> {
   const hostname = input.hostname.trim().toLowerCase();
+  const coverMode = normalizeCoverMode(input.coverMode);
   if (!hostname) return { ok: false, error: "Selecione um tenant." };
-  if (!input.photoBuffer?.length) return { ok: false, error: "Envie uma foto de capa." };
+  if (coverMode === "photo" && !input.photoBuffer?.length) {
+    return { ok: false, error: "Envie uma foto de capa." };
+  }
 
   const site = await getTenantByHostname(hostname);
   if (!site) return { ok: false, error: "Tenant nao encontrado." };
@@ -87,11 +110,6 @@ export async function ingestCampoSubmission(input: {
     return { ok: false, error: "Grave um audio ou escreva um texto com a noticia." };
   }
 
-  const coverUrl = await persistCoverPhoto(input.photoBuffer, hostname, input.photoContentType || "image/jpeg");
-  if (!coverUrl) {
-    return { ok: false, error: "Falha ao salvar a foto de capa." };
-  }
-
   const article = await generateArticleFromFieldBrief({
     tenantName: site.brandName,
     niche: site.niche,
@@ -100,6 +118,33 @@ export async function ingestCampoSubmission(input: {
     styleNotes: site.editorial.editorialStyleNotes || "",
     fieldNotes
   });
+
+  let coverUrl: string | null = null;
+
+  if (coverMode === "photo") {
+    coverUrl = await persistCoverPhoto(
+      input.photoBuffer!,
+      hostname,
+      input.photoContentType || "image/jpeg"
+    );
+    if (!coverUrl) {
+      return { ok: false, error: "Falha ao salvar a foto de capa." };
+    }
+  } else {
+    coverUrl = await regenerateCoverImage({
+      tenantName: site.brandName,
+      niche: site.niche,
+      headline: article.title,
+      tone: site.editorial.defaultArticleTone || "profissional",
+      themePreset: site.themePreset,
+      coverImageStyle: site.coverImageStyle,
+      editorialStyleNotes: site.editorial.editorialStyleNotes,
+      imageDirection: article.excerpt?.slice(0, 200) || null
+    });
+    if (!coverUrl) {
+      coverUrl = `https://picsum.photos/1200/600?seed=${slugSeed(article.title)}`;
+    }
+  }
 
   const postId = await addPost(hostname, {
     title: article.title,
