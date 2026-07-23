@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import type { DeleteObjectCommandInput, PutObjectCommandInput, S3Client } from "@aws-sdk/client-s3";
 
 const SAFE_FILENAME = /^[a-zA-Z0-9._-]+\.(png|jpg|jpeg|webp)$/i;
 
@@ -17,18 +17,23 @@ export function isObjectStorageConfigured(): boolean {
   );
 }
 
-function buildClient(): S3Client {
+let s3Client: S3Client | null = null;
+
+/** Um único client por processo (evita vazamento de memória no Railway). */
+async function getS3Client(): Promise<S3Client> {
+  if (s3Client) return s3Client;
+  const { S3Client: Client } = await import("@aws-sdk/client-s3");
   const endpoint = trimEnv(import.meta.env.S3_ENDPOINT);
   const region = trimEnv(import.meta.env.S3_REGION) ?? "auto";
   const accessKeyId = trimEnv(import.meta.env.S3_ACCESS_KEY_ID)!;
   const secretAccessKey = trimEnv(import.meta.env.S3_SECRET_ACCESS_KEY)!;
-
-  return new S3Client({
+  s3Client = new Client({
     region,
     endpoint: endpoint || undefined,
     credentials: { accessKeyId, secretAccessKey },
     forcePathStyle: Boolean(endpoint)
   });
+  return s3Client;
 }
 
 function objectKeyForFilename(filename: string): string {
@@ -77,13 +82,10 @@ export async function deletePublicImageByUrl(publicUrl: string): Promise<void> {
   const bucket = trimEnv(import.meta.env.S3_BUCKET);
   if (!bucket) return;
 
-  const client = buildClient();
-  await client.send(
-    new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: key
-    })
-  );
+  const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = await getS3Client();
+  const input: DeleteObjectCommandInput = { Bucket: bucket, Key: key };
+  await client.send(new DeleteObjectCommand(input));
 }
 
 /**
@@ -108,16 +110,16 @@ export async function uploadGeneratedCoverImage(params: {
   }
 
   try {
-    const client = buildClient();
-    await client.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: params.buffer,
-        ContentType: params.contentType,
-        CacheControl: "public, max-age=31536000"
-      })
-    );
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = await getS3Client();
+    const input: PutObjectCommandInput = {
+      Bucket: bucket,
+      Key: key,
+      Body: params.buffer,
+      ContentType: params.contentType,
+      CacheControl: "public, max-age=31536000"
+    };
+    await client.send(new PutObjectCommand(input));
     return publicUrlForKey(key);
   } catch (err) {
     console.error("Erro ao enviar imagem para object storage:", err);
@@ -141,16 +143,16 @@ export async function uploadPublicImageAsset(params: {
   if (!key) return null;
 
   try {
-    const client = buildClient();
-    await client.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: params.buffer,
-        ContentType: params.contentType,
-        CacheControl: "public, max-age=31536000"
-      })
-    );
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const client = await getS3Client();
+    const input: PutObjectCommandInput = {
+      Bucket: bucket,
+      Key: key,
+      Body: params.buffer,
+      ContentType: params.contentType,
+      CacheControl: "public, max-age=31536000"
+    };
+    await client.send(new PutObjectCommand(input));
     return publicUrlForKey(key);
   } catch (err) {
     console.error("Erro ao enviar asset para object storage:", err);

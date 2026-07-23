@@ -1,5 +1,4 @@
 import type { APIRoute } from "astro";
-import sharp from "sharp";
 import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../../lib/cms";
 import { resolvePublicAssetUrl } from "../../../../../lib/mediaUrl";
 import { normalizeTenantHostname, normalizeTenantSlug } from "../../../../../lib/tenantUrls";
@@ -42,6 +41,9 @@ async function normalizeForSocialOg(bytes: ArrayBuffer): Promise<Buffer | null> 
   const qualities = [72, 64, 56, 48, 40];
 
   try {
+    const sharp = (await import("sharp")).default;
+    sharp.concurrency(1);
+
     // Primeiro pass: enquadra no formato OG (1.91:1) e tenta compressão padrão.
     let candidate = await sharp(input)
       .resize(OG_WIDTH, OG_HEIGHT, { fit: "cover", position: "attention" })
