@@ -9,6 +9,10 @@ export default defineConfig({
   adapter: node({
     mode: "standalone"
   }),
+  // Railway / containers: aceitar tráfego externo (evita 502 com bind só em localhost).
+  server: {
+    host: "0.0.0.0"
+  },
   security: {
     checkOrigin: false
   },
