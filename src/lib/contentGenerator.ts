@@ -910,6 +910,8 @@ Regras:
 - Inclua introducao, desenvolvimento e conclusao com CTA leve
 - Otimize SEO sem keyword stuffing
 - Se as notas forem curtas, desenvolva de forma responsavel sem fabricar fatos
+- PROIBIDO no markdown: prompts de imagem, secoes "Prompt para Geracao", "AI Image Prompt", instrucoes para Midjourney/DALL-E/Stable Diffusion, blocos em ingles sobre como gerar capa, metadados de IA ou qualquer texto meta sobre o processo de geracao
+- O campo content deve ser SO o artigo publicavel para o leitor final
 
 Retorne SOMENTE JSON:
 { "title": "string chamativo e fiel ao fato", "category": "string curta", "excerpt": "2 frases", "content": "markdown completo" }`;
@@ -939,7 +941,37 @@ Retorne SOMENTE JSON:
   };
   const jsonText = data.choices?.[0]?.message?.content;
   if (!jsonText) return null;
-  return JSON.parse(jsonText) as FieldArticleDraft;
+  const parsed = JSON.parse(jsonText) as FieldArticleDraft;
+  return {
+    ...parsed,
+    content: stripLeakedImagePromptSections(parsed.content ?? "")
+  };
+}
+
+/** Remove blocos que o modelo às vezes anexa (prompt de capa / meta IA) no fim do artigo. */
+export function stripLeakedImagePromptSections(markdown: string): string {
+  let text = markdown.replace(/\r\n/g, "\n").trim();
+  if (!text) return text;
+
+  const cutPatterns = [
+    /\n##+\s*Prompt\s+para\s+[Gg]era[cç][aã]o[\s\S]*$/i,
+    /\n##+\s*Prompt\s+para\s+[Ii]magem[\s\S]*$/i,
+    /\n##+\s*AI\s+Image\s+Prompt[\s\S]*$/i,
+    /\n##+\s*Image\s+Generation\s+Prompt[\s\S]*$/i,
+    /\n##+\s*Prompt\s*\(AI\)[\s\S]*$/i,
+    /\n\*\*Prompt\s+para\s+[Gg]era[cç][aã]o[\s\S]*$/i
+  ];
+  for (const re of cutPatterns) {
+    text = text.replace(re, "").trim();
+  }
+
+  // Linha solta com prompt em inglês típico de capa.
+  text = text.replace(
+    /\n+(?:Create|Generate)\s+a\s+(?:photo)?realistic\s+image[\s\S]*$/i,
+    ""
+  ).trim();
+
+  return text;
 }
 
 function fallbackArticleFromFieldBrief(input: FieldBriefInput): FieldArticleDraft {
@@ -955,7 +987,11 @@ function fallbackArticleFromFieldBrief(input: FieldBriefInput): FieldArticleDraf
 /** Gera só texto (title/category/excerpt/content). Capa vem da foto enviada no fluxo /campo. */
 export async function generateArticleFromFieldBrief(input: FieldBriefInput): Promise<FieldArticleDraft> {
   const ai = await generateFromFieldBriefOpenAI(input);
-  return ai ?? fallbackArticleFromFieldBrief(input);
+  const draft = ai ?? fallbackArticleFromFieldBrief(input);
+  return {
+    ...draft,
+    content: stripLeakedImagePromptSections(draft.content ?? "")
+  };
 }
 
 /** Transcreve áudio de campo via OpenAI (Whisper). */
