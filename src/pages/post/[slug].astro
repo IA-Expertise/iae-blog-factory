@@ -25,10 +25,7 @@ const canonicalPostPath = buildTenantPostPath(siteData.hostname, post.slug ?? ""
 if (Astro.url.pathname !== canonicalPostPath) {
   return Astro.redirect(canonicalPostPath);
 }
-const resolvedImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
-const ogImageUrl = resolvedImageUrl.startsWith(`${publicOrigin}/`)
-  ? resolvedImageUrl
-  : new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedImageUrl)}`, `${publicOrigin}/`).toString();
+const ogImageUrl = new URL(coverSrc || siteData.hero.image, `${publicOrigin}/`).toString();
 ---
 
 <Layout

@@ -71,6 +71,33 @@ export function publicUrlToStorageKey(publicUrl: string): string | null {
   }
 }
 
+/**
+ * Allowlist do `/api/media/proxy`: só o host (e path-base) de `S3_PUBLIC_BASE_URL`.
+ * Sem base configurada, nenhum URL externo é permitido (evita open-proxy / abuso de egress).
+ */
+export function isAllowedMediaProxyUrl(absoluteUrl: string): boolean {
+  const baseRaw = trimEnv(import.meta.env.S3_PUBLIC_BASE_URL)?.replace(/\/$/, "");
+  if (!baseRaw) return false;
+
+  let src: URL;
+  let allowed: URL;
+  try {
+    src = new URL(absoluteUrl);
+    allowed = new URL(baseRaw);
+  } catch {
+    return false;
+  }
+
+  if (!["http:", "https:"].includes(src.protocol)) return false;
+  if (src.hostname.toLowerCase() !== allowed.hostname.toLowerCase()) return false;
+
+  const basePath = (allowed.pathname || "/").replace(/\/$/, "") || "";
+  if (basePath && basePath !== "/") {
+    return src.pathname === basePath || src.pathname.startsWith(`${basePath}/`);
+  }
+  return true;
+}
+
 /** Remove objeto do bucket quando a URL foi gerada por este projeto (R2/S3). */
 export async function deletePublicImageByUrl(publicUrl: string): Promise<void> {
   if (!isObjectStorageConfigured()) return;

@@ -1,10 +1,13 @@
-/** Usa o proxy de mídia para cache na borda (Railway) em URLs absolutas de banner (R2/CDN). */
+/**
+ * URL pública do banner no HTML.
+ * Banners no R2/CDN vão direto ao browser (sem passar pelo Railway),
+ * reduzindo RX/TX do container. O proxy fica só para OG / casos allowlisted.
+ */
+export function bannerImageSrc(imagemUrl: string): string {
+  return imagemUrl.trim();
+}
+
+/** @deprecated Use bannerImageSrc — mantido para imports legados. */
 export function proxiedBannerImageSrc(imagemUrl: string): string {
-  const t = imagemUrl.trim();
-  if (!t) return t;
-  if (t.startsWith("/")) return t;
-  if (t.startsWith("http://") || t.startsWith("https://")) {
-    return `/api/media/proxy?src=${encodeURIComponent(t)}`;
-  }
-  return t;
+  return bannerImageSrc(imagemUrl);
 }

@@ -1,6 +1,6 @@
 ---
 import type { AdPosicao } from "@prisma/client";
-import { proxiedBannerImageSrc } from "../lib/bannerImage";
+import { bannerImageSrc } from "../lib/bannerImage";
 import {
   countActiveInternalAds,
   pickAndRecordInternalAdImpression,
@@ -37,7 +37,7 @@ if (!internal) {
 const isBanner = layout === "banner";
 const hasBlock = Boolean(internal || placeholder);
 
-const imgSrc = (url: string) => proxiedBannerImageSrc(url);
+const imgSrc = (url: string) => bannerImageSrc(url);
 const bannerW = 728;
 const bannerH = 110;
 ---

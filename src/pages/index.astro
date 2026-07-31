@@ -11,10 +11,7 @@ const [heroPost, ...secondaryPosts] = siteData.posts;
 const canonicalHomePath = buildTenantHomePath(siteData.hostname);
 const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const heroImageHref = resolvePublicAssetUrl(siteData.hero.image);
-const resolvedOgImage = new URL(heroImageHref || siteData.hero.image, `${publicOrigin}/`).toString();
-const ogImage = resolvedOgImage.startsWith(`${publicOrigin}/`)
-  ? resolvedOgImage
-  : new URL(`/api/media/proxy?src=${encodeURIComponent(resolvedOgImage)}`, `${publicOrigin}/`).toString();
+const ogImage = new URL(heroImageHref || siteData.hero.image, `${publicOrigin}/`).toString();
 
 if (Astro.url.pathname === "/") {
   return Astro.redirect(canonicalHomePath);
