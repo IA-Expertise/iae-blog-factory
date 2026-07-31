@@ -1,18 +1,23 @@
 import type { APIRoute } from "astro";
 import { commentsEnabledForHostname, createCommentFromPublic } from "../../../lib/comments";
+import {
+  getRequestClientIp,
+  rateLimitComments,
+  tooManyRequestsResponse
+} from "../../../lib/rateLimit";
 import { normalizeTenantHostname, normalizeTenantSlug } from "../../../lib/tenantUrls";
 
 export const prerender = false;
 
-function getClientIp(request: Request): string | null {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  const real = request.headers.get("x-real-ip")?.trim();
-  return real || null;
-}
-
 export const POST: APIRoute = async ({ request }) => {
   try {
+    const ip = getRequestClientIp(request);
+    const limited = rateLimitComments(ip);
+    if (!limited.allowed) {
+      console.warn(`[rateLimit] comments blocked ip=${ip} retryAfter=${limited.retryAfterSec}s`);
+      return tooManyRequestsResponse(limited);
+    }
+
     const body = (await request.json()) as {
       hostname?: string;
       slug?: string;
@@ -38,7 +43,7 @@ export const POST: APIRoute = async ({ request }) => {
       content: body.content ?? "",
       consentGiven: Boolean(body.consentGiven),
       honeypot: body.website ?? "",
-      ip: getClientIp(request),
+      ip,
       userAgent: request.headers.get("user-agent")
     });
 

@@ -27,4 +27,8 @@ interface ImportMetaEnv {
   readonly S3_PUBLIC_BASE_URL?: string;
   /** Prefixo da chave no bucket (ex.: covers). */
   readonly S3_KEY_PREFIX?: string;
+  /** Comentários públicos por IP / minuto (default 5). */
+  readonly RATE_LIMIT_COMMENTS_PER_MIN?: string;
+  /** Cliques de anúncio contados por IP / minuto (default 100). Acima disso ainda redireciona. */
+  readonly RATE_LIMIT_ADS_PER_MIN?: string;
 }
