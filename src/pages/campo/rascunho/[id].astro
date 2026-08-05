@@ -1,6 +1,12 @@
 ---
 import { canAccessCampo, getCampoTenantScope, isAdminAuthenticated } from "../../../lib/adminAuth";
-import { getPostById, getTenantByHostname, publishPostNow, regeneratePostCover } from "../../../lib/cms";
+import {
+  getPostById,
+  getTenantByHostname,
+  publishPostNow,
+  regeneratePostCover,
+  updatePostFields
+} from "../../../lib/cms";
 import { resolvePublicOrigin } from "../../../lib/publicOrigin";
 import { buildTenantPostPath as buildPath } from "../../../lib/tenantUrls";
 import { renderPostMarkdown } from "../../../lib/renderMarkdown";
@@ -21,6 +27,7 @@ if (!id) return Astro.redirect("/campo");
 let flash = "";
 let publishedUrl = "";
 let coverFlash = "";
+let saveFlash = "";
 
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
@@ -31,7 +38,27 @@ if (Astro.request.method === "POST") {
     return Astro.redirect("/campo");
   }
 
+  if (action === "save") {
+    await updatePostFields(id, {
+      title: String(form.get("title") ?? ""),
+      category: String(form.get("category") ?? ""),
+      excerpt: String(form.get("excerpt") ?? ""),
+      content: String(form.get("content") ?? "")
+    });
+    saveFlash = "ok";
+  }
+
   if (action === "approve") {
+    // Salva edições pendentes do formulário antes de publicar (se vierem no POST).
+    const title = String(form.get("title") ?? "").trim();
+    if (title) {
+      await updatePostFields(id, {
+        title,
+        category: String(form.get("category") ?? ""),
+        excerpt: String(form.get("excerpt") ?? ""),
+        content: String(form.get("content") ?? "")
+      });
+    }
     await publishPostNow(id);
     const rowAfter = await getPostById(id);
     if (rowAfter) {
@@ -46,6 +73,7 @@ if (Astro.request.method === "POST") {
       flash = "published";
     }
   }
+
   if (action === "regenerate_cover") {
     const ok = await regeneratePostCover(id);
     coverFlash = ok ? "ok" : "fail";
@@ -63,6 +91,7 @@ const articleHtml = row.content ? renderPostMarkdown(row.content) : "";
 const coverSrc = resolvePublicAssetUrl(row.image);
 const isPublished = row.status === "PUBLISHED";
 const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "photo";
+const editMode = !isPublished;
 ---
 
 <!doctype html>
@@ -89,7 +118,7 @@ const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "p
         background: #0f172a;
         color: var(--text);
       }
-      .wrap { max-width: 40rem; margin: 0 auto; padding: 1rem 1rem 7.5rem; }
+      .wrap { max-width: 40rem; margin: 0 auto; padding: 1rem 1rem 8.5rem; }
       .banner {
         background: #422006;
         color: #fde68a;
@@ -107,8 +136,31 @@ const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "p
         max-height: 16rem;
         object-fit: cover;
         border-radius: 1rem;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
       }
+      label {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin: 0.75rem 0 0.35rem;
+      }
+      input, textarea {
+        width: 100%;
+        border-radius: 0.75rem;
+        border: 1px solid #475569;
+        background: #1e293b;
+        color: var(--text);
+        padding: 0.75rem;
+        font-size: 1rem;
+        font-family: inherit;
+      }
+      textarea.content {
+        min-height: 18rem;
+        line-height: 1.55;
+        resize: vertical;
+      }
+      textarea.excerpt { min-height: 4.5rem; resize: vertical; }
+      .hint { font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem; }
       .prose { line-height: 1.65; font-size: 1.05rem; color: #e2e8f0; }
       .prose :global(h2) { font-size: 1.25rem; margin-top: 1.5rem; }
       .prose :global(h3) { font-size: 1.1rem; margin-top: 1.25rem; }
@@ -130,18 +182,19 @@ const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "p
       }
       .bar a, .bar button {
         flex: 1;
-        min-width: 30%;
+        min-width: 28%;
         text-align: center;
         text-decoration: none;
         border: 0;
         border-radius: 0.75rem;
         padding: 0.85rem 0.5rem;
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         cursor: pointer;
       }
       .btn-ghost { background: #334155; color: #fff; }
       .btn-ai { background: #0c4a6e; color: #e0f2fe; }
+      .btn-save { background: #475569; color: #fff; }
       .btn-ok { background: var(--ok); color: #052e16; }
       .topnav { display: flex; justify-content: space-between; margin-bottom: 0.75rem; }
       .topnav a { color: var(--accent); text-decoration: none; font-size: 0.85rem; }
@@ -151,7 +204,7 @@ const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "p
     <div class="wrap">
       <div class="topnav">
         <a href="/campo">← Novo envio</a>
-        <a href={`/admin/post/${row.id}`}>Editar no admin</a>
+        {isAdmin ? <a href={`/admin/post/${row.id}`}>Admin</a> : <a href="/admin/logout">Sair</a>}
       </div>
 
       {
@@ -165,12 +218,14 @@ const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "p
               </>
             ) : null}
           </div>
+        ) : saveFlash === "ok" ? (
+          <div class="banner ok">Alterações salvas. Continue revisando ou aprove para publicar.</div>
         ) : coverFlash === "ok" ? (
           <div class="banner ok">Capa regenerada com IA (estilo: {coverStyle}).</div>
         ) : coverFlash === "fail" ? (
           <div class="banner err">Não foi possível regenerar a capa. Tente de novo.</div>
         ) : (
-          <div class="banner">Rascunho — revise e aprove para publicar no ar.</div>
+          <div class="banner">Revise o texto, ajuste se precisar e aprove para publicar.</div>
         )
       }
 
@@ -181,45 +236,56 @@ const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "p
         {" · "}
         Status: {row.status}
       </p>
-      <p class="meta">{row.category} · estilo capa: {coverStyle}</p>
-      <h1>{row.title}</h1>
+      <p class="meta">estilo capa: {coverStyle}</p>
+
       {coverSrc ? <img class="cover" src={coverSrc} alt={row.title} /> : null}
+
       {
-        articleHtml ? (
-          <div class="prose" set:html={articleHtml} />
+        editMode ? (
+          <form id="edit-form" method="POST">
+            <label for="title">Título</label>
+            <input id="title" name="title" required value={row.title} />
+
+            <label for="category">Categoria</label>
+            <input id="category" name="category" value={row.category} />
+
+            <label for="excerpt">Resumo (excerpt)</label>
+            <textarea id="excerpt" class="excerpt" name="excerpt">{row.excerpt ?? ""}</textarea>
+
+            <label for="content">Texto da matéria (markdown)</label>
+            <textarea id="content" class="content" name="content" required>{row.content ?? ""}</textarea>
+            <p class="hint">Use ## para subtítulos. Salve antes de sair ou use Aprovar (salva e publica).</p>
+          </form>
+        ) : articleHtml ? (
+          <>
+            <h1>{row.title}</h1>
+            <div class="prose" set:html={articleHtml} />
+          </>
         ) : (
-          <p class="prose">{row.excerpt}</p>
+          <>
+            <h1>{row.title}</h1>
+            <p class="prose">{row.excerpt}</p>
+          </>
         )
       }
     </div>
 
     {
-      !isPublished ? (
+      editMode ? (
         <div class="bar">
           <div class="bar-inner">
-            <form method="POST" style="flex:1;display:flex;min-width:30%;">
+            <button class="btn-save" type="submit" form="edit-form" name="action" value="save">
+              Salvar
+            </button>
+            <form method="POST" style="flex:1;display:flex;min-width:28%;">
               <input type="hidden" name="action" value="regenerate_cover" />
               <button class="btn-ai" type="submit" style="flex:1;">
-                Regenerar capa
+                Nova capa
               </button>
             </form>
-            {
-              isAdmin ? (
-                <a class="btn-ghost" href={`/admin/post/${row.id}`}>
-                  Revisar
-                </a>
-              ) : (
-                <a class="btn-ghost" href="/campo">
-                  Novo
-                </a>
-              )
-            }
-            <form method="POST" style="flex:1;display:flex;min-width:30%;">
-              <input type="hidden" name="action" value="approve" />
-              <button class="btn-ok" type="submit" style="flex:1;">
-                Aprovar
-              </button>
-            </form>
+            <button class="btn-ok" type="submit" form="edit-form" name="action" value="approve">
+              Aprovar
+            </button>
           </div>
         </div>
       ) : (
