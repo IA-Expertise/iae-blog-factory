@@ -59,6 +59,8 @@ model Tenant {
   topoAdMode          String             @default("rotate_all")
   /// Quando topoAdMode = exclusive, id do Ad (posição topo) a exibir.
   topoExclusiveAdId   Int?
+  /// `internal` = blogs IAE (admin completo). `client` = cliente isolado (Campo + revisão).
+  tenantMode          String             @default("internal")
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   posts              Post[]
@@ -68,6 +70,21 @@ model Tenant {
   articlePitches     ArticlePitch[]
   ads                Ad[]
   adPlaceholders     AdPlaceholder[]
+  editors            TenantEditor[]
+}
+
+/// Login do cliente (modo client): acesso só a Campo + rascunhos do próprio tenant.
+model TenantEditor {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  username     String   @unique
+  passwordHash String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 /// Anúncios proprietários (monetização interna), filtrados pelo hostname do tenant.

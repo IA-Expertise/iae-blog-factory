@@ -5,6 +5,7 @@ import {
   normalizeCoverImageStyle,
   regenerateCoverImage
 } from "./contentGenerator";
+import { normalizeTenantMode } from "./adminAuth";
 import { prisma } from "./db";
 import { deletePublicImageByUrl } from "./objectStorage";
 import { nextPublishSlotsUtc, parseWeekdays } from "./publishSlots";
@@ -92,6 +93,8 @@ export type SiteData = {
   themePreset?: string;
   /** Estilo de capa IA: photo | watercolor | flat. */
   coverImageStyle?: string;
+  /** internal = IAE | client = cliente isolado. */
+  tenantMode?: string;
   social: {
     instagram?: string | null;
     facebook?: string | null;
@@ -248,6 +251,7 @@ const DEFAULT_SITES: SiteData[] = [
     showRssHomePromo: true,
     themePreset: "classic",
     coverImageStyle: "photo",
+    tenantMode: "internal",
     social: { instagram: null, facebook: null, youtube: null },
     contact: { footerText: null, menuText: null }
   },
@@ -318,6 +322,7 @@ const DEFAULT_SITES: SiteData[] = [
     showRssHomePromo: true,
     themePreset: "classic",
     coverImageStyle: "photo",
+    tenantMode: "internal",
     social: { instagram: null, facebook: null, youtube: null },
     contact: { footerText: null, menuText: null }
   }
@@ -424,6 +429,7 @@ async function ensureSeedData() {
         showRssHomePromo: site.showRssHomePromo,
         themePreset: site.themePreset ?? "classic",
         coverImageStyle: normalizeCoverImageStyle(site.coverImageStyle),
+        tenantMode: normalizeTenantMode(site.tenantMode),
         projectDescription: site.editorial.projectDescription ?? null,
         editorialStyleNotes: site.editorial.editorialStyleNotes ?? null,
         targetAudience: site.editorial.targetAudience ?? null,
@@ -528,6 +534,7 @@ function mapTenantToSiteData(
     showRssHomePromo: tenant.showRssHomePromo,
     themePreset: tenant.themePreset ?? "classic",
     coverImageStyle: normalizeCoverImageStyle(tenant.coverImageStyle),
+    tenantMode: normalizeTenantMode(tenant.tenantMode),
     social: {
       instagram: tenant.socialInstagram ?? null,
       facebook: tenant.socialFacebook ?? null,
@@ -625,9 +632,15 @@ export async function listPublishedPostsForTenant(hostname: string): Promise<Pos
   return tenant.posts.map(mapPostRow);
 }
 
-export async function createTenant(input: { hostname: string; brandName: string; niche: string }): Promise<string> {
+export async function createTenant(input: {
+  hostname: string;
+  brandName: string;
+  niche: string;
+  tenantMode?: string;
+}): Promise<string> {
   await ensureSeedData();
   const hostname = normalizeHostname(input.hostname);
+  const tenantMode = normalizeTenantMode(input.tenantMode);
   if (!hostname) throw new Error("Hostname invalido.");
   // Produção: domínio público (.com, .com.br). Dev: nome genérico (tenant-dev, *.local, etc.).
   const isAllowedProdTld = hostname.endsWith(".com.br") || hostname.endsWith(".com");
@@ -696,6 +709,7 @@ export async function createTenant(input: { hostname: string; brandName: string;
         hostname,
         brandName: input.brandName,
         niche: input.niche,
+        tenantMode,
         heroTitle: `${input.brandName}: conteudo de autoridade em ${input.niche}`,
         heroSubtitle: `Portal especializado em ${input.niche}.`,
         heroCtaLabel: templateTenant?.heroCtaLabel || base.hero.ctaLabel,
@@ -716,7 +730,7 @@ export async function createTenant(input: { hostname: string; brandName: string;
         adSidebarSlot: "",
         adInContentSlot: "",
         adFooterSlot: "",
-        amazonEnabled: true,
+        amazonEnabled: tenantMode !== "client",
         affiliateNetwork: "Amazon",
         affiliateTrackingId: "tenant-20",
         themePreset: templateTenant?.themePreset || "classic",
@@ -757,6 +771,7 @@ export async function updateTenantSettings(input: {
   showRssHomePromo: boolean;
   themePreset: string;
   coverImageStyle: string;
+  tenantMode: string;
   projectDescription: string;
   editorialStyleNotes: string;
   targetAudience: string;
@@ -774,6 +789,7 @@ export async function updateTenantSettings(input: {
   const presetKey = input.themePreset in THEME_PRESETS ? input.themePreset : "classic";
   const preset = THEME_PRESETS[presetKey];
   const coverImageStyle = normalizeCoverImageStyle(input.coverImageStyle);
+  const tenantMode = normalizeTenantMode(input.tenantMode);
 
   const hourRaw = input.autoPublishHourUtc.trim();
   let autoHour: number | null = null;
@@ -793,6 +809,7 @@ export async function updateTenantSettings(input: {
       showRssHomePromo: input.showRssHomePromo,
       themePreset: presetKey,
       coverImageStyle,
+      tenantMode,
       themePrimary: preset.primary,
       themeSecondary: preset.secondary,
       themeAccent: preset.accent,

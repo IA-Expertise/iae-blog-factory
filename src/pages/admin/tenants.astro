@@ -4,6 +4,12 @@ import { isAdminAuthenticated } from "../../lib/adminAuth";
 import { copyTenantVisualSettings, createTenant, getTenantByHostname, listSites, updateTenantSettings } from "../../lib/cms";
 import { isObjectStorageConfigured, uploadPublicImageAsset } from "../../lib/objectStorage";
 import { resolvePublicOrigin } from "../../lib/publicOrigin";
+import {
+  createTenantEditor,
+  listTenantEditors,
+  resetTenantEditorPassword,
+  setTenantEditorActive
+} from "../../lib/tenantEditors";
 import { buildTenantPublicUrl } from "../../lib/tenantUrls";
 
 if (!isAdminAuthenticated(Astro.cookies)) {
@@ -19,7 +25,8 @@ if (Astro.request.method === "POST") {
       const createdHostname = await createTenant({
         hostname: String(formData.get("hostname") ?? ""),
         brandName: String(formData.get("brandName") ?? ""),
-        niche: String(formData.get("niche") ?? "")
+        niche: String(formData.get("niche") ?? ""),
+        tenantMode: String(formData.get("tenantMode") ?? "internal")
       });
       return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(createdHostname)}&ok=1`);
     } catch (error) {
@@ -92,6 +99,7 @@ if (Astro.request.method === "POST") {
         showRssHomePromo: formData.get("showRssHomePromo") === "on",
         themePreset: String(formData.get("themePreset") ?? "classic"),
         coverImageStyle: String(formData.get("coverImageStyle") ?? "photo"),
+        tenantMode: String(formData.get("tenantMode") ?? "internal"),
         projectDescription: String(formData.get("projectDescription") ?? ""),
         editorialStyleNotes: String(formData.get("editorialStyleNotes") ?? ""),
         targetAudience: String(formData.get("targetAudience") ?? ""),
@@ -125,25 +133,79 @@ if (Astro.request.method === "POST") {
       return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&err=${encodeURIComponent(message)}`);
     }
   }
+
+  if (action === "create_editor") {
+    const hostname = String(formData.get("hostname") ?? "");
+    try {
+      const created = await createTenantEditor({
+        hostname,
+        username: String(formData.get("editorUsername") ?? ""),
+        password: String(formData.get("editorPassword") ?? "")
+      });
+      return Astro.redirect(
+        `/admin/tenants?hostname=${encodeURIComponent(hostname)}&ok=1&editor=${encodeURIComponent(created.username)}`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao criar editor.";
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&err=${encodeURIComponent(message)}`);
+    }
+  }
+
+  if (action === "reset_editor_password") {
+    const hostname = String(formData.get("hostname") ?? "");
+    try {
+      await resetTenantEditorPassword({
+        hostname,
+        editorId: String(formData.get("editorId") ?? ""),
+        password: String(formData.get("editorPassword") ?? "")
+      });
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&ok=1`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao redefinir senha.";
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&err=${encodeURIComponent(message)}`);
+    }
+  }
+
+  if (action === "toggle_editor") {
+    const hostname = String(formData.get("hostname") ?? "");
+    try {
+      await setTenantEditorActive({
+        hostname,
+        editorId: String(formData.get("editorId") ?? ""),
+        active: String(formData.get("active") ?? "") === "1"
+      });
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&ok=1`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao atualizar editor.";
+      return Astro.redirect(`/admin/tenants?hostname=${encodeURIComponent(hostname)}&err=${encodeURIComponent(message)}`);
+    }
+  }
 }
 
 const sites = await listSites();
 const selected = new URL(Astro.request.url).searchParams.get("hostname") ?? sites[0]?.hostname ?? "";
 const tenant = selected ? await getTenantByHostname(selected) : null;
+const editors = tenant ? await listTenantEditors(tenant.hostname) : [];
 const saved = new URL(Astro.request.url).searchParams.get("ok") === "1";
+const createdEditor = new URL(Astro.request.url).searchParams.get("editor");
 const errorMessage = new URL(Astro.request.url).searchParams.get("err");
 const currentOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.hostname) : "";
+const isClientMode = (tenant?.tenantMode ?? "internal") === "client";
 ---
 
 <AdminLayout title="Tenant | IAE Blog Factory">
   <section class="rounded-2xl bg-white p-5 shadow-sm">
     <h2 class="text-xl font-semibold">Criar novo tenant</h2>
-    <form method="POST" class="mt-4 grid gap-3 md:grid-cols-4">
+    <form method="POST" class="mt-4 grid gap-3 md:grid-cols-5">
       <input type="hidden" name="action" value="create" />
       <input class="rounded-lg border border-slate-300 px-3 py-2" name="hostname" placeholder="cliente.com.br / cliente.com (prod) ou tenant-dev (dev)" required />
       <input class="rounded-lg border border-slate-300 px-3 py-2" name="brandName" placeholder="Nome do blog" required />
       <input class="rounded-lg border border-slate-300 px-3 py-2" name="niche" placeholder="Nicho" required />
+      <select class="rounded-lg border border-slate-300 px-3 py-2" name="tenantMode">
+        <option value="internal">Interno (IAE)</option>
+        <option value="client">Cliente (Campo isolado)</option>
+      </select>
       <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500" type="submit">
         Criar
       </button>
@@ -167,6 +229,11 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
   </section>
 
   {saved && <p class="mt-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">Tenant salvo com sucesso.</p>}
+  {createdEditor && (
+    <p class="mt-4 rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">
+      Editor <strong>{createdEditor}</strong> criado. Envie usuário e senha ao cliente. Login: /admin/login → cai no Campo.
+    </p>
+  )}
   {errorMessage && <p class="mt-4 rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900">{errorMessage}</p>}
 
   {tenant && (
@@ -189,6 +256,20 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
         <label class="text-sm">
           <span class="mb-1 block">Nicho</span>
           <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="niche" value={tenant.niche} />
+        </label>
+        <label class="text-sm md:col-span-2">
+          <span class="mb-1 block">Modelo do tenant</span>
+          <select class="w-full rounded-lg border border-slate-300 px-3 py-2" name="tenantMode">
+            <option value="internal" selected={(tenant.tenantMode ?? "internal") === "internal"}>
+              Interno (IAE) — admin completo
+            </option>
+            <option value="client" selected={tenant.tenantMode === "client"}>
+              Cliente — Campo + revisão isolados
+            </option>
+          </select>
+          <span class="mt-1 block text-xs text-slate-500">
+            Clientes não acessam config/monetização. Você configura aqui e envia usuário/senha do editor.
+          </span>
         </label>
 
         <label class="text-sm">
@@ -327,6 +408,88 @@ const tenantPublicUrl = tenant ? buildTenantPublicUrl(currentOrigin, tenant.host
             Copiar visual para {tenant.hostname}
           </button>
         </form>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+        <h4 class="font-semibold text-slate-900">Editores do Campo (modo cliente)</h4>
+        <p class="mt-1 text-sm text-slate-600">
+          {
+            isClientMode
+              ? "Crie usuário e senha e envie ao cliente. Eles entram em /admin/login e vão direto ao Campo deste blog."
+              : "Mude o modelo para Cliente e salve antes de criar editores."
+          }
+        </p>
+
+        {
+          isClientMode && (
+            <>
+              <form method="POST" class="mt-3 grid gap-3 md:grid-cols-4">
+                <input type="hidden" name="action" value="create_editor" />
+                <input type="hidden" name="hostname" value={tenant.hostname} />
+                <input
+                  class="rounded-lg border border-slate-300 px-3 py-2"
+                  name="editorUsername"
+                  placeholder="usuario"
+                  required
+                  minlength="3"
+                />
+                <input
+                  class="rounded-lg border border-slate-300 px-3 py-2"
+                  name="editorPassword"
+                  type="password"
+                  placeholder="senha (min. 6)"
+                  required
+                  minlength="6"
+                />
+                <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-500 md:col-span-2" type="submit">
+                  Criar editor
+                </button>
+              </form>
+
+              {editors.length > 0 ? (
+                <ul class="mt-4 space-y-3">
+                  {editors.map((ed) => (
+                    <li class="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <strong>{ed.username}</strong>
+                          <span class="ml-2 text-xs text-slate-500">{ed.active ? "ativo" : "inativo"}</span>
+                        </div>
+                        <form method="POST" class="inline">
+                          <input type="hidden" name="action" value="toggle_editor" />
+                          <input type="hidden" name="hostname" value={tenant.hostname} />
+                          <input type="hidden" name="editorId" value={ed.id} />
+                          <input type="hidden" name="active" value={ed.active ? "0" : "1"} />
+                          <button class="rounded bg-slate-800 px-2 py-1 text-xs text-white" type="submit">
+                            {ed.active ? "Desativar" : "Ativar"}
+                          </button>
+                        </form>
+                      </div>
+                      <form method="POST" class="mt-2 flex flex-wrap gap-2">
+                        <input type="hidden" name="action" value="reset_editor_password" />
+                        <input type="hidden" name="hostname" value={tenant.hostname} />
+                        <input type="hidden" name="editorId" value={ed.id} />
+                        <input
+                          class="min-w-[10rem] flex-1 rounded-lg border border-slate-300 px-2 py-1"
+                          name="editorPassword"
+                          type="password"
+                          placeholder="Nova senha"
+                          required
+                          minlength="6"
+                        />
+                        <button class="rounded-lg bg-slate-700 px-3 py-1 text-white" type="submit">
+                          Redefinir senha
+                        </button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="mt-3 text-sm text-slate-500">Nenhum editor ainda.</p>
+              )}
+            </>
+          )
+        }
       </div>
     </section>
   )}

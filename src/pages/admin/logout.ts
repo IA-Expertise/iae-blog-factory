@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { clearAdminSession } from "../../lib/adminAuth";
+import { clearAllStaffSessions } from "../../lib/adminAuth";
 
 export const GET: APIRoute = async ({ cookies, redirect }) => {
-  clearAdminSession(cookies);
+  clearAllStaffSessions(cookies);
   return redirect("/admin/login");
 };

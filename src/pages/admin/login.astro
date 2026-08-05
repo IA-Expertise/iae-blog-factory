@@ -1,11 +1,21 @@
 ---
-import { isAdminAuthenticated, setAdminSession, validateAdminLogin } from "../../lib/adminAuth";
+import {
+  getStaffSession,
+  setAdminSession,
+  setEditorSession,
+  validateAdminLogin,
+  validateEditorLogin
+} from "../../lib/adminAuth";
 
 const nextRaw = new URL(Astro.request.url).searchParams.get("next") ?? "";
-const nextPath = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/admin";
+const nextPath = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "";
 
-if (isAdminAuthenticated(Astro.cookies)) {
-  return Astro.redirect(nextPath);
+const session = getStaffSession(Astro.cookies);
+if (session?.role === "admin") {
+  return Astro.redirect(nextPath || "/admin");
+}
+if (session?.role === "editor") {
+  return Astro.redirect(nextPath.startsWith("/campo") ? nextPath : "/campo");
 }
 
 let error = "";
@@ -16,11 +26,18 @@ if (Astro.request.method === "POST") {
   const password = String(formData.get("password") ?? "");
   const nextFromForm = String(formData.get("next") ?? nextPath);
   const safeNext =
-    nextFromForm.startsWith("/") && !nextFromForm.startsWith("//") ? nextFromForm : "/admin";
+    nextFromForm.startsWith("/") && !nextFromForm.startsWith("//") ? nextFromForm : "";
 
   if (validateAdminLogin(username, password)) {
     setAdminSession(Astro.cookies);
-    return Astro.redirect(safeNext);
+    return Astro.redirect(safeNext || "/admin");
+  }
+
+  const editor = await validateEditorLogin(username, password);
+  if (editor) {
+    setEditorSession(Astro.cookies, editor);
+    const dest = safeNext.startsWith("/campo") ? safeNext : "/campo";
+    return Astro.redirect(dest);
   }
 
   error = "Usuario ou senha invalidos.";
@@ -32,16 +49,18 @@ if (Astro.request.method === "POST") {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login Admin | IAE Blog Factory</title>
+    <title>Login | IAE Blog Factory</title>
   </head>
   <body class="relative grid min-h-screen place-items-center overflow-hidden bg-slate-950 px-4 text-slate-100">
     <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(79,70,229,0.35),transparent_45%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.2),transparent_40%)]"></div>
     <main class="relative w-full max-w-md rounded-3xl border border-slate-700/70 bg-slate-900/90 p-7 shadow-2xl backdrop-blur">
       <p class="inline-flex rounded-full border border-indigo-400/40 bg-indigo-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-200">
-        Painel administrativo
+        Acesso
       </p>
-      <h1 class="mt-4 text-3xl font-bold leading-tight">Entrar no Dashboard</h1>
-      <p class="mt-2 text-sm text-slate-300">Acesse a area administrativa da IAE Blog Factory com seu usuario master.</p>
+      <h1 class="mt-4 text-3xl font-bold leading-tight">Entrar</h1>
+      <p class="mt-2 text-sm text-slate-300">
+        Admin IAE ou editor do Campo (cliente). Use o usuário e a senha que recebeu.
+      </p>
 
       {error && <p class="mt-4 rounded-lg bg-rose-900/40 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
@@ -53,8 +72,9 @@ if (Astro.request.method === "POST") {
             name="username"
             type="text"
             required
+            autocomplete="username"
             class="w-full rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2.5 outline-none ring-indigo-500 transition focus:border-indigo-400 focus:ring"
-            placeholder="admin"
+            placeholder="seu usuario"
           />
         </label>
 
@@ -64,6 +84,7 @@ if (Astro.request.method === "POST") {
             name="password"
             type="password"
             required
+            autocomplete="current-password"
             class="w-full rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2.5 outline-none ring-indigo-500 transition focus:border-indigo-400 focus:ring"
             placeholder="********"
           />
@@ -77,7 +98,7 @@ if (Astro.request.method === "POST") {
         </button>
       </form>
 
-      <p class="mt-4 text-center text-xs text-slate-400">Ambiente restrito para administradores autorizados.</p>
+      <p class="mt-4 text-center text-xs text-slate-400">Ambiente restrito. Clientes acessam apenas o Campo do seu blog.</p>
     </main>
   </body>
 </html>

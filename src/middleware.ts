@@ -1,4 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
+import { isAdminAuthenticated, isEditorAuthenticated } from "./lib/adminAuth";
 import { getSiteDataByHostname } from "./lib/cms";
 import {
   buildHttpsRedirectUrl,
@@ -19,6 +20,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (proto === "http" || requestHost !== apexHost) {
       return context.redirect(buildHttpsRedirectUrl(request, apexHost), 301);
     }
+  }
+
+  // Editor de cliente: só Campo (+ login/logout). Bloqueia /admin completo.
+  if (
+    pathname.startsWith("/admin") &&
+    !pathname.startsWith("/admin/login") &&
+    !pathname.startsWith("/admin/logout") &&
+    isEditorAuthenticated(context.cookies) &&
+    !isAdminAuthenticated(context.cookies)
+  ) {
+    return context.redirect("/campo");
   }
 
   // Admin, campo, multi-tenant por path (/t/...) e APIs públicas não usam Host como chave de tenant.

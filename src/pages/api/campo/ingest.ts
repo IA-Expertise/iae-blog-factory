@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { isAdminAuthenticated } from "../../../lib/adminAuth";
+import { canAccessCampo, getCampoTenantScope } from "../../../lib/adminAuth";
 import { ingestCampoSubmission } from "../../../lib/campo/ingest";
 
 export const prerender = false;
@@ -21,7 +21,7 @@ async function fileToBuffer(file: FormDataEntryValue | null): Promise<{
 }
 
 export const POST: APIRoute = async ({ request, cookies }) => {
-  if (!isAdminAuthenticated(cookies)) {
+  if (!canAccessCampo(cookies)) {
     return new Response(JSON.stringify({ ok: false, error: "Nao autenticado." }), {
       status: 401,
       headers: { "Content-Type": "application/json" }
@@ -38,7 +38,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     });
   }
 
-  const hostname = String(form.get("hostname") ?? "").trim();
+  const scope = getCampoTenantScope(cookies);
+  let hostname = String(form.get("hostname") ?? "").trim();
+  if (scope) {
+    hostname = scope;
+  }
+
   const textNotes = String(form.get("textNotes") ?? "");
   const coverMode = String(form.get("coverMode") ?? "photo").trim().toLowerCase();
   const photo = await fileToBuffer(form.get("photo"));

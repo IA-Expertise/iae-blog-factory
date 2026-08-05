@@ -1,15 +1,22 @@
 ---
-import { isAdminAuthenticated } from "../../lib/adminAuth";
+import { canAccessCampo, getCampoTenantScope, getStaffSession, isAdminAuthenticated } from "../../lib/adminAuth";
 import { listSites } from "../../lib/cms";
 
 export const prerender = false;
 
-if (!isAdminAuthenticated(Astro.cookies)) {
+if (!canAccessCampo(Astro.cookies)) {
   return Astro.redirect("/admin/login?next=/campo");
 }
 
-const sites = await listSites();
-const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
+const session = getStaffSession(Astro.cookies);
+const isAdmin = isAdminAuthenticated(Astro.cookies);
+const editorScope = getCampoTenantScope(Astro.cookies);
+const allSites = await listSites();
+const sites = editorScope ? allSites.filter((s) => s.hostname === editorScope) : allSites;
+const preselect =
+  editorScope || new URL(Astro.request.url).searchParams.get("hostname") || sites[0]?.hostname || "";
+const lockedTenant = Boolean(editorScope);
+const brandLabel = sites[0]?.brandName ?? "Campo";
 ---
 
 <!doctype html>
@@ -17,7 +24,7 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Campo | IAE Blog Factory</title>
+    <title>Campo | {brandLabel}</title>
     <style>
       :root {
         --bg: #0f172a;
@@ -132,28 +139,44 @@ const preselect = new URL(Astro.request.url).searchParams.get("hostname") ?? "";
   <body>
     <div class="wrap">
       <div class="topnav">
-        <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">IAE Campo</span>
-        <a href="/admin">Admin</a>
+        <span style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">
+          {lockedTenant ? brandLabel : "IAE Campo"}
+          {session?.role === "editor" ? ` · ${session.username}` : ""}
+        </span>
+        <span style="display:flex;gap:0.75rem;">
+          {isAdmin && <a href="/admin">Admin</a>}
+          <a href="/admin/logout">Sair</a>
+        </span>
       </div>
       <h1>Criar da rua</h1>
-      <p class="sub">Escolha o blog, capa (foto ou IA), áudio/texto e gere o rascunho.</p>
+      <p class="sub">
+        {
+          lockedTenant
+            ? "Capa (foto ou IA), áudio/texto e gere o rascunho do seu blog."
+            : "Escolha o blog, capa (foto ou IA), áudio/texto e gere o rascunho."
+        }
+      </p>
 
       <form id="campo-form">
         <input type="hidden" id="coverMode" name="coverMode" value="photo" />
 
-        <div class="card">
-          <label for="hostname">Tenant (blog)</label>
-          <select id="hostname" name="hostname" required>
-            <option value="">Selecione…</option>
-            {
-              sites.map((s) => (
-                <option value={s.hostname} selected={s.hostname === preselect}>
-                  {s.brandName} ({s.hostname})
-                </option>
-              ))
-            }
-          </select>
-        </div>
+        {
+          lockedTenant ? (
+            <input type="hidden" id="hostname" name="hostname" value={preselect} />
+          ) : (
+            <div class="card">
+              <label for="hostname">Tenant (blog)</label>
+              <select id="hostname" name="hostname" required>
+                <option value="">Selecione…</option>
+                {sites.map((s) => (
+                  <option value={s.hostname} selected={s.hostname === preselect}>
+                    {s.brandName} ({s.hostname})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )
+        }
 
         <div class="card">
           <label>Capa</label>

@@ -1,5 +1,5 @@
 ---
-import { isAdminAuthenticated } from "../../../lib/adminAuth";
+import { canAccessCampo, getCampoTenantScope, isAdminAuthenticated } from "../../../lib/adminAuth";
 import { getPostById, getTenantByHostname, publishPostNow, regeneratePostCover } from "../../../lib/cms";
 import { resolvePublicOrigin } from "../../../lib/publicOrigin";
 import { buildTenantPostPath as buildPath } from "../../../lib/tenantUrls";
@@ -8,9 +8,12 @@ import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
 
 export const prerender = false;
 
-if (!isAdminAuthenticated(Astro.cookies)) {
+if (!canAccessCampo(Astro.cookies)) {
   return Astro.redirect("/admin/login?next=/campo");
 }
+
+const isAdmin = isAdminAuthenticated(Astro.cookies);
+const editorScope = getCampoTenantScope(Astro.cookies);
 
 const { id } = Astro.params;
 if (!id) return Astro.redirect("/campo");
@@ -22,6 +25,12 @@ let coverFlash = "";
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   const action = String(form.get("action") ?? "");
+  const existing = await getPostById(id);
+  if (!existing) return Astro.redirect("/campo");
+  if (editorScope && existing.tenant.hostname !== editorScope) {
+    return Astro.redirect("/campo");
+  }
+
   if (action === "approve") {
     await publishPostNow(id);
     const rowAfter = await getPostById(id);
@@ -45,6 +54,9 @@ if (Astro.request.method === "POST") {
 
 const row = await getPostById(id);
 if (!row) return Astro.redirect("/campo");
+if (editorScope && row.tenant.hostname !== editorScope) {
+  return Astro.redirect("/campo");
+}
 
 const siteData = await getTenantByHostname(row.tenant.hostname);
 const articleHtml = row.content ? renderPostMarkdown(row.content) : "";
@@ -191,9 +203,17 @@ const coverStyle = siteData?.coverImageStyle || row.tenant.coverImageStyle || "p
                 Regenerar capa
               </button>
             </form>
-            <a class="btn-ghost" href={`/admin/post/${row.id}`}>
-              Revisar
-            </a>
+            {
+              isAdmin ? (
+                <a class="btn-ghost" href={`/admin/post/${row.id}`}>
+                  Revisar
+                </a>
+              ) : (
+                <a class="btn-ghost" href="/campo">
+                  Novo
+                </a>
+              )
+            }
             <form method="POST" style="flex:1;display:flex;min-width:30%;">
               <input type="hidden" name="action" value="approve" />
               <button class="btn-ok" type="submit" style="flex:1;">
