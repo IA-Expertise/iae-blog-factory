@@ -15,8 +15,21 @@ export function isLikelyRegistrableDomain(hostname: string): boolean {
 export function shouldNormalizePublicHost(hostname: string): boolean {
   const h = normalizeTenantHostname(hostname);
   if (!h || isLocalDevHost(h)) return false;
-  if (h.includes("railway.app") || h.includes("vercel.app") || h.includes("fly.dev")) return false;
+  if (isPlatformAppHost(h)) return false;
   return isLikelyRegistrableDomain(h);
+}
+
+/** Host do container (Railway/Vercel/etc.) — não é tenant público. */
+export function isPlatformAppHost(hostname: string): boolean {
+  const h = normalizeTenantHostname(hostname);
+  if (!h) return false;
+  return (
+    h.endsWith(".railway.app") ||
+    h.endsWith(".up.railway.app") ||
+    h.endsWith(".vercel.app") ||
+    h.endsWith(".fly.dev") ||
+    h === "iae-blog-factory-production.up.railway.app"
+  );
 }
 
 export function stripWwwPrefix(hostname: string): string {

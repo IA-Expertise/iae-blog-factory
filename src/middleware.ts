@@ -5,6 +5,7 @@ import {
   buildHttpsRedirectUrl,
   getForwardedProto,
   getRequestHostname,
+  isPlatformAppHost,
   shouldNormalizePublicHost,
   stripWwwPrefix
 } from "./lib/publicHostRedirects";
@@ -43,9 +44,33 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
+  // Host da plataforma (ex.: *.up.railway.app): não é tenant — evita throw/stack no log.
+  if (isPlatformAppHost(requestHost)) {
+    if (pathname === "/" || pathname === "") {
+      return new Response("IAE Blog Factory\n", {
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+      });
+    }
+    return new Response("Not Found\n", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+
   const hostnameForTenant = shouldNormalizePublicHost(requestHost)
     ? stripWwwPrefix(requestHost)
     : requestHost;
-  context.locals.siteData = await getSiteDataByHostname(hostnameForTenant);
+
+  try {
+    context.locals.siteData = await getSiteDataByHostname(hostnameForTenant);
+  } catch {
+    // Host sem tenant (bot, typo, probe) — 404 limpo, sem stack no log do middleware.
+    return new Response("Site nao encontrado.\n", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" }
+    });
+  }
+
   return next();
 });
