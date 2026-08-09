@@ -5,7 +5,7 @@ import PublicAdSlot from "../../../../components/PublicAdSlot.astro";
 import TenantPublicHeader from "../../../../components/TenantPublicHeader.astro";
 import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../lib/cms";
 import { commentsEnabledForHostname, listPublishedCommentsForPost } from "../../../../lib/comments";
-import { isPromoPost } from "../../../../lib/promo";
+import { isPromoPost, promoCampaignSlug, promoWhatsappNumber } from "../../../../lib/promo";
 import { resolvePublicOrigin } from "../../../../lib/publicOrigin";
 import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
@@ -53,6 +53,8 @@ const shareLinks = {
 const commentsEnabled = commentsEnabledForHostname(siteData.hostname);
 const publicComments = commentsEnabled ? await listPublishedCommentsForPost(siteData.hostname, post.slug ?? "") : [];
 const promoCommentsEnabled = commentsEnabled && isPromoPost(siteData.hostname, post.slug ?? "");
+const promoWaNumber = promoWhatsappNumber();
+const promoCampaign = promoCampaignSlug();
 ---
 
 <Layout
@@ -197,7 +199,13 @@ const promoCommentsEnabled = commentsEnabled && isPromoPost(siteData.hostname, p
           commentsEnabled && (
             <section id="comentarios" class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm" aria-label="Comentários dos leitores">
               <h2 class="text-xl font-bold" style="color: var(--color-text);">Comentários</h2>
-              <form class="mt-4 space-y-3" data-comment-form>
+              <form
+                class="mt-4 space-y-3"
+                data-comment-form
+                data-promo-enabled={promoCommentsEnabled ? "1" : "0"}
+                data-promo-phone={promoWaNumber}
+                data-promo-campaign={promoCampaign}
+              >
                 <input type="hidden" name="hostname" value={siteData.hostname} />
                 <input type="hidden" name="slug" value={post.slug ?? ""} />
                 <input
@@ -387,10 +395,28 @@ const promoCommentsEnabled = commentsEnabled && isPromoPost(siteData.hostname, p
         const formData = new FormData(commentForm);
         const payload = Object.fromEntries(formData.entries());
         payload.consentGiven = payload.consentGiven === "on";
+        const emailForPromo = String(payload.authorEmail || "").trim().toLowerCase();
+        const nameForPromo = String(payload.authorName || "").trim();
 
         if (submitBtn instanceof HTMLButtonElement) {
           submitBtn.disabled = true;
           submitBtn.textContent = "Enviando...";
+        }
+
+        function buildWaMe(email, name) {
+          const phone = (commentForm.dataset.promoPhone || "").replace(/\D/g, "");
+          const campaign = (commentForm.dataset.promoCampaign || "piloto").trim();
+          if (!phone || !email) return null;
+          let text = `Quero meu bilhete CAMP:${campaign} EMAIL:${email}`;
+          if (name) text += ` NOME:${name}`;
+          return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+        }
+
+        function revealPromoButton(waMeUrl) {
+          if (!waMeUrl || !(promoCta instanceof HTMLElement) || !(promoLink instanceof HTMLAnchorElement)) return;
+          promoLink.href = waMeUrl;
+          promoCta.classList.remove("hidden");
+          promoCta.scrollIntoView({ behavior: "smooth", block: "center" });
         }
 
         try {
@@ -412,10 +438,18 @@ const promoCommentsEnabled = commentsEnabled && isPromoPost(siteData.hostname, p
             feedback.textContent = data.message || "Comentário enviado.";
           }
 
-          if (data.promo?.waMeUrl && promoCta instanceof HTMLElement && promoLink instanceof HTMLAnchorElement) {
-            promoLink.href = data.promo.waMeUrl;
-            promoCta.classList.remove("hidden");
-            promoCta.scrollIntoView({ behavior: "smooth", block: "center" });
+          const waFromApi = data.promo?.waMeUrl || null;
+          const waFromClient =
+            commentForm.dataset.promoEnabled === "1" || commentForm.dataset.promoPhone
+              ? buildWaMe(emailForPromo, nameForPromo)
+              : null;
+          revealPromoButton(waFromApi || waFromClient);
+
+          if (!waFromApi && !waFromClient && emailForPromo && feedback instanceof HTMLElement) {
+            // Ajuda a diagnosticar envs faltando no Railway.
+            feedback.textContent =
+              (data.message || "Comentário enviado.") +
+              " (Botão WhatsApp indisponível: confira PROMO_WHATSAPP_NUMBER / PROMO_ENABLED_HOSTS.)";
           }
 
           commentForm.reset();

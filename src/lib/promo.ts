@@ -85,12 +85,14 @@ export function isPromoPost(hostname: string, slug: string): boolean {
 export function buildPromoWaMeUrl(params: {
   campaignSlug: string;
   email?: string | null;
+  name?: string | null;
 }): string | null {
   const phone = promoWhatsappNumber();
   if (!phone) return null;
   const email = params.email?.trim().toLowerCase();
-  const text = email
-    ? `Quero meu bilhete CAMP:${params.campaignSlug} EMAIL:${email}`
-    : `Quero meu bilhete CAMP:${params.campaignSlug}`;
+  const name = params.name?.trim().replace(/\s+/g, " ").slice(0, 80);
+  let text = `Quero meu bilhete CAMP:${params.campaignSlug}`;
+  if (email) text += ` EMAIL:${email}`;
+  if (name) text += ` NOME:${name}`;
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }

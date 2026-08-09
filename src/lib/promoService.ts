@@ -111,13 +111,18 @@ export function buildPromoCtaForComment(input: {
   hostname: string;
   slug: string;
   email: string;
+  name?: string | null;
 }): PromoCtaPayload | null {
   if (!isPromoPost(input.hostname, input.slug)) return null;
   const email = normalizeEmail(input.email);
   if (!email) return null;
 
   const campaignSlug = promoCampaignSlug();
-  const waMeUrl = buildPromoWaMeUrl({ campaignSlug, email });
+  const waMeUrl = buildPromoWaMeUrl({
+    campaignSlug,
+    email,
+    name: input.name
+  });
   if (!waMeUrl) return null;
 
   return {

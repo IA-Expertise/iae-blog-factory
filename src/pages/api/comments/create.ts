@@ -66,9 +66,31 @@ export const POST: APIRoute = async ({ request }) => {
       ? buildPromoCtaForComment({
           hostname: result.hostname,
           slug: result.slug,
-          email: result.authorEmail
+          email: result.authorEmail,
+          name: result.authorName
         })
       : null;
+
+    if (!promo && promoPost) {
+      console.warn(
+        JSON.stringify({
+          event: "promo_cta_missing",
+          hostname: result.hostname,
+          slug: result.slug,
+          hasEmail: Boolean(result.authorEmail)
+        })
+      );
+    }
+
+    if (!promoPost) {
+      console.info(
+        JSON.stringify({
+          event: "promo_post_disabled",
+          hostname: normalizedHost,
+          slug: normalizedSlug
+        })
+      );
+    }
 
     if (promo && result.authorEmail) {
       notifyPromoHubLead({
