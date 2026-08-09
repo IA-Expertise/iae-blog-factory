@@ -123,11 +123,13 @@ export async function isPromoPost(
   if (cat == null) {
     const host = hostname.trim().toLowerCase();
     const postSlug = slug.trim().toLowerCase();
+    const noWww = host.startsWith("www.") ? host.slice(4) : host;
+    const hostVariants = [...new Set([host, noWww, `www.${noWww}`])];
     const post = await prisma.post.findFirst({
       where: {
         slug: postSlug,
         status: "PUBLISHED",
-        tenant: { hostname: host }
+        tenant: { hostname: { in: hostVariants } }
       },
       select: { category: true }
     });

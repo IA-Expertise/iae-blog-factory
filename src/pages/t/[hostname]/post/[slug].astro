@@ -251,7 +251,8 @@ const promoCampaign = promoCampaignSlug();
                 </button>
                 <p class="text-sm" data-comment-feedback style="color: color-mix(in srgb, var(--color-text) 70%, transparent);"></p>
                 {
-                  promoCommentsEnabled && (
+                  /* Shell sempre no DOM: a API decide se revela (evita sumir o botão se o SSR errar a categoria). */
+                  commentsEnabled && (
                     <div class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4" data-promo-cta>
                       <p class="text-sm font-semibold text-emerald-950">Pronto! Falta só o WhatsApp.</p>
                       <p class="mt-1 text-sm text-emerald-900/80">
@@ -392,10 +393,9 @@ const promoCampaign = promoCampaignSlug();
       commentForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const feedback = commentForm.querySelector("[data-comment-feedback]");
-        const promoCta = commentForm.querySelector("[data-promo-cta]");
-        const promoLink = commentForm.querySelector("[data-promo-link]");
         const submitBtn = commentForm.querySelector("[data-comment-submit]");
-        if (promoCta instanceof HTMLElement) promoCta.classList.add("hidden");
+        const existingCta = commentForm.querySelector("[data-promo-cta]");
+        if (existingCta instanceof HTMLElement) existingCta.classList.add("hidden");
 
         const formData = new FormData(commentForm);
         const payload = Object.fromEntries(formData.entries());
@@ -417,11 +417,34 @@ const promoCampaign = promoCampaignSlug();
           return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
         }
 
+        function ensurePromoCta() {
+          let cta = commentForm.querySelector("[data-promo-cta]");
+          let link = commentForm.querySelector("[data-promo-link]");
+          if (cta instanceof HTMLElement && link instanceof HTMLAnchorElement) {
+            return { cta, link };
+          }
+          const wrap = document.createElement("div");
+          wrap.className = "hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4";
+          wrap.setAttribute("data-promo-cta", "");
+          wrap.innerHTML =
+            '<p class="text-sm font-semibold text-emerald-950">Pronto! Falta só o WhatsApp.</p>' +
+            '<p class="mt-1 text-sm text-emerald-900/80">Seu comentário foi registrado. Toque no botão para abrir o WhatsApp e receber o número da sorte.</p>' +
+            '<a data-promo-link href="#" target="_blank" rel="noopener noreferrer" class="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto">Receber número da sorte no WhatsApp</a>';
+          if (feedback instanceof HTMLElement) feedback.after(wrap);
+          else commentForm.appendChild(wrap);
+          cta = wrap;
+          link = wrap.querySelector("[data-promo-link]");
+          return { cta, link };
+        }
+
         function revealPromoButton(waMeUrl) {
-          if (!waMeUrl || !(promoCta instanceof HTMLElement) || !(promoLink instanceof HTMLAnchorElement)) return;
-          promoLink.href = waMeUrl;
-          promoCta.classList.remove("hidden");
-          promoCta.scrollIntoView({ behavior: "smooth", block: "center" });
+          if (!waMeUrl) return false;
+          const { cta, link } = ensurePromoCta();
+          if (!(cta instanceof HTMLElement) || !(link instanceof HTMLAnchorElement)) return false;
+          link.href = waMeUrl;
+          cta.classList.remove("hidden");
+          cta.scrollIntoView({ behavior: "smooth", block: "center" });
+          return true;
         }
 
         try {
@@ -443,23 +466,23 @@ const promoCampaign = promoCampaignSlug();
             feedback.textContent = data.message || "Comentário enviado.";
           }
 
+          // API é a fonte da verdade (categoria no servidor). Fallback só se a página já marcou promo.
           const waFromApi = data.promo?.waMeUrl || null;
           const waFromClient =
             commentForm.dataset.promoEnabled === "1"
               ? buildWaMe(emailForPromo, nameForPromo)
               : null;
-          revealPromoButton(waFromApi || waFromClient);
+          const shown = revealPromoButton(waFromApi || waFromClient);
 
           if (
+            !shown &&
             commentForm.dataset.promoEnabled === "1" &&
-            !waFromApi &&
-            !waFromClient &&
             emailForPromo &&
             feedback instanceof HTMLElement
           ) {
             feedback.textContent =
               (data.message || "Comentário enviado.") +
-              " (Botão WhatsApp indisponível: confira PROMO_WHATSAPP_NUMBER.)";
+              " (Botão WhatsApp indisponível: confira PROMO_WHATSAPP_NUMBER / categoria publieditorial.)";
           }
 
           commentForm.reset();

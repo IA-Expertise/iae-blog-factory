@@ -247,7 +247,22 @@ const editMode = !isPublished;
             <input id="title" name="title" required value={row.title} />
 
             <label for="category">Categoria</label>
-            <input id="category" name="category" value={row.category} />
+            <input
+              id="category"
+              name="category"
+              list="campo-categories"
+              value={row.category}
+              placeholder="publieditorial"
+            />
+            <datalist id="campo-categories">
+              <option value="publieditorial"></option>
+              <option value="Local"></option>
+              <option value="Cidade"></option>
+              <option value="Campo"></option>
+            </datalist>
+            <p class="hint">
+              Para sorteio no WhatsApp, a categoria precisa ser exatamente <strong>publieditorial</strong> (antes de publicar).
+            </p>
 
             <label for="excerpt">Resumo (excerpt)</label>
             <textarea id="excerpt" class="excerpt" name="excerpt">{row.excerpt ?? ""}</textarea>

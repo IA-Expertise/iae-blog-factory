@@ -38,8 +38,9 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const promoPost = await isPromoPost(normalizedHost, normalizedSlug);
     const authorEmail = (body.authorEmail ?? "").trim();
+    // Lookup de categoria no DB (com variantes www); bloqueia e-mail vazio antes de gravar.
+    const promoPost = await isPromoPost(normalizedHost, normalizedSlug);
     if (promoPost && !authorEmail) {
       return new Response(
         JSON.stringify({ ok: false, error: "E-mail obrigatório para participar da promoção." }),
@@ -72,23 +73,15 @@ export const POST: APIRoute = async ({ request }) => {
         })
       : null;
 
-    if (!promo && promoPost) {
-      console.warn(
-        JSON.stringify({
-          event: "promo_cta_missing",
-          hostname: result.hostname,
-          slug: result.slug,
-          hasEmail: Boolean(result.authorEmail)
-        })
-      );
-    }
-
-    if (!promoPost) {
+    if (!promo) {
       console.info(
         JSON.stringify({
-          event: "promo_post_disabled",
-          hostname: normalizedHost,
-          slug: normalizedSlug
+          event: promoPost ? "promo_cta_missing" : "promo_post_disabled",
+          hostname: result.hostname,
+          slug: result.slug,
+          category: result.category ?? null,
+          hasEmail: Boolean(result.authorEmail),
+          earlyPromoPost: promoPost
         })
       );
     }

@@ -912,6 +912,7 @@ Regras:
 - Se as notas forem curtas, desenvolva de forma responsavel sem fabricar fatos
 - PROIBIDO no markdown: prompts de imagem, secoes "Prompt para Geracao", "AI Image Prompt", instrucoes para Midjourney/DALL-E/Stable Diffusion, blocos em ingles sobre como gerar capa, metadados de IA ou qualquer texto meta sobre o processo de geracao
 - O campo content deve ser SO o artigo publicavel para o leitor final
+- Categoria: se o texto for comercial, patrocinado, parceiro, loja, restaurante, clinica, servico local ou promocao, use EXATAMENTE a string "publieditorial". Caso contrario (noticia editorial pura), use uma categoria curta de noticia (ex.: "Local", "Cidade").
 
 Retorne SOMENTE JSON:
 { "title": "string chamativo e fiel ao fato", "category": "string curta", "excerpt": "2 frases", "content": "markdown completo" }`;
