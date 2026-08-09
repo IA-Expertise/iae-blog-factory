@@ -129,7 +129,7 @@ export function buildPromoCtaForComment(input: {
     enabled: true,
     campaignSlug,
     waMeUrl,
-    message: "Comentário registrado. Resgate seu bilhete no WhatsApp."
+    message: "Comentário registrado. Receba seu número da sorte no WhatsApp."
   };
 }
 

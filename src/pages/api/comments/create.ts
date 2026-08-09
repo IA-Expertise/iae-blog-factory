@@ -118,7 +118,7 @@ export const POST: APIRoute = async ({ request }) => {
           status: result.status
         },
         message: promo
-          ? "Comentário enviado! Agora resgate seu bilhete no WhatsApp."
+          ? "Comentário enviado! Agora receba seu número da sorte no WhatsApp."
           : result.published
             ? "Comentário publicado com sucesso."
             : "Comentário recebido. Ele pode passar por validação automática.",
