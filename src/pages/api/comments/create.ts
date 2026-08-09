@@ -87,8 +87,16 @@ export const POST: APIRoute = async ({ request }) => {
         ok: true,
         id: result.id,
         status: result.status,
+        published: result.published,
+        comment: {
+          id: result.id,
+          authorName: result.authorName,
+          content: result.content,
+          createdAt: result.createdAt,
+          status: result.status
+        },
         message: promo
-          ? promo.message
+          ? "Comentário enviado! Agora resgate seu bilhete no WhatsApp."
           : result.published
             ? "Comentário publicado com sucesso."
             : "Comentário recebido. Ele pode passar por validação automática.",

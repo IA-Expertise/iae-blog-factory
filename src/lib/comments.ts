@@ -176,7 +176,9 @@ export async function createCommentFromPublic(input: {
     slug: post.slug,
     authorName,
     authorEmail: authorEmail || null,
-    consentGiven: input.consentGiven
+    content,
+    consentGiven: input.consentGiven,
+    createdAt: created.createdAt.toISOString()
   };
 }
 
