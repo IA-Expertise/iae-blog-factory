@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { commentsEnabledForHostname, createCommentFromPublic } from "../../../lib/comments";
-import { isPromoPost } from "../../../lib/promo";
+import { diagnosePromoGate, isPromoPost } from "../../../lib/promo";
 import { buildPromoCtaForComment, notifyPromoHubLead } from "../../../lib/promoService";
 import {
   getRequestClientIp,
@@ -73,6 +73,12 @@ export const POST: APIRoute = async ({ request }) => {
         })
       : null;
 
+    const promoGate = diagnosePromoGate({
+      hostname: result.hostname,
+      slug: result.slug,
+      category: result.category
+    });
+
     if (!promo) {
       console.info(
         JSON.stringify({
@@ -81,7 +87,8 @@ export const POST: APIRoute = async ({ request }) => {
           slug: result.slug,
           category: result.category ?? null,
           hasEmail: Boolean(result.authorEmail),
-          earlyPromoPost: promoPost
+          earlyPromoPost: promoPost,
+          promoGate
         })
       );
     }
@@ -116,7 +123,8 @@ export const POST: APIRoute = async ({ request }) => {
           : result.published
             ? "Comentário publicado com sucesso."
             : "Comentário recebido. Ele pode passar por validação automática.",
-        promo
+        promo,
+        promoGate
       }),
       {
         status: 200,

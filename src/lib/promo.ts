@@ -1,12 +1,32 @@
 import { timingSafeEqual } from "node:crypto";
 import { prisma } from "./db";
 
+/**
+ * Lê env em runtime (Railway/Node). Usa Reflect para evitar freeze do Vite em
+ * `process.env.FOO` / `import.meta.env.FOO` no build.
+ */
 function envString(name: string): string {
-  if (typeof process !== "undefined" && process.env?.[name] !== undefined) {
-    return String(process.env[name] ?? "").trim();
+  try {
+    if (typeof process !== "undefined" && process.env) {
+      const fromProcess = Reflect.get(process.env, name);
+      if (typeof fromProcess === "string") return fromProcess.trim();
+    }
+  } catch {
+    // ignore
   }
-  const fromMeta = (import.meta.env as Record<string, string | undefined>)[name];
-  return String(fromMeta ?? "").trim();
+  try {
+    const fromMeta = Reflect.get(import.meta.env as object, name);
+    if (typeof fromMeta === "string") return fromMeta.trim();
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+/** Hostname limpo: sem protocol/path/porta; lower-case. */
+export function normalizePromoHost(raw: string): string {
+  const noProtocol = raw.trim().toLowerCase().replace(/^https?:\/\//, "");
+  return (noProtocol.split(/[/?#]/)[0]?.split(":")[0] ?? "").replace(/^www\./, "");
 }
 
 export function blogFactoryApiToken(): string {
@@ -34,7 +54,7 @@ export function promoEnabledHosts(): string[] {
   if (!raw) return [];
   return raw
     .split(",")
-    .map((h) => h.trim().toLowerCase())
+    .map((h) => normalizePromoHost(h))
     .filter(Boolean);
 }
 
@@ -78,10 +98,9 @@ export function hostnameMatchesPromo(hostname: string): boolean {
   if (hosts.length === 0) {
     return Boolean(promoWhatsappNumber());
   }
-  const h = hostname.trim().toLowerCase();
-  const noWww = h.startsWith("www.") ? h.slice(4) : h;
-  const withWww = h.startsWith("www.") ? h : `www.${h}`;
-  return hosts.includes(h) || hosts.includes(noWww) || hosts.includes(withWww);
+  const normalized = normalizePromoHost(hostname);
+  if (!normalized) return false;
+  return hosts.includes(normalized);
 }
 
 export function normalizeCategory(category: string): string {
@@ -100,6 +119,60 @@ export function isPublieditorialCategory(category?: string | null): boolean {
   return allowed.some((a) => normalized === a || normalized.includes(a));
 }
 
+export type PromoGate = {
+  hasWhatsappNumber: boolean;
+  whatsappNumberDigits: number;
+  hostnameMatch: boolean;
+  enabledHosts: string[];
+  category: string | null;
+  categoryMatch: boolean;
+  slugAllowlist: string[];
+  slugAllowlistActive: boolean;
+  slugAllowed: boolean;
+  eligible: boolean;
+  blockReason: string | null;
+};
+
+export function diagnosePromoGate(input: {
+  hostname: string;
+  slug: string;
+  category?: string | null;
+}): PromoGate {
+  const phone = promoWhatsappNumber();
+  const hasWhatsappNumber = phone.length >= 10;
+  const hostnameMatch = hostnameMatchesPromo(input.hostname);
+  const category = input.category ?? null;
+  const categoryMatch = isPublieditorialCategory(category);
+  const slugAllowlist = promoPostSlugs();
+  const slugAllowlistActive = slugAllowlist.length > 0;
+  const slugAllowed = slugAllowlistActive
+    ? slugAllowlist.includes(input.slug.trim().toLowerCase())
+    : true;
+
+  let blockReason: string | null = null;
+  if (!hasWhatsappNumber) blockReason = "missing_PROMO_WHATSAPP_NUMBER";
+  else if (!hostnameMatch) blockReason = "hostname_not_in_PROMO_ENABLED_HOSTS";
+  else if (slugAllowlistActive && !slugAllowed) blockReason = "slug_not_in_PROMO_POST_SLUGS";
+  else if (!slugAllowlistActive && !categoryMatch) blockReason = "category_not_publieditorial";
+
+  const eligible =
+    hasWhatsappNumber && hostnameMatch && slugAllowed && (slugAllowlistActive || categoryMatch);
+
+  return {
+    hasWhatsappNumber,
+    whatsappNumberDigits: phone.length,
+    hostnameMatch,
+    enabledHosts: promoEnabledHosts(),
+    category,
+    categoryMatch,
+    slugAllowlist,
+    slugAllowlistActive,
+    slugAllowed,
+    eligible,
+    blockReason
+  };
+}
+
 /**
  * Promo/sorteio só em matérias elegíveis.
  * - Host permitido + WhatsApp configurado
@@ -111,20 +184,13 @@ export async function isPromoPost(
   slug: string,
   category?: string | null,
 ): Promise<boolean> {
-  if (!promoWhatsappNumber()) return false;
-  if (!hostnameMatchesPromo(hostname)) return false;
-
-  const allowedSlugs = promoPostSlugs();
-  if (allowedSlugs.length > 0) {
-    return allowedSlugs.includes(slug.trim().toLowerCase());
-  }
-
   let cat = category ?? null;
   if (cat == null) {
-    const host = hostname.trim().toLowerCase();
+    const host = normalizePromoHost(hostname);
     const postSlug = slug.trim().toLowerCase();
-    const noWww = host.startsWith("www.") ? host.slice(4) : host;
-    const hostVariants = [...new Set([host, noWww, `www.${noWww}`])];
+    const hostVariants = [...new Set([host, `www.${host}`, hostname.trim().toLowerCase()])].filter(
+      Boolean
+    );
     const post = await prisma.post.findFirst({
       where: {
         slug: postSlug,
@@ -136,7 +202,7 @@ export async function isPromoPost(
     cat = post?.category ?? null;
   }
 
-  return isPublieditorialCategory(cat);
+  return diagnosePromoGate({ hostname, slug, category: cat }).eligible;
 }
 
 export function buildPromoWaMeUrl(params: {

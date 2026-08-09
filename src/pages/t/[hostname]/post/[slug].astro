@@ -474,15 +474,25 @@ const promoCampaign = promoCampaignSlug();
               : null;
           const shown = revealPromoButton(waFromApi || waFromClient);
 
-          if (
-            !shown &&
-            commentForm.dataset.promoEnabled === "1" &&
-            emailForPromo &&
-            feedback instanceof HTMLElement
-          ) {
-            feedback.textContent =
-              (data.message || "Comentário enviado.") +
-              " (Botão WhatsApp indisponível: confira PROMO_WHATSAPP_NUMBER / categoria publieditorial.)";
+          if (!shown && feedback instanceof HTMLElement && data.promoGate?.blockReason) {
+            const reason = String(data.promoGate.blockReason);
+            if (reason === "missing_PROMO_WHATSAPP_NUMBER") {
+              feedback.textContent =
+                (data.message || "Comentário enviado.") +
+                " (Promo: falta PROMO_WHATSAPP_NUMBER no Blog Factory.)";
+            } else if (reason === "hostname_not_in_PROMO_ENABLED_HOSTS") {
+              feedback.textContent =
+                (data.message || "Comentário enviado.") +
+                " (Promo: host fora de PROMO_ENABLED_HOSTS.)";
+            } else if (reason === "slug_not_in_PROMO_POST_SLUGS") {
+              feedback.textContent =
+                (data.message || "Comentário enviado.") +
+                " (Promo: slug fora de PROMO_POST_SLUGS.)";
+            } else if (commentForm.dataset.promoEnabled === "1" && emailForPromo) {
+              feedback.textContent =
+                (data.message || "Comentário enviado.") +
+                " (Botão WhatsApp indisponível.)";
+            }
           }
 
           commentForm.reset();
