@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { isAuthorizedPromoRequest } from "../../../lib/promo";
-import { lookupPromoComment } from "../../../lib/promoService";
+import { isAuthorizedPromoRequest } from "../../../../lib/promo";
+import { lookupPromoComment } from "../../../../lib/promoService";
 
 export const prerender = false;
 
