@@ -204,8 +204,8 @@ const promoCampaign = promoCampaignSlug();
                 class="mt-4 space-y-3"
                 data-comment-form
                 data-promo-enabled={promoCommentsEnabled ? "1" : "0"}
-                data-promo-phone={promoWaNumber}
-                data-promo-campaign={post.slug ?? promoCampaign}
+                data-promo-phone={promoCommentsEnabled ? promoWaNumber : ""}
+                data-promo-campaign={promoCommentsEnabled ? (post.slug ?? promoCampaign) : ""}
               >
                 <input type="hidden" name="hostname" value={siteData.hostname} />
                 <input type="hidden" name="slug" value={post.slug ?? ""} />
@@ -250,21 +250,25 @@ const promoCampaign = promoCampaignSlug();
                   Enviar comentário
                 </button>
                 <p class="text-sm" data-comment-feedback style="color: color-mix(in srgb, var(--color-text) 70%, transparent);"></p>
-                <div class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4" data-promo-cta>
-                  <p class="text-sm font-semibold text-emerald-950">Pronto! Falta só o WhatsApp.</p>
-                  <p class="mt-1 text-sm text-emerald-900/80">
-                    Seu comentário foi registrado. Toque no botão para abrir o WhatsApp e receber o número da sorte.
-                  </p>
-                  <a
-                    data-promo-link
-                    href="#"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto"
-                  >
-                    Receber número da sorte no WhatsApp
-                  </a>
-                </div>
+                {
+                  promoCommentsEnabled && (
+                    <div class="hidden rounded-xl border border-emerald-200 bg-emerald-50 p-4" data-promo-cta>
+                      <p class="text-sm font-semibold text-emerald-950">Pronto! Falta só o WhatsApp.</p>
+                      <p class="mt-1 text-sm text-emerald-900/80">
+                        Seu comentário foi registrado. Toque no botão para abrir o WhatsApp e receber o número da sorte.
+                      </p>
+                      <a
+                        data-promo-link
+                        href="#"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700 sm:w-auto"
+                      >
+                        Receber número da sorte no WhatsApp
+                      </a>
+                    </div>
+                  )
+                }
               </form>
 
               <div class="mt-6 space-y-3" data-comments-list>
@@ -441,16 +445,21 @@ const promoCampaign = promoCampaignSlug();
 
           const waFromApi = data.promo?.waMeUrl || null;
           const waFromClient =
-            commentForm.dataset.promoEnabled === "1" || commentForm.dataset.promoPhone
+            commentForm.dataset.promoEnabled === "1"
               ? buildWaMe(emailForPromo, nameForPromo)
               : null;
           revealPromoButton(waFromApi || waFromClient);
 
-          if (!waFromApi && !waFromClient && emailForPromo && feedback instanceof HTMLElement) {
-            // Ajuda a diagnosticar envs faltando no Railway.
+          if (
+            commentForm.dataset.promoEnabled === "1" &&
+            !waFromApi &&
+            !waFromClient &&
+            emailForPromo &&
+            feedback instanceof HTMLElement
+          ) {
             feedback.textContent =
               (data.message || "Comentário enviado.") +
-              " (Botão WhatsApp indisponível: confira PROMO_WHATSAPP_NUMBER / PROMO_ENABLED_HOSTS.)";
+              " (Botão WhatsApp indisponível: confira PROMO_WHATSAPP_NUMBER.)";
           }
 
           commentForm.reset();
