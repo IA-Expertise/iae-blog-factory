@@ -52,10 +52,14 @@ export function promoCampaignSlug(): string {
 export function promoEnabledHosts(): string[] {
   const raw = envString("PROMO_ENABLED_HOSTS");
   if (!raw) return [];
-  return raw
-    .split(",")
-    .map((h) => normalizePromoHost(h))
-    .filter(Boolean);
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map((h) => normalizePromoHost(h))
+        .filter(Boolean)
+    )
+  ];
 }
 
 export function promoPostSlugs(): string[] {
