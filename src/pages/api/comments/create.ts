@@ -38,7 +38,7 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    const promoPost = isPromoPost(normalizedHost, normalizedSlug);
+    const promoPost = await isPromoPost(normalizedHost, normalizedSlug);
     const authorEmail = (body.authorEmail ?? "").trim();
     if (promoPost && !authorEmail) {
       return new Response(
@@ -63,11 +63,12 @@ export const POST: APIRoute = async ({ request }) => {
     });
 
     const promo = result.authorEmail
-      ? buildPromoCtaForComment({
+      ? await buildPromoCtaForComment({
           hostname: result.hostname,
           slug: result.slug,
           email: result.authorEmail,
-          name: result.authorName
+          name: result.authorName,
+          category: result.category
         })
       : null;
 

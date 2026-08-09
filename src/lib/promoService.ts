@@ -132,13 +132,14 @@ export type PromoCtaPayload = {
   message: string;
 };
 
-export function buildPromoCtaForComment(input: {
+export async function buildPromoCtaForComment(input: {
   hostname: string;
   slug: string;
   email: string;
   name?: string | null;
-}): PromoCtaPayload | null {
-  if (!isPromoPost(input.hostname, input.slug)) return null;
+  category?: string | null;
+}): Promise<PromoCtaPayload | null> {
+  if (!(await isPromoPost(input.hostname, input.slug, input.category))) return null;
   const email = normalizeEmail(input.email);
   if (!email) return null;
 

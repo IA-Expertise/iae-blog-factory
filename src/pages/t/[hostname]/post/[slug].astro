@@ -52,7 +52,8 @@ const shareLinks = {
 };
 const commentsEnabled = commentsEnabledForHostname(siteData.hostname);
 const publicComments = commentsEnabled ? await listPublishedCommentsForPost(siteData.hostname, post.slug ?? "") : [];
-const promoCommentsEnabled = commentsEnabled && isPromoPost(siteData.hostname, post.slug ?? "");
+const promoCommentsEnabled =
+  commentsEnabled && (await isPromoPost(siteData.hostname, post.slug ?? "", post.category));
 const promoWaNumber = promoWhatsappNumber();
 const promoCampaign = promoCampaignSlug();
 ---

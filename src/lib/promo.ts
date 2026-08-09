@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { prisma } from "./db";
 
 function envString(name: string): string {
   if (typeof process !== "undefined" && process.env?.[name] !== undefined) {
@@ -46,6 +47,16 @@ export function promoPostSlugs(): string[] {
     .filter(Boolean);
 }
 
+/** Categorias que habilitam sorteio (CSV). Default: publieditorial */
+export function promoCategories(): string[] {
+  const raw = envString("PROMO_CATEGORIES");
+  if (!raw) return ["publieditorial"];
+  return raw
+    .split(",")
+    .map((s) => normalizeCategory(s))
+    .filter(Boolean);
+}
+
 function tokensMatch(expected: string, provided: string): boolean {
   const a = Buffer.from(expected, "utf8");
   const b = Buffer.from(provided, "utf8");
@@ -65,7 +76,6 @@ export function isAuthorizedPromoRequest(request: Request): boolean {
 export function hostnameMatchesPromo(hostname: string): boolean {
   const hosts = promoEnabledHosts();
   if (hosts.length === 0) {
-    // Sem allowlist: promo ativo se número WhatsApp estiver configurado.
     return Boolean(promoWhatsappNumber());
   }
   const h = hostname.trim().toLowerCase();
@@ -74,12 +84,57 @@ export function hostnameMatchesPromo(hostname: string): boolean {
   return hosts.includes(h) || hosts.includes(noWww) || hosts.includes(withWww);
 }
 
-export function isPromoPost(hostname: string, slug: string): boolean {
+export function normalizeCategory(category: string): string {
+  return category
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+}
+
+export function isPublieditorialCategory(category?: string | null): boolean {
+  if (!category) return false;
+  const normalized = normalizeCategory(category);
+  const allowed = promoCategories();
+  return allowed.some((a) => normalized === a || normalized.includes(a));
+}
+
+/**
+ * Promo/sorteio só em matérias elegíveis.
+ * - Host permitido + WhatsApp configurado
+ * - Se PROMO_POST_SLUGS estiver setado: só esses slugs (override)
+ * - Senão: categoria publieditorial (ou PROMO_CATEGORIES)
+ */
+export async function isPromoPost(
+  hostname: string,
+  slug: string,
+  category?: string | null,
+): Promise<boolean> {
   if (!promoWhatsappNumber()) return false;
   if (!hostnameMatchesPromo(hostname)) return false;
-  const allowed = promoPostSlugs();
-  if (allowed.length === 0) return true;
-  return allowed.includes(slug.trim().toLowerCase());
+
+  const allowedSlugs = promoPostSlugs();
+  if (allowedSlugs.length > 0) {
+    return allowedSlugs.includes(slug.trim().toLowerCase());
+  }
+
+  let cat = category ?? null;
+  if (cat == null) {
+    const host = hostname.trim().toLowerCase();
+    const postSlug = slug.trim().toLowerCase();
+    const post = await prisma.post.findFirst({
+      where: {
+        slug: postSlug,
+        status: "PUBLISHED",
+        tenant: { hostname: host }
+      },
+      select: { category: true }
+    });
+    cat = post?.category ?? null;
+  }
+
+  return isPublieditorialCategory(cat);
 }
 
 export function buildPromoWaMeUrl(params: {

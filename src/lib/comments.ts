@@ -174,6 +174,7 @@ export async function createCommentFromPublic(input: {
     postId: post.id,
     hostname,
     slug: post.slug,
+    category: post.category,
     authorName,
     authorEmail: authorEmail || null,
     content,
