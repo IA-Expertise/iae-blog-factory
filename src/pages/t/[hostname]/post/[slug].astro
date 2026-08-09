@@ -5,6 +5,7 @@ import PublicAdSlot from "../../../../components/PublicAdSlot.astro";
 import TenantPublicHeader from "../../../../components/TenantPublicHeader.astro";
 import { getPublishedPostBySlug, getSiteDataByHostname } from "../../../../lib/cms";
 import { commentsEnabledForHostname, listPublishedCommentsForPost } from "../../../../lib/comments";
+import { isPromoPost } from "../../../../lib/promo";
 import { resolvePublicOrigin } from "../../../../lib/publicOrigin";
 import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
@@ -51,6 +52,7 @@ const shareLinks = {
 };
 const commentsEnabled = commentsEnabledForHostname(siteData.hostname);
 const publicComments = commentsEnabled ? await listPublishedCommentsForPost(siteData.hostname, post.slug ?? "") : [];
+const promoCommentsEnabled = commentsEnabled && isPromoPost(siteData.hostname, post.slug ?? "");
 ---
 
 <Layout
@@ -211,8 +213,15 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
                   <input class="w-full rounded-lg border border-slate-300 px-3 py-2" name="authorName" required minlength="2" maxlength="80" />
                 </label>
                 <label class="block text-sm">
-                  <span class="mb-1 block font-medium">E-mail (opcional)</span>
-                  <input class="w-full rounded-lg border border-slate-300 px-3 py-2" type="email" name="authorEmail" />
+                  <span class="mb-1 block font-medium">
+                    E-mail{promoCommentsEnabled ? " (obrigatório para o bilhete)" : " (opcional)"}
+                  </span>
+                  <input
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2"
+                    type="email"
+                    name="authorEmail"
+                    required={promoCommentsEnabled}
+                  />
                 </label>
                 <label class="block text-sm">
                   <span class="mb-1 block font-medium">Comentário</span>
@@ -220,12 +229,29 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
                 </label>
                 <label class="flex items-start gap-2 text-xs text-slate-600">
                   <input type="checkbox" name="consentGiven" required class="mt-0.5" />
-                  <span>Concordo com o uso dos dados para publicação deste comentário.</span>
+                  <span>
+                    {
+                      promoCommentsEnabled
+                        ? "Concordo com o uso dos dados para publicação do comentário e participação na promoção (contato via WhatsApp/e-mail)."
+                        : "Concordo com o uso dos dados para publicação deste comentário."
+                    }
+                  </span>
                 </label>
                 <button type="submit" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
                   Enviar comentário
                 </button>
                 <p class="text-sm" data-comment-feedback style="color: color-mix(in srgb, var(--color-text) 70%, transparent);"></p>
+                <div class="hidden" data-promo-cta>
+                  <a
+                    data-promo-link
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="mt-3 inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
+                    Resgatar bilhete no WhatsApp
+                  </a>
+                </div>
               </form>
 
               <div class="mt-6 space-y-3">
@@ -319,6 +345,9 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
       commentForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const feedback = commentForm.querySelector("[data-comment-feedback]");
+        const promoCta = commentForm.querySelector("[data-promo-cta]");
+        const promoLink = commentForm.querySelector("[data-promo-link]");
+        if (promoCta instanceof HTMLElement) promoCta.classList.add("hidden");
         const payload = Object.fromEntries(new FormData(commentForm).entries());
         payload.consentGiven = payload.consentGiven === "on";
 
@@ -334,6 +363,10 @@ const publicComments = commentsEnabled ? await listPublishedCommentsForPost(site
           }
           if (feedback instanceof HTMLElement) {
             feedback.textContent = data.message || "Comentário enviado.";
+          }
+          if (data.promo?.waMeUrl && promoCta instanceof HTMLElement && promoLink instanceof HTMLAnchorElement) {
+            promoLink.href = data.promo.waMeUrl;
+            promoCta.classList.remove("hidden");
           }
           commentForm.reset();
         } catch (error) {

@@ -115,6 +115,9 @@ export async function createCommentFromPublic(input: {
   if (content.length < 8 || content.length > 1200) {
     throw new Error("Comentário deve ter entre 8 e 1200 caracteres.");
   }
+  if (authorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authorEmail)) {
+    throw new Error("E-mail inválido.");
+  }
 
   const post = await prisma.post.findFirst({
     where: {
@@ -167,7 +170,13 @@ export async function createCommentFromPublic(input: {
   return {
     id: created.id,
     status: created.status as CommentStatus,
-    published: created.status === "PUBLISHED"
+    published: created.status === "PUBLISHED",
+    postId: post.id,
+    hostname,
+    slug: post.slug,
+    authorName,
+    authorEmail: authorEmail || null,
+    consentGiven: input.consentGiven
   };
 }
 
