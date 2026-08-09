@@ -204,7 +204,7 @@ const promoCampaign = promoCampaignSlug();
                 data-comment-form
                 data-promo-enabled={promoCommentsEnabled ? "1" : "0"}
                 data-promo-phone={promoWaNumber}
-                data-promo-campaign={promoCampaign}
+                data-promo-campaign={post.slug ?? promoCampaign}
               >
                 <input type="hidden" name="hostname" value={siteData.hostname} />
                 <input type="hidden" name="slug" value={post.slug ?? ""} />

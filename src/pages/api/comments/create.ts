@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { commentsEnabledForHostname, createCommentFromPublic } from "../../../lib/comments";
-import { isPromoPost, promoCampaignSlug } from "../../../lib/promo";
+import { isPromoPost } from "../../../lib/promo";
 import { buildPromoCtaForComment, notifyPromoHubLead } from "../../../lib/promoService";
 import {
   getRequestClientIp,
@@ -100,7 +100,7 @@ export const POST: APIRoute = async ({ request }) => {
         authorName: result.authorName,
         authorEmail: result.authorEmail,
         consentGiven: result.consentGiven,
-        campaignSlug: promoCampaignSlug()
+        campaignSlug: promo.campaignSlug
       });
     }
 

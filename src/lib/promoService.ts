@@ -100,6 +100,31 @@ export async function getPromoPostSummary(postId: string) {
   };
 }
 
+export async function getPromoPostByHostnameSlug(hostname: string, slug: string) {
+  const host = hostname.trim().toLowerCase();
+  const postSlug = slug.trim().toLowerCase();
+  if (!host || !postSlug) return null;
+
+  const post = await prisma.post.findFirst({
+    where: {
+      slug: postSlug,
+      status: "PUBLISHED",
+      tenant: { hostname: host }
+    },
+    include: { tenant: true }
+  });
+  if (!post) return null;
+
+  return {
+    id: post.id,
+    slug: post.slug,
+    title: post.title,
+    hostname: post.tenant.hostname,
+    status: post.status,
+    publicUrl: `/t/${post.tenant.hostname}/post/${post.slug}`
+  };
+}
+
 export type PromoCtaPayload = {
   enabled: true;
   campaignSlug: string;
@@ -118,8 +143,15 @@ export function buildPromoCtaForComment(input: {
   if (!email) return null;
 
   const campaignSlug = promoCampaignSlug();
+  // Campanha = slug da matéria: cada publieditorial/comércio vira um sorteio próprio.
+  // Se PROMO_CAMPAIGN_SLUG estiver setado e PROMO_FORCE_SINGLE_CAMPAIGN=1, usa o slug fixo.
+  const forceSingle =
+    (typeof process !== "undefined" && process.env?.PROMO_FORCE_SINGLE_CAMPAIGN === "1") ||
+    String((import.meta.env as Record<string, string | undefined>).PROMO_FORCE_SINGLE_CAMPAIGN ?? "") === "1";
+
+  const resolvedCampaignSlug = forceSingle && campaignSlug ? campaignSlug : input.slug;
   const waMeUrl = buildPromoWaMeUrl({
-    campaignSlug,
+    campaignSlug: resolvedCampaignSlug,
     email,
     name: input.name
   });
@@ -127,7 +159,7 @@ export function buildPromoCtaForComment(input: {
 
   return {
     enabled: true,
-    campaignSlug,
+    campaignSlug: resolvedCampaignSlug,
     waMeUrl,
     message: "Comentário registrado. Receba seu número da sorte no WhatsApp."
   };
