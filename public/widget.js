@@ -47,6 +47,7 @@
   var hostnameByRoot = new WeakMap();
   var lastFocus = null;
   var previousOverflow = "";
+  var scrollLocked = false;
 
   function ensureOverlay() {
     var existing = document.getElementById("iae-blog-overlay");
@@ -83,11 +84,26 @@
     return overlay;
   }
 
+  function lockScroll() {
+    if (scrollLocked) return;
+    previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    scrollLocked = true;
+  }
+
+  function unlockScroll() {
+    if (!scrollLocked) return;
+    document.body.style.overflow = previousOverflow || "";
+    document.documentElement.style.overflow = "";
+    previousOverflow = "";
+    scrollLocked = false;
+  }
+
   function openOverlay() {
     var overlay = ensureOverlay();
     lastFocus = document.activeElement;
-    previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    lockScroll();
     overlay.hidden = false;
     var closeBtn = overlay.querySelector(".iae-close");
     if (closeBtn) closeBtn.focus();
@@ -97,7 +113,7 @@
     var overlay = document.getElementById("iae-blog-overlay");
     if (!overlay || overlay.hidden) return;
     overlay.hidden = true;
-    document.body.style.overflow = previousOverflow || "";
+    unlockScroll();
     if (lastFocus && typeof lastFocus.focus === "function") {
       try {
         lastFocus.focus();
