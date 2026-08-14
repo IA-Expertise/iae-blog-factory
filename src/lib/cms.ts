@@ -616,15 +616,17 @@ export async function getSiteDataByHostname(hostname: string): Promise<SiteData>
   return mapTenantToSiteData(tenant);
 }
 
-/** Lista posts publicados do tenant (para arquivo / SEO). */
-export async function listPublishedPostsForTenant(hostname: string): Promise<Post[]> {
+/** Lista posts publicados do tenant (para arquivo / SEO / embed). */
+export async function listPublishedPostsForTenant(hostname: string, limit?: number): Promise<Post[]> {
   await ensureSeedData();
+  const take = typeof limit === "number" && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : undefined;
   const tenant = await prisma.tenant.findUnique({
     where: { hostname: normalizeHostname(hostname) },
     include: {
       posts: {
         where: { status: "PUBLISHED" },
-        orderBy: { publishedAt: "desc" }
+        orderBy: { publishedAt: "desc" },
+        ...(take ? { take } : {})
       }
     }
   });
