@@ -1,8 +1,10 @@
-import { listPublishedPostsForTenant } from "./cms";
+import { getPublishedPostBySlug, listPublishedPostsForTenant } from "./cms";
+import { prisma } from "./db";
 import { resolvePublicAssetUrl } from "./mediaUrl";
 import { isLikelyRegistrableDomain, isLocalDevHost } from "./publicHostRedirects";
 import { resolvePublicOrigin } from "./publicOrigin";
-import { buildTenantPostPath, normalizeTenantHostname } from "./tenantUrls";
+import { renderPostMarkdown } from "./renderMarkdown";
+import { buildTenantPostPath, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
 export const WIDGET_DEFAULT_LIMIT = 6;
 export const WIDGET_MAX_LIMIT = 12;
@@ -11,6 +13,18 @@ export type WidgetPost = {
   title: string;
   image: string;
   url: string;
+  slug: string;
+};
+
+export type WidgetPostDetail = {
+  title: string;
+  image: string;
+  url: string;
+  slug: string;
+  category: string;
+  publishedAt: string;
+  brandName: string;
+  html: string;
 };
 
 function tenantPublicOrigin(hostname: string, request: Request): string {
@@ -53,12 +67,58 @@ export async function getWidgetPosts(
 
   return {
     hostname,
-    posts: rows.map((post) => ({
-      title: post.title,
-      image: absoluteAssetUrl(post.image, requestOrigin),
-      url: new URL(buildTenantPostPath(hostname, post.slug ?? ""), `${origin}/`).toString()
-    }))
+    posts: rows.map((post) => {
+      const slug = post.slug ?? "";
+      return {
+        title: post.title,
+        image: absoluteAssetUrl(post.image, requestOrigin),
+        slug,
+        url: new URL(buildTenantPostPath(hostname, slug), `${origin}/`).toString()
+      };
+    })
   };
+}
+
+export async function getWidgetPostDetail(
+  hostnameRaw: string,
+  slugRaw: string,
+  request: Request
+): Promise<WidgetPostDetail | null> {
+  const hostname = normalizeTenantHostname(hostnameRaw);
+  const slug = normalizeTenantSlug(slugRaw);
+  if (!hostname || !slug) return null;
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { hostname },
+    select: { brandName: true }
+  });
+  if (!tenant) return null;
+
+  const post = await getPublishedPostBySlug(hostname, slug);
+  if (!post) return null;
+
+  const origin = tenantPublicOrigin(hostname, request);
+  const requestOrigin = resolvePublicOrigin(request.url, request);
+  const html = post.content ? renderPostMarkdown(post.content) : post.excerpt ? `<p>${escapeHtml(post.excerpt)}</p>` : "";
+
+  return {
+    title: post.title,
+    image: absoluteAssetUrl(post.image, requestOrigin),
+    slug,
+    category: post.category,
+    publishedAt: post.publishedAt,
+    brandName: tenant.brandName,
+    url: new URL(buildTenantPostPath(hostname, slug), `${origin}/`).toString(),
+    html
+  };
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export const widgetCorsHeaders: Record<string, string> = {
