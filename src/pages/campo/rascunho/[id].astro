@@ -11,6 +11,8 @@ import { resolvePublicOrigin } from "../../../lib/publicOrigin";
 import { buildTenantPostPath as buildPath } from "../../../lib/tenantUrls";
 import { renderPostMarkdown } from "../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
+import { normalizeSocialVideoInput, SOCIAL_VIDEO_HINT } from "../../../lib/socialVideoEmbed";
+import SocialVideoEmbed from "../../../components/SocialVideoEmbed.astro";
 
 export const prerender = false;
 
@@ -39,24 +41,28 @@ if (Astro.request.method === "POST") {
   }
 
   if (action === "save") {
+    const video = normalizeSocialVideoInput(String(form.get("videoUrl") ?? ""));
     await updatePostFields(id, {
       title: String(form.get("title") ?? ""),
       category: String(form.get("category") ?? ""),
       excerpt: String(form.get("excerpt") ?? ""),
-      content: String(form.get("content") ?? "")
+      content: String(form.get("content") ?? ""),
+      videoUrl: video.error ? undefined : video.value
     });
-    saveFlash = "ok";
+    saveFlash = video.error ? "video" : "ok";
   }
 
   if (action === "approve") {
     // Salva edições pendentes do formulário antes de publicar (se vierem no POST).
     const title = String(form.get("title") ?? "").trim();
     if (title) {
+      const video = normalizeSocialVideoInput(String(form.get("videoUrl") ?? ""));
       await updatePostFields(id, {
         title,
         category: String(form.get("category") ?? ""),
         excerpt: String(form.get("excerpt") ?? ""),
-        content: String(form.get("content") ?? "")
+        content: String(form.get("content") ?? ""),
+        videoUrl: video.error ? undefined : video.value
       });
     }
     await publishPostNow(id);
@@ -220,6 +226,8 @@ const editMode = !isPublished;
           </div>
         ) : saveFlash === "ok" ? (
           <div class="banner ok">Alterações salvas. Continue revisando ou aprove para publicar.</div>
+        ) : saveFlash === "video" ? (
+          <div class="banner err">URL de vídeo não reconhecida. Os demais campos foram salvos.</div>
         ) : coverFlash === "ok" ? (
           <div class="banner ok">Capa regenerada com IA (estilo: {coverStyle}).</div>
         ) : coverFlash === "fail" ? (
@@ -267,6 +275,11 @@ const editMode = !isPublished;
             <label for="excerpt">Resumo (excerpt)</label>
             <textarea id="excerpt" class="excerpt" name="excerpt">{row.excerpt ?? ""}</textarea>
 
+            <label for="videoUrl">URL do vídeo (opcional)</label>
+            <input id="videoUrl" name="videoUrl" type="url" value={row.videoUrl ?? ""} placeholder="https://www.youtube.com/watch?v=…" />
+            <p class="hint">{SOCIAL_VIDEO_HINT}</p>
+            <SocialVideoEmbed url={row.videoUrl} />
+
             <label for="content">Texto da matéria (markdown)</label>
             <textarea id="content" class="content" name="content" required>{row.content ?? ""}</textarea>
             <p class="hint">Use ## para subtítulos. Salve antes de sair ou use Aprovar (salva e publica).</p>
@@ -274,11 +287,13 @@ const editMode = !isPublished;
         ) : articleHtml ? (
           <>
             <h1>{row.title}</h1>
+            <SocialVideoEmbed url={row.videoUrl} />
             <div class="prose" set:html={articleHtml} />
           </>
         ) : (
           <>
             <h1>{row.title}</h1>
+            <SocialVideoEmbed url={row.videoUrl} />
             <p class="prose">{row.excerpt}</p>
           </>
         )

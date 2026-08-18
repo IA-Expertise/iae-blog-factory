@@ -11,6 +11,7 @@ import { renderPostMarkdown } from "../../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../../lib/mediaUrl";
 import { splitHtmlForMidAd } from "../../../../lib/adLayout";
 import { buildTenantHomePath, buildTenantPostPath, normalizeTenantHostname, normalizeTenantSlug } from "../../../../lib/tenantUrls";
+import SocialVideoEmbed from "../../../../components/SocialVideoEmbed.astro";
 
 export const prerender = false;
 
@@ -160,6 +161,7 @@ const promoCampaign = promoCampaignSlug();
             decoding="async"
           />
         ) : null}
+        <SocialVideoEmbed url={post.videoUrl} />
         <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
           {post.content ? (
             <>

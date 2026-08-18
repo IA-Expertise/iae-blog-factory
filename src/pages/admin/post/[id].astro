@@ -12,6 +12,7 @@ import {
   updatePostFields,
   type PostStatus
 } from "../../../lib/cms";
+import { normalizeSocialVideoInput, SOCIAL_VIDEO_HINT } from "../../../lib/socialVideoEmbed";
 
 export const prerender = false;
 
@@ -35,14 +36,18 @@ if (Astro.request.method === "POST") {
   }
 
   if (action === "save") {
+    const video = normalizeSocialVideoInput(String(formData.get("videoUrl") ?? ""));
     await updatePostFields(id, {
       title: String(formData.get("title") ?? ""),
       slug: String(formData.get("slug") ?? ""),
       category: String(formData.get("category") ?? ""),
       image: String(formData.get("image") ?? ""),
       excerpt: String(formData.get("excerpt") ?? ""),
-      content: String(formData.get("content") ?? "")
+      content: String(formData.get("content") ?? ""),
+      videoUrl: video.error ? undefined : video.value
     });
+    const videoQs = video.error ? "?video=0" : "";
+    return Astro.redirect(`/admin/post/${id}${videoQs}`);
   }
 
   if (action === "to_review") {
@@ -73,6 +78,7 @@ if (!row) {
 }
 
 const imgFlash = new URL(Astro.request.url).searchParams.get("img");
+const videoFlash = new URL(Astro.request.url).searchParams.get("video");
 const publicOrigin = resolvePublicOrigin(Astro.request.url, Astro.request);
 const tenantHost = row.tenant.hostname.trim().toLowerCase();
 const tenantLooksPublicDomain =
@@ -104,6 +110,11 @@ const statusLabel: Record<PostStatus, string> = {
   {imgFlash === "0" && (
     <p class="mb-4 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">
       Nao foi possivel regenerar a capa (verifique OPENAI_API_KEY e limites da API). A URL da imagem nao foi alterada.
+    </p>
+  )}
+  {videoFlash === "0" && (
+    <p class="mb-4 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950">
+      URL de vídeo não reconhecida. Use YouTube, X, Instagram, Facebook, TikTok ou Vimeo. Os demais campos foram salvos.
     </p>
   )}
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -139,6 +150,18 @@ const statusLabel: Record<PostStatus, string> = {
     <label class="text-sm">
       <span class="mb-1 block font-medium">Resumo (excerpt)</span>
       <textarea class="min-h-[80px] w-full rounded-lg border border-slate-300 px-3 py-2" name="excerpt">{row.excerpt ?? ""}</textarea>
+    </label>
+    <label class="text-sm">
+      <span class="mb-1 block font-medium">URL do vídeo (opcional)</span>
+      <input
+        class="w-full rounded-lg border border-slate-300 px-3 py-2"
+        type="url"
+        name="videoUrl"
+        value={row.videoUrl ?? ""}
+        placeholder="https://www.youtube.com/watch?v=…"
+        autocomplete="off"
+      />
+      <span class="mt-1 block text-xs text-slate-500">{SOCIAL_VIDEO_HINT}</span>
     </label>
     <label class="text-sm">
       <span class="mb-1 block font-medium">Conteudo (markdown)</span>

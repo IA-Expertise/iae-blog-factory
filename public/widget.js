@@ -35,6 +35,9 @@
     "#iae-blog-overlay .iae-meta{font-size:.8rem;color:#64748b;margin:0 0 .35rem}" +
     "#iae-blog-overlay .iae-title{margin:0 0 .75rem;font-size:1.45rem;line-height:1.25}" +
     "#iae-blog-overlay .iae-cover{display:block;width:100%;max-height:18rem;object-fit:cover;border-radius:.75rem;margin:0 0 1rem;background:#e2e8f0}" +
+    "#iae-blog-overlay .iae-video{margin:0 0 1rem;overflow:hidden;border-radius:.75rem;background:#0f172a}" +
+    "#iae-blog-overlay .iae-video iframe{display:block;width:100%;aspect-ratio:16/9;height:auto;border:0}" +
+    "#iae-blog-overlay .iae-video[data-provider='instagram'] iframe,#iae-blog-overlay .iae-video[data-provider='facebook'] iframe{aspect-ratio:9/16;max-height:36rem;margin:0 auto}" +
     "#iae-blog-overlay .iae-content{font-size:1.05rem;line-height:1.65;color:#1e293b}" +
     "#iae-blog-overlay .iae-content h2{font-size:1.2rem;margin:1.4rem 0 .6rem}" +
     "#iae-blog-overlay .iae-content h3{font-size:1.08rem;margin:1.2rem 0 .5rem}" +
@@ -156,11 +159,39 @@
         escapeAttr(post.title || "") +
         '">';
     }
+    if (post.videoHtml) {
+      html += post.videoHtml;
+    }
     html += '<div class="iae-content">' + (post.html || "") + "</div>";
     body.innerHTML = html;
     openOverlay();
     body.scrollTop = 0;
     overlay.querySelector(".iae-panel").scrollTop = 0;
+    hydrateSocialEmbeds(body);
+  }
+
+  function hydrateSocialEmbeds(root) {
+    if (root.querySelector(".twitter-tweet")) {
+      loadExternalScript("https://platform.twitter.com/widgets.js", function () {
+        if (window.twttr && window.twttr.widgets) window.twttr.widgets.load(root);
+      });
+    }
+    if (root.querySelector(".tiktok-embed")) {
+      loadExternalScript("https://www.tiktok.com/embed.js");
+    }
+  }
+
+  function loadExternalScript(src, onload) {
+    var existing = document.querySelector('script[src="' + src + '"]');
+    if (existing) {
+      if (onload) onload();
+      return;
+    }
+    var s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    if (onload) s.onload = onload;
+    document.body.appendChild(s);
   }
 
   function escapeHtml(text) {

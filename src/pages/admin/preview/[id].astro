@@ -6,6 +6,7 @@ import { isAdminAuthenticated } from "../../../lib/adminAuth";
 import { getPostById, getTenantByHostname } from "../../../lib/cms";
 import { renderPostMarkdown } from "../../../lib/renderMarkdown";
 import { resolvePublicAssetUrl } from "../../../lib/mediaUrl";
+import SocialVideoEmbed from "../../../components/SocialVideoEmbed.astro";
 
 export const prerender = false;
 
@@ -45,6 +46,7 @@ const coverSrc = resolvePublicAssetUrl(row.image);
             <img src={coverSrc} alt={row.title} class="h-64 w-full rounded-2xl object-cover sm:h-72" loading="eager" />
           ) : null
         }
+        <SocialVideoEmbed url={row.videoUrl} />
         <div class="rounded-2xl bg-[var(--color-surface)] p-5 shadow-sm">
           {row.content ? (
             <div

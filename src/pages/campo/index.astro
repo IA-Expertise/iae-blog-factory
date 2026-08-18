@@ -54,7 +54,7 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
         padding: 1rem;
         margin-bottom: 0.85rem;
       }
-      select, textarea, input[type="file"] {
+      select, textarea, input[type="file"], input[type="url"], input[type="text"] {
         width: 100%;
         border-radius: 0.75rem;
         border: 1px solid #475569;
@@ -227,6 +227,12 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
           <textarea id="textNotes" name="textNotes" placeholder="Nomes, lugares, detalhes extras…"></textarea>
         </div>
 
+        <div class="card">
+          <label for="videoUrl">URL do vídeo (opcional)</label>
+          <input id="videoUrl" name="videoUrl" type="url" placeholder="YouTube, X, Instagram, Facebook, TikTok ou Vimeo" />
+          <p class="hint">O vídeo aparece no corpo da matéria. Deixe em branco se não houver.</p>
+        </div>
+
         <button type="submit" class="btn-submit" id="btn-submit">Enviar e gerar rascunho</button>
         <p class="status" id="form-status"></p>
       </form>
@@ -360,6 +366,7 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
         const hostname = document.getElementById("hostname")?.value?.trim();
         const photo = photoInput?.files?.[0];
         const textNotes = document.getElementById("textNotes")?.value ?? "";
+        const videoUrl = document.getElementById("videoUrl")?.value ?? "";
 
         if (!hostname) {
           formStatus.textContent = "Selecione o tenant.";
@@ -381,6 +388,7 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
         fd.append("hostname", hostname);
         fd.append("coverMode", coverMode);
         fd.append("textNotes", textNotes);
+        if (videoUrl.trim()) fd.append("videoUrl", videoUrl.trim());
         if (coverMode === "photo" && photo) fd.append("photo", photo);
         if (audioBlob) {
           const ext = (audioBlob.type || "").includes("mp4") ? "mp4" : "webm";

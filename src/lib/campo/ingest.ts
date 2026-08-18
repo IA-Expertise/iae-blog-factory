@@ -7,6 +7,7 @@ import {
 } from "../contentGenerator";
 import { addPost, getTenantByHostname, logGenerationJob } from "../cms";
 import { isObjectStorageConfigured, uploadPublicImageAsset } from "../objectStorage";
+import { normalizeSocialVideoInput } from "../socialVideoEmbed";
 
 export type CoverMode = "photo" | "ai";
 
@@ -85,6 +86,7 @@ export async function ingestCampoSubmission(input: {
   audioContentType?: string | null;
   audioFilename?: string | null;
   textNotes?: string | null;
+  videoUrl?: string | null;
 }): Promise<CampoIngestResult> {
   const hostname = input.hostname.trim().toLowerCase();
   const coverMode = normalizeCoverMode(input.coverMode);
@@ -108,6 +110,11 @@ export async function ingestCampoSubmission(input: {
   const fieldNotes = mergeFieldNotes(transcript, input.textNotes ?? "");
   if (!fieldNotes) {
     return { ok: false, error: "Grave um audio ou escreva um texto com a noticia." };
+  }
+
+  const video = normalizeSocialVideoInput(input.videoUrl);
+  if (video.error) {
+    return { ok: false, error: video.error };
   }
 
   const article = await generateArticleFromFieldBrief({
@@ -152,6 +159,7 @@ export async function ingestCampoSubmission(input: {
     image: coverUrl,
     excerpt: article.excerpt,
     content: article.content,
+    videoUrl: video.value,
     publishedAt: new Date().toISOString(),
     initialStatus: "IN_REVIEW"
   });

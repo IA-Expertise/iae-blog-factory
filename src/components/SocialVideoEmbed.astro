@@ -1,0 +1,72 @@
+---
+import { parseSocialVideoUrl } from "../lib/socialVideoEmbed";
+
+interface Props {
+  url?: string | null;
+}
+
+const parsed = parseSocialVideoUrl(Astro.props.url);
+---
+
+{
+  parsed && parsed.iframeSrc && (
+    <figure class:list={["social-video", parsed.provider === "instagram" || parsed.provider === "facebook" ? "social-video--tall" : ""]}>
+      <iframe
+        src={parsed.iframeSrc}
+        title="Vídeo da matéria"
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+        referrerpolicy="strict-origin-when-cross-origin"
+      />
+    </figure>
+  )
+}
+
+{
+  parsed?.blockquote === "x" && (
+    <figure class="social-video social-video--x">
+      <blockquote class="twitter-tweet">
+        <a href={parsed.canonicalUrl}>Ver no X</a>
+      </blockquote>
+      <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+    </figure>
+  )
+}
+
+{
+  parsed?.blockquote === "tiktok" && parsed.tiktokId && (
+    <figure class="social-video social-video--tiktok">
+      <blockquote class="tiktok-embed" cite={parsed.canonicalUrl} data-video-id={parsed.tiktokId}>
+        <a href={parsed.canonicalUrl}>Ver no TikTok</a>
+      </blockquote>
+      <script async src="https://www.tiktok.com/embed.js"></script>
+    </figure>
+  )
+}
+
+<style>
+  .social-video {
+    margin: 0;
+    overflow: hidden;
+    border-radius: 1rem;
+    background: #0f172a;
+  }
+  .social-video iframe {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border: 0;
+  }
+  .social-video--tall iframe {
+    aspect-ratio: 9 / 16;
+    max-height: 36rem;
+    margin-inline: auto;
+  }
+  .social-video--x,
+  .social-video--tiktok {
+    background: transparent;
+    overflow: visible;
+  }
+</style>

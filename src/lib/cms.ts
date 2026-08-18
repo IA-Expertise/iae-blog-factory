@@ -56,6 +56,7 @@ export type Post = {
   image: string;
   excerpt?: string;
   content?: string;
+  videoUrl?: string | null;
   status: PostStatus;
   scheduledPublishAt?: string | null;
 };
@@ -372,6 +373,7 @@ function mapPostRow(post: {
   image: string;
   excerpt: string | null;
   content: string | null;
+  videoUrl: string | null;
   publishedAt: Date;
   status: string;
   scheduledPublishAt: Date | null;
@@ -384,6 +386,7 @@ function mapPostRow(post: {
     image: post.image,
     excerpt: post.excerpt ?? undefined,
     content: post.content ?? undefined,
+    videoUrl: post.videoUrl ?? null,
     publishedAt: formatDate(post.publishedAt),
     status: post.status as PostStatus,
     scheduledPublishAt: post.scheduledPublishAt?.toISOString() ?? null
@@ -955,6 +958,7 @@ export async function addPost(
     publishedAt: string;
     excerpt?: string;
     content?: string;
+    videoUrl?: string | null;
     initialStatus?: PostStatus;
     scheduledPublishAt?: Date | null;
   }
@@ -976,6 +980,7 @@ export async function addPost(
       image: input.image.trim(),
       excerpt: input.excerpt?.trim() || undefined,
       content: input.content?.trim() || undefined,
+      videoUrl: input.videoUrl?.trim() || undefined,
       publishedAt: status === "PUBLISHED" ? new Date(input.publishedAt) : now,
       status,
       scheduledPublishAt: input.scheduledPublishAt ?? null
@@ -1044,7 +1049,15 @@ export async function getPublishedPostBySlug(hostname: string, slug: string): Pr
 
 export async function updatePostFields(
   postId: string,
-  input: { title?: string; slug?: string; category?: string; image?: string; excerpt?: string; content?: string }
+  input: {
+    title?: string;
+    slug?: string;
+    category?: string;
+    image?: string;
+    excerpt?: string;
+    content?: string;
+    videoUrl?: string | null;
+  }
 ) {
   await ensureSeedData();
   const existing = await prisma.post.findUnique({
@@ -1053,7 +1066,7 @@ export async function updatePostFields(
   });
   if (!existing) return;
 
-  const data: Record<string, string | undefined> = {};
+  const data: Record<string, string | null | undefined> = {};
   const nextTitle = input.title?.trim();
   const requestedSlug = input.slug?.trim();
 
@@ -1062,6 +1075,7 @@ export async function updatePostFields(
   if (input.image !== undefined) data.image = input.image.trim();
   if (input.excerpt !== undefined) data.excerpt = input.excerpt.trim();
   if (input.content !== undefined) data.content = input.content.trim();
+  if (input.videoUrl !== undefined) data.videoUrl = input.videoUrl?.trim() || null;
 
   if (requestedSlug !== undefined || nextTitle !== undefined) {
     const slugBase = slugify(requestedSlug || nextTitle || existing.slug) || "post";

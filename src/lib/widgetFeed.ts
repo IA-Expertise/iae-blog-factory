@@ -4,6 +4,7 @@ import { resolvePublicAssetUrl } from "./mediaUrl";
 import { isLikelyRegistrableDomain, isLocalDevHost } from "./publicHostRedirects";
 import { resolvePublicOrigin } from "./publicOrigin";
 import { renderPostMarkdown } from "./renderMarkdown";
+import { parseSocialVideoUrl, socialVideoEmbedHtml } from "./socialVideoEmbed";
 import { buildTenantPostPath, normalizeTenantHostname, normalizeTenantSlug } from "./tenantUrls";
 
 export const WIDGET_DEFAULT_LIMIT = 6;
@@ -25,6 +26,7 @@ export type WidgetPostDetail = {
   publishedAt: string;
   brandName: string;
   html: string;
+  videoHtml: string;
 };
 
 function tenantPublicOrigin(hostname: string, request: Request): string {
@@ -100,6 +102,8 @@ export async function getWidgetPostDetail(
   const origin = tenantPublicOrigin(hostname, request);
   const requestOrigin = resolvePublicOrigin(request.url, request);
   const html = post.content ? renderPostMarkdown(post.content) : post.excerpt ? `<p>${escapeHtml(post.excerpt)}</p>` : "";
+  const parsedVideo = parseSocialVideoUrl(post.videoUrl);
+  const videoHtml = parsedVideo ? socialVideoEmbedHtml(parsedVideo) : "";
 
   return {
     title: post.title,
@@ -109,7 +113,8 @@ export async function getWidgetPostDetail(
     publishedAt: post.publishedAt,
     brandName: tenant.brandName,
     url: new URL(buildTenantPostPath(hostname, slug), `${origin}/`).toString(),
-    html
+    html,
+    videoHtml
   };
 }
 

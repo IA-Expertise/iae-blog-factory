@@ -45,6 +45,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   const textNotes = String(form.get("textNotes") ?? "");
+  const videoUrl = String(form.get("videoUrl") ?? "");
   const coverMode = String(form.get("coverMode") ?? "photo").trim().toLowerCase();
   const photo = await fileToBuffer(form.get("photo"));
   const audio = await fileToBuffer(form.get("audio"));
@@ -64,7 +65,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     audioBuffer: audio?.buffer ?? null,
     audioContentType: audio?.contentType ?? null,
     audioFilename: audio?.filename ?? null,
-    textNotes
+    textNotes,
+    videoUrl
   });
 
   if (!result.ok) {
