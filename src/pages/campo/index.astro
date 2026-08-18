@@ -74,6 +74,19 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
       }
       .preview.show { display: block; }
       .btn-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .pick-btn {
+        flex: 1;
+        background: #0f172a;
+        color: var(--text);
+        border: 1px solid #475569;
+      }
+      .file-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        overflow: hidden;
+      }
       .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
       .mode-btn {
         background: #0f172a;
@@ -184,12 +197,18 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
             <button type="button" class="mode-btn active" id="mode-photo" data-mode="photo">Foto</button>
             <button type="button" class="mode-btn" id="mode-ai" data-mode="ai">Capa IA</button>
           </div>
-          <p class="hint" id="cover-hint">Fotografe ou envie a imagem que será a capa.</p>
+          <p class="hint" id="cover-hint">Fotografe agora ou escolha uma imagem da galeria.</p>
         </div>
 
         <div class="card" id="photo-card">
-          <label for="photo">Foto de capa</label>
-          <input id="photo" name="photo" type="file" accept="image/*" capture="environment" />
+          <label>Foto de capa</label>
+          <div class="btn-row">
+            <button type="button" class="pick-btn" id="btn-camera">Fotografar</button>
+            <button type="button" class="pick-btn" id="btn-gallery">Galeria</button>
+          </div>
+          <input id="photo" name="photo" type="file" accept="image/*" class="file-hidden" tabindex="-1" />
+          <input id="photo-camera" type="file" accept="image/*" capture="environment" class="file-hidden" tabindex="-1" />
+          <input id="photo-gallery" type="file" accept="image/*" class="file-hidden" tabindex="-1" />
           <img id="photo-preview" class="preview" alt="Prévia da capa" />
         </div>
 
@@ -225,6 +244,10 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
       const coverModeInput = document.getElementById("coverMode");
       const photoCard = document.getElementById("photo-card");
       const photoInput = document.getElementById("photo");
+      const photoCamera = document.getElementById("photo-camera");
+      const photoGallery = document.getElementById("photo-gallery");
+      const btnCamera = document.getElementById("btn-camera");
+      const btnGallery = document.getElementById("btn-gallery");
       const photoPreview = document.getElementById("photo-preview");
       const coverHint = document.getElementById("cover-hint");
       const modePhoto = document.getElementById("mode-photo");
@@ -255,21 +278,32 @@ const brandLabel = sites[0]?.brandName ?? "Campo";
         coverHint.textContent =
           coverMode === "ai"
             ? "A capa será gerada com o estilo do tenant (foto, aquarela ou flat)."
-            : "Fotografe ou envie a imagem que será a capa.";
+            : "Fotografe agora ou escolha uma imagem da galeria.";
       }
 
       modePhoto?.addEventListener("click", () => setCoverMode("photo"));
       modeAi?.addEventListener("click", () => setCoverMode("ai"));
 
-      photoInput?.addEventListener("change", () => {
-        const file = photoInput.files?.[0];
-        if (!file) {
-          photoPreview.classList.remove("show");
-          photoPreview.removeAttribute("src");
-          return;
-        }
+      function setPhotoFile(file) {
+        if (!file || !photoInput) return;
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        photoInput.files = dt.files;
         photoPreview.src = URL.createObjectURL(file);
         photoPreview.classList.add("show");
+      }
+
+      btnCamera?.addEventListener("click", () => photoCamera?.click());
+      btnGallery?.addEventListener("click", () => photoGallery?.click());
+      photoCamera?.addEventListener("change", () => {
+        const file = photoCamera.files?.[0];
+        if (file) setPhotoFile(file);
+        photoCamera.value = "";
+      });
+      photoGallery?.addEventListener("change", () => {
+        const file = photoGallery.files?.[0];
+        if (file) setPhotoFile(file);
+        photoGallery.value = "";
       });
 
       function pickMime() {
