@@ -68,6 +68,10 @@ export type TenantEditorialConfig = {
   defaultArticleTone: string;
   autoPublishWeekdays: string | null;
   autoPublishHourUtc: number | null;
+  /** Entra no lote "Preparar semana" do Gerador. */
+  autoBatchEnabled: boolean;
+  /** Quantos posts gerar por lote (1–7). */
+  postsPerWeek: number;
 };
 
 export type SiteData = {
@@ -244,7 +248,9 @@ const DEFAULT_SITES: SiteData[] = [
       targetAudience: null,
       defaultArticleTone: "profissional",
       autoPublishWeekdays: null,
-      autoPublishHourUtc: null
+      autoPublishHourUtc: null,
+      autoBatchEnabled: false,
+      postsPerWeek: 3
     },
     logoUrl: null,
     headerArtUrl: null,
@@ -315,7 +321,9 @@ const DEFAULT_SITES: SiteData[] = [
       targetAudience: null,
       defaultArticleTone: "profissional",
       autoPublishWeekdays: null,
-      autoPublishHourUtc: null
+      autoPublishHourUtc: null,
+      autoBatchEnabled: false,
+      postsPerWeek: 3
     },
     logoUrl: null,
     headerArtUrl: null,
@@ -529,7 +537,9 @@ function mapTenantToSiteData(
       targetAudience: tenant.targetAudience ?? null,
       defaultArticleTone: tenant.defaultArticleTone ?? "profissional",
       autoPublishWeekdays: tenant.autoPublishWeekdays ?? null,
-      autoPublishHourUtc: tenant.autoPublishHourUtc ?? null
+      autoPublishHourUtc: tenant.autoPublishHourUtc ?? null,
+      autoBatchEnabled: Boolean(tenant.autoBatchEnabled),
+      postsPerWeek: Math.min(7, Math.max(1, tenant.postsPerWeek ?? 3))
     },
     logoUrl: tenant.logoUrl ?? null,
     headerArtUrl: tenant.headerArtUrl ?? null,
@@ -788,6 +798,8 @@ export async function updateTenantSettings(input: {
   menuContactText: string;
   autoPublishWeekdays: string;
   autoPublishHourUtc: string;
+  autoBatchEnabled: boolean;
+  postsPerWeek: string;
 }) {
   await ensureSeedData();
   const host = normalizeHostname(input.hostname);
@@ -802,6 +814,9 @@ export async function updateTenantSettings(input: {
     const h = Number.parseInt(hourRaw, 10);
     if (Number.isFinite(h)) autoHour = Math.min(23, Math.max(0, h));
   }
+
+  const postsRaw = Number.parseInt(input.postsPerWeek.trim(), 10);
+  const postsPerWeek = Number.isFinite(postsRaw) ? Math.min(7, Math.max(1, postsRaw)) : 3;
 
   await prisma.tenant.update({
     where: { hostname: host },
@@ -833,7 +848,9 @@ export async function updateTenantSettings(input: {
       footerContactText: input.footerContactText.trim() || null,
       menuContactText: input.menuContactText.trim() || null,
       autoPublishWeekdays: input.autoPublishWeekdays.trim() || null,
-      autoPublishHourUtc: autoHour
+      autoPublishHourUtc: autoHour,
+      autoBatchEnabled: input.autoBatchEnabled,
+      postsPerWeek
     }
   });
 }

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Tenant" ADD COLUMN "autoBatchEnabled" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Tenant" ADD COLUMN "postsPerWeek" INTEGER NOT NULL DEFAULT 3;
